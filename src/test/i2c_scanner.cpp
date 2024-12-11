@@ -4,8 +4,8 @@
 TwoWire &_wire = Wire;
 
 void setup() {
-    Wire.setSCL(9);
-    Wire.setSDA(8);
+    Wire.setSCL(5);
+    Wire.setSDA(4);
     //Wire.setClock(400000);
     //Wire.setTimeout(1); // set timeout to 1 ms
     Wire.begin();
