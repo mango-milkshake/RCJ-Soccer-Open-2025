@@ -15,7 +15,8 @@
 #include <Wire.h>
 
 tofsense_f_output_parameter tof_f0;//存放ID为0的TOFSense-F输出数据的结构体
-// tofsense_f_output_parameter tof_f1;//存放ID为1的TOFSense-F输出数据的结构体
+tofsense_f_output_parameter tof_f1;//存放ID为1的TOFSense-F输出数据的结构体
+unsigned long start_time = 0, cur_time = 0, duration = 0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -33,41 +34,57 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-    
-  IIC_Unpack_Data(iic_read_buff,ADDR_SLAVE,&tof_f0);//通过IIC读取所有寄存器信息并进行解码，将解码后变量存入结构体成员变量中
+  
+  start_time = millis();
 
-  // IIC_Unpack_Data(iic_read_buff,ADDR_SLAVE1,&tof_f1);//通过IIC读取所有寄存器信息并进行解码，将解码后变量存入结构体成员变量中
+  IIC_Unpack_Data(iic_read_buff,ADDR_SLAVE,&tof_f0);//通过IIC读取所有寄存器信息并进行解码，将解码后变量存入结构体成员变量中
+  cur_time = millis();
+  duration = cur_time - start_time;
+  Serial.print("Read Sensor 1:");
+  Serial.println(duration);
+  start_time = millis();
+
+  IIC_Unpack_Data(iic_read_buff,ADDR_SLAVE1,&tof_f1);//通过IIC读取所有寄存器信息并进行解码，将解码后变量存入结构体成员变量中
+  cur_time = millis();
+  Serial.print("Read Sensor 2:");
+  Serial.println(duration);
+  start_time = millis();
 
   //通过串口打印数据
-  Serial.print("id:");
-  Serial.println(tof_f0.id);
-  Serial.print("system_time:");
-  Serial.println(tof_f0.system_time);
-  Serial.print("dis:");
-  Serial.println(tof_f0.dis);
-  Serial.print("dis_status:");
-  Serial.println(tof_f0.dis_status);
-  Serial.print("signal_strength:");
-  Serial.println(tof_f0.signal_strength);
-  Serial.print("range_precision:");
-  Serial.println(tof_f0.range_precision);
+  // Serial.print("id:");
+  // Serial.println(tof_f0.id);
+  // Serial.print("system_time:");
+  // Serial.println(tof_f0.system_time);
+  // Serial.print("dis:");
+  // Serial.println(tof_f0.dis);
+  // Serial.print("dis_status:");
+  // Serial.println(tof_f0.dis_status);
+  // Serial.print("signal_strength:");
+  // Serial.println(tof_f0.signal_strength);
+  // Serial.print("range_precision:");
+  // Serial.println(tof_f0.range_precision);
   Serial.println("");
 
-  // Serial.print("id:");
-  // Serial.println(tof_f1.id);
+  Serial.print("id:");
+  Serial.println(tof_f1.id);
   // Serial.print("system_time:");
   // Serial.println(tof_f1.system_time);
-  // Serial.print("dis:");
-  // Serial.println(tof_f1.dis);
-  // Serial.print("dis_status:");
-  // Serial.println(tof_f1.dis_status);
+  Serial.print("dis:");
+  Serial.println(tof_f1.dis);
+  Serial.print("dis_status:");
+  Serial.println(tof_f1.dis_status);
   // Serial.print("signal_strength:");
   // Serial.println(tof_f1.signal_strength);
   // Serial.print("range_precision:");
   // Serial.println(tof_f1.range_precision);
-  // Serial.println("");
+
+  cur_time = millis();
+  Serial.print("Printed results:");
+  Serial.println(duration);
+  Serial.println("");
+  start_time = millis();
   
-  delay(100);//每100ms查询一次
+  // delay(10);//每100ms查询一次
 
   
 }

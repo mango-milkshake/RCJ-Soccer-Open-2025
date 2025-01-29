@@ -140,10 +140,10 @@ uint8_t TOF_IIC_Read_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slav
 			Analog_IIC_Send_Byte((uint8_t)((slave_addr<<1)|0x01));//发送从机读地址
 			// delay(10);
 			iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
-			Serial.println(iic_ack);
+			// Serial.println(iic_ack);
 			if(iic_ack == 0)//如果从机响应
 			{
-				Serial.println("ack done starting data sending");
+				// Serial.println("ack done starting data sending");
 				iic_ack=1;
 				for(i=0;i<num;i++)//读取num个字节并存入数组
 				{
