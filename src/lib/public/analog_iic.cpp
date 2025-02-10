@@ -7,9 +7,9 @@
 参    数 ： 无
 返 回 值 ： 无
 *************************************************/
-void SDA_Output(void)
+void SDA_Output(uint8_t sda_pin)
 {
-	pinMode(ANALOG_IIC_SDA_PIN, OUTPUT);
+	pinMode(sda_pin, OUTPUT);
 }
 
 /************************************************
@@ -18,9 +18,9 @@ void SDA_Output(void)
 参    数 ： 无
 返 回 值 ： 无
 *************************************************/
-void SDA_Input(void)
+void SDA_Input(uint8_t sda_pin)
 {
-	pinMode(ANALOG_IIC_SDA_PIN, INPUT);
+	pinMode(sda_pin, INPUT);
 }
 
 /************************************************
@@ -29,9 +29,9 @@ void SDA_Input(void)
 参    数 ： 无
 返 回 值 ： 无
 *************************************************/
-void SCL_Output(void)
+void SCL_Output(uint8_t scl_pin)
 {
-	pinMode(ANALOG_IIC_SCL_PIN, OUTPUT);
+	pinMode(scl_pin, OUTPUT);
 }
 
 /************************************************
@@ -40,9 +40,9 @@ void SCL_Output(void)
 参    数 ： 无
 返 回 值 ： 无
 *************************************************/
-void SCL_Input(void)
+void SCL_Input(uint8_t scl_pin)
 {
-	pinMode(ANALOG_IIC_SCL_PIN, INPUT);
+	pinMode(scl_pin, INPUT);
 }
 
 /************************************************
@@ -51,12 +51,12 @@ void SCL_Input(void)
 参    数 ： 无
 返 回 值 ： 无
 *************************************************/
-void Analog_IIC_Init(void)
+void Analog_IIC_Init(uint8_t scl_pin, uint8_t sda_pin)
 {
-	SCL_Output();
-	SDA_Output();
-	SCL_Dout_HIGH();
-	SDA_Dout_HIGH();
+	SCL_Output(scl_pin);
+	SDA_Output(sda_pin);
+	SCL_Dout_HIGH(scl_pin);
+	SDA_Dout_HIGH(sda_pin);
 }
 
 /************************************************
@@ -65,15 +65,15 @@ void Analog_IIC_Init(void)
 参    数 ： 无
 返 回 值 ： 无
 *************************************************/
-void Analog_IIC_Start(void)
+void Analog_IIC_Start(uint8_t scl_pin, uint8_t sda_pin)
 {
-	SDA_Output();
-	SDA_Dout_HIGH();
-	SCL_Dout_HIGH();
+	SDA_Output(sda_pin);
+	SDA_Dout_HIGH(sda_pin);
+	SCL_Dout_HIGH(scl_pin);
 	Delay_us(4);
-	SDA_Dout_LOW();
+	SDA_Dout_LOW(sda_pin);
 	Delay_us(4);
-	SCL_Dout_LOW();
+	SCL_Dout_LOW(scl_pin);
 }
 
 /************************************************
@@ -82,14 +82,14 @@ void Analog_IIC_Start(void)
 参    数 ： 无
 返 回 值 ： 无
 *************************************************/
-void Analog_IIC_Stop(void)
+void Analog_IIC_Stop(uint8_t scl_pin, uint8_t sda_pin)
 {
-	SDA_Output();
-	SCL_Dout_LOW();
-	SDA_Dout_LOW();
+	SDA_Output(sda_pin);
+	SCL_Dout_LOW(scl_pin);
+	SDA_Dout_LOW(sda_pin);
 	Delay_us(4);
-	SCL_Dout_HIGH();
-	SDA_Dout_HIGH();
+	SCL_Dout_HIGH(scl_pin);
+	SDA_Dout_HIGH(sda_pin);
 	Delay_us(4);
 }
 
@@ -99,25 +99,25 @@ void Analog_IIC_Stop(void)
 参    数 ： 无
 返 回 值 ： 0 NAck 1 Ack
 *************************************************/
-uint8_t Analog_IIC_Wait_Ack(void)
+uint8_t Analog_IIC_Wait_Ack(uint8_t scl_pin, uint8_t sda_pin)
 {
 	uint8_t ucErrTime=0;
 
-	SDA_Input();
-	SDA_Dout_HIGH();
+	SDA_Input(sda_pin);
+	SDA_Dout_HIGH(sda_pin);
 	Delay_us(1);
-	SCL_Dout_HIGH();
+	SCL_Dout_HIGH(scl_pin);
 	Delay_us(1);
-	while(SDA_Data_IN())
+	while(SDA_Data_IN(sda_pin))
 	{
 		ucErrTime++;
 		if(ucErrTime>250)
 		{
-			Analog_IIC_Stop();
+			Analog_IIC_Stop(scl_pin, sda_pin);
 			return 1;
 		}
 	}
-	SCL_Dout_LOW();//时钟输出0
+	SCL_Dout_LOW(scl_pin);//时钟输出0
 	return 0;
 }
 
@@ -127,15 +127,15 @@ uint8_t Analog_IIC_Wait_Ack(void)
 参    数 ： 无
 返 回 值 ： 无
 *************************************************/
-void Analog_IIC_Ack(void)
+void Analog_IIC_Ack(uint8_t scl_pin, uint8_t sda_pin)
 {
-	SCL_Dout_LOW();
-	SDA_Output();
-	SDA_Dout_LOW();
+	SCL_Dout_LOW(scl_pin);
+	SDA_Output(sda_pin);
+	SDA_Dout_LOW(sda_pin);
 	Delay_us(2);
-	SCL_Dout_HIGH();
+	SCL_Dout_HIGH(scl_pin);
 	Delay_us(2);
-	SCL_Dout_LOW();
+	SCL_Dout_LOW(scl_pin);
 }
 
 /************************************************
@@ -144,15 +144,15 @@ void Analog_IIC_Ack(void)
 参    数 ： 无
 返 回 值 ： 无
 *************************************************/
-void Analog_IIC_NAck(void)
+void Analog_IIC_NAck(uint8_t scl_pin, uint8_t sda_pin)
 {
-	SCL_Dout_LOW();
-	SDA_Output();
-	SDA_Dout_HIGH();
+	SCL_Dout_LOW(scl_pin);
+	SDA_Output(sda_pin);
+	SDA_Dout_HIGH(sda_pin);
 	Delay_us(2);
-	SCL_Dout_HIGH();
+	SCL_Dout_HIGH(scl_pin);
 	Delay_us(2);
-	SCL_Dout_LOW();
+	SCL_Dout_LOW(scl_pin);
 }
 
 /************************************************
@@ -161,20 +161,20 @@ void Analog_IIC_NAck(void)
 参    数 ： txd 需要发送的字节
 返 回 值 ： 无
 *************************************************/
-void Analog_IIC_Send_Byte(uint8_t txd)
+void Analog_IIC_Send_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t txd)
 {
 	uint8_t t;
 	//拉低时钟开始数据传输
-	SDA_Output();
-	SCL_Dout_LOW();
+	SDA_Output(sda_pin);
+	SCL_Dout_LOW(scl_pin);
 	for(t=0;t<8;t++)
 	{
-		SDA_Write((txd&0x80)>>7);
+		SDA_Write(sda_pin, (txd&0x80)>>7);
 		txd<<=1;
 		Delay_us(5);
-		SCL_Dout_HIGH();
+		SCL_Dout_HIGH(scl_pin);
 		Delay_us(5);
-		SCL_Dout_LOW();
+		SCL_Dout_LOW(scl_pin);
 		//Delay_us(2);
   }
 }
@@ -185,27 +185,27 @@ void Analog_IIC_Send_Byte(uint8_t txd)
 参    数 ： ack 读取后是否需要发送Ack信号，ack=1时，发送Ack，ack=0，发送NAck
 返 回 值 ： receive 读取到的字节
 *************************************************/
-uint8_t Analog_IIC_Read_Byte(uint8_t ack)
+uint8_t Analog_IIC_Read_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t ack)
 {
 	unsigned char i,receive=0;
 	//SDA设置为输入
-	SDA_Input();
+	SDA_Input(sda_pin);
   for(i=0;i<8;i++ )
 	{
-		SCL_Dout_LOW();
+		SCL_Dout_LOW(scl_pin);
 		Delay_us(5);
-		SCL_Dout_HIGH();
+		SCL_Dout_HIGH(scl_pin);
 		receive<<=1;
-		if(SDA_Data_IN())receive++;
+		if(SDA_Data_IN(sda_pin))receive++;
 		Delay_us(5);
   }
   if(!ack)
   {
-  	Analog_IIC_NAck();//发送nACK
+  	Analog_IIC_NAck(scl_pin, sda_pin);//发送nACK
   }
   else
   {
-  	Analog_IIC_Ack(); //发送ACK
+  	Analog_IIC_Ack(scl_pin, sda_pin); //发送ACK
   }
 
 	return receive;

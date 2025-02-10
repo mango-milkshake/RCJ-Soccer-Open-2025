@@ -57,12 +57,15 @@ extern uint16_t iic_test_count;
 extern uint16_t iic_test_i;
 extern tofsense_f_output_parameter tofsense_f_output;//解码后存放TOF输出数据的结构体
 
-uint8_t IIC_Unpack_Data(uint8_t *pdata,uint8_t slave_addr,tofsense_f_output_parameter *pdata1);//通过IIC读取所有寄存器信息并进行解码，将解码后变量存入结构体成员变量中
-uint8_t IIC_Change_Mode_To_UART(uint8_t slave_addr);//通过IIC将通信模式改为UART模式
-uint8_t IIC_Get_All_Register_Data(uint8_t *pdata,uint8_t slave_addr);//通过IIC按顺序读取所有寄存器的数据并存入指定数组
-uint8_t TOF_IIC_Read_One_Byte(uint8_t Addr,uint8_t slave_addr);//通过IIC读取指定地址的单个字节数据
-uint8_t TOF_IIC_Read_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slave_addr);//通过IIC读取指定地址的N个字节数据，存入指定的数组中
-uint8_t TOF_IIC_Write_One_Byte(uint8_t Addr,uint8_t data,uint8_t slave_addr);//通过IIC写入指定地址单个字节数据
-uint8_t TOF_IIC_Write_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slave_addr);//通过IIC写入指定地址多个字节数据
+uint8_t IIC_Unpack_Data(uint8_t scl_pin, uint8_t sda_pin, uint8_t *pdata,uint8_t slave_addr,tofsense_f_output_parameter *pdata1);//通过IIC读取所有寄存器信息并进行解码，将解码后变量存入结构体成员变量中
+uint8_t IIC_Change_Mode_To_UART(uint8_t scl_pin, uint8_t sda_pin, uint8_t slave_addr);//通过IIC将通信模式改为UART模式
+uint8_t IIC_Get_All_Register_Data(uint8_t scl_pin, uint8_t sda_pin, uint8_t *pdata,uint8_t slave_addr);//通过IIC按顺序读取所有寄存器的数据并存入指定数组
+uint8_t TOF_IIC_Read_One_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr,uint8_t slave_addr);//通过IIC读取指定地址的单个字节数据
+uint8_t TOF_IIC_Read_N_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slave_addr);//通过IIC读取指定地址的N个字节数据，存入指定的数组中
+uint8_t TOF_IIC_Write_One_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr,uint8_t data,uint8_t slave_addr);//通过IIC写入指定地址单个字节数据
+uint8_t TOF_IIC_Write_N_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slave_addr);//通过IIC写入指定地址多个字节数据
+
+uint8_t IIC_Unpack_Dist(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr, uint8_t num_bytes, uint8_t *pdata,uint8_t slave_addr,tofsense_f_output_parameter *pdata1);
+uint8_t IIC_Get_Dist_Data(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr, uint8_t num_bytes, uint8_t *pdata,uint8_t slave_addr);
 
 #endif

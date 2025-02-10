@@ -13,11 +13,11 @@ tofsense_f_output_parameter tofsense_f_output;//解码后存放TOF输出数据�
 返 回 值 ： mark 是否读取和解码成功标志位，0错误，1正确
 调用方法：例如：IIC_Unpack_Data(iic_read_buff,ADDR_SLAVE,&tofsense_f_output);
 *************************************************/
-uint8_t IIC_Unpack_Data(uint8_t *pdata,uint8_t slave_addr,tofsense_f_output_parameter *pdata1)
+uint8_t IIC_Unpack_Data(uint8_t scl_pin, uint8_t sda_pin, uint8_t *pdata,uint8_t slave_addr,tofsense_f_output_parameter *pdata1)
 {
 	uint8_t mark=0;//是否读取和解码成功标志位
 
-	mark=IIC_Get_All_Register_Data(pdata,slave_addr);
+	mark=IIC_Get_All_Register_Data(scl_pin, sda_pin, pdata,slave_addr);
 	if(mark == 1)
 	{
 		pdata1->interface_mode=pdata[TOF_ADDR_MODE]&0x07;
@@ -36,17 +36,34 @@ uint8_t IIC_Unpack_Data(uint8_t *pdata,uint8_t slave_addr,tofsense_f_output_para
 	return mark;//返回标志位
 }
 
+uint8_t IIC_Unpack_Dist(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr, uint8_t num_bytes, uint8_t *pdata,uint8_t slave_addr,tofsense_f_output_parameter *pdata1)
+{
+	uint8_t mark=0;//是否读取和解码成功标志位
+
+	mark=IIC_Get_Dist_Data(scl_pin, sda_pin, Addr, num_bytes, pdata,slave_addr);
+	if(mark == 1)
+	{
+		// pdata1->dis=(float)(((uint32_t)pdata[TOF_ADDR_DIS])|((uint32_t)pdata[TOF_ADDR_DIS+1]<<8)|
+		// 		                          ((uint32_t)pdata[TOF_ADDR_DIS+2]<<16)|((uint32_t)pdata[TOF_ADDR_DIS+3]<<24))/1000;
+		pdata1->dis=(float)(((uint32_t)pdata[0])|((uint32_t)pdata[1]<<8)|
+				                          ((uint32_t)pdata[2]<<16)|((uint32_t)pdata[3]<<24))/1000;
+	
+	}
+
+	return mark;//返回标志位
+}
+
 /************************************************
 函数名称 ： IIC_Change_Mode_To_UART
 函数功能 ： 通过IIC将通信模式改为UART模式
 参    数 ： slave_addr从机地址
 返 回 值 ： mark 操作是否正确标志位，0错误，1正确
 *************************************************/
-uint8_t IIC_Change_Mode_To_UART(uint8_t slave_addr)
+uint8_t IIC_Change_Mode_To_UART(uint8_t scl_pin, uint8_t sda_pin, uint8_t slave_addr)
 {
 	uint8_t mark=0;//操作是否正确标志位
 
-	mark=TOF_IIC_Write_One_Byte(TOF_ADDR_MODE,IIC_CHANGE_TO_UART_DATA,ADDR_SLAVE);
+	mark=TOF_IIC_Write_One_Byte(scl_pin, sda_pin, TOF_ADDR_MODE,IIC_CHANGE_TO_UART_DATA,slave_addr);
 
 	return mark;//返回标志位
 }
@@ -57,11 +74,20 @@ uint8_t IIC_Change_Mode_To_UART(uint8_t slave_addr)
 参    数 ： *pdata缓存数组的指针  slave_addr从机地址
 返 回 值 ： mark 操作是否正确标志位，0错误，1正确
 *************************************************/
-uint8_t IIC_Get_All_Register_Data(uint8_t *pdata,uint8_t slave_addr)
+uint8_t IIC_Get_All_Register_Data(uint8_t scl_pin, uint8_t sda_pin, uint8_t *pdata,uint8_t slave_addr)
 {
 	uint8_t mark=0;//操作是否正确标志位
 
-	mark=TOF_IIC_Read_N_Byte(0x00,TOF_REGISTER_TOTAL_SIZE,pdata,slave_addr);
+	mark=TOF_IIC_Read_N_Byte(scl_pin, sda_pin, 0x00,TOF_REGISTER_TOTAL_SIZE,pdata,slave_addr);
+
+	return mark;//返回标志位
+}
+
+uint8_t IIC_Get_Dist_Data(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr, uint8_t num_bytes, uint8_t *pdata,uint8_t slave_addr)
+{
+	uint8_t mark=0;//操作是否正确标志位
+
+	mark=TOF_IIC_Read_N_Byte(scl_pin, sda_pin, Addr, num_bytes,pdata,slave_addr);
 
 	return mark;//返回标志位
 }
@@ -72,41 +98,41 @@ uint8_t IIC_Get_All_Register_Data(uint8_t *pdata,uint8_t slave_addr)
 参    数 ： Addr 需要读取的寄存器地址  slave_addr从机地址
 返 回 值 ： data 该地址的数据
 *************************************************/
-uint8_t TOF_IIC_Read_One_Byte(uint8_t Addr,uint8_t slave_addr)
+uint8_t TOF_IIC_Read_One_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr,uint8_t slave_addr)
 {
 	uint8_t iic_ack=1;//从机响应状态变量，0表示应答
 	uint8_t data=0;//该地址的数据
 
-	Analog_IIC_Start();
-	Analog_IIC_Send_Byte((uint8_t)((slave_addr<<1)|0x00));//发送从机写地址
-	iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+	Analog_IIC_Start(scl_pin, sda_pin);
+	Analog_IIC_Send_Byte(scl_pin, sda_pin, (uint8_t)((slave_addr<<1)|0x00));//发送从机写地址
+	iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 	if(iic_ack == 0)//如果从机响应
 	{
 		iic_ack=1;
-		Analog_IIC_Send_Byte(Addr);//发送需要读取的寄存器地址
-		iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+		Analog_IIC_Send_Byte(scl_pin, sda_pin, Addr);//发送需要读取的寄存器地址
+		iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 		if(iic_ack == 0)//如果从机响应
 		{
 			iic_ack=1;
-			Analog_IIC_Stop();
-			Analog_IIC_Start();
-			Analog_IIC_Send_Byte((uint8_t)((slave_addr<<1)|0x01));//发送从机读地址
-			iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+			Analog_IIC_Stop(scl_pin, sda_pin);
+			Analog_IIC_Start(scl_pin, sda_pin);
+			Analog_IIC_Send_Byte(scl_pin, sda_pin, (uint8_t)((slave_addr<<1)|0x01));//发送从机读地址
+			iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 			if(iic_ack == 0)//如果从机响应
 			{
 				iic_ack=1;
-				data=Analog_IIC_Read_Byte(0);//读取一个字节并发送NACK
-				Analog_IIC_Stop();
+				data=Analog_IIC_Read_Byte(scl_pin, sda_pin, 0);//读取一个字节并发送NACK
+				Analog_IIC_Stop(scl_pin, sda_pin);
 			}
 		}
 		else
 		{
-			Analog_IIC_Stop();
+			Analog_IIC_Stop(scl_pin, sda_pin);
 		}
 	}
 	else
 	{
-		Analog_IIC_Stop();
+		Analog_IIC_Stop(scl_pin, sda_pin);
 	}
 
 	return data;//返回读取到的字节
@@ -118,28 +144,28 @@ uint8_t TOF_IIC_Read_One_Byte(uint8_t Addr,uint8_t slave_addr)
 参    数 ： Addr 需要读取的寄存器起始地址    num读取的字节数    *pdata读取缓存数组的指针  slave_addr从机地址
 返 回 值 ： mark 操作是否正确标志位，0错误，1正确
 *************************************************/
-uint8_t TOF_IIC_Read_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slave_addr)
+uint8_t TOF_IIC_Read_N_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slave_addr)
 {
 	uint8_t iic_ack=1;//从机响应状态变量，0表示应答
 	uint8_t mark=0;//操作是否正确标志位
 	uint16_t i=0;//循环计数变量
 
-	Analog_IIC_Start();
-	Analog_IIC_Send_Byte((uint8_t)((slave_addr<<1)|0x00));//发送从机写地址
-	iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+	Analog_IIC_Start(scl_pin, sda_pin);
+	Analog_IIC_Send_Byte(scl_pin, sda_pin, (uint8_t)((slave_addr<<1)|0x00));//发送从机写地址
+	iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 	if(iic_ack == 0)//如果从机响应
 	{
 		iic_ack=1;
-		Analog_IIC_Send_Byte(Addr);//发送需要读取的寄存器地址
-		iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+		Analog_IIC_Send_Byte(scl_pin, sda_pin, Addr);//发送需要读取的寄存器地址
+		iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 		if(iic_ack == 0)//如果从机响应
 		{
 			iic_ack=1;
-			Analog_IIC_Stop();
-			Analog_IIC_Start();
-			Analog_IIC_Send_Byte((uint8_t)((slave_addr<<1)|0x01));//发送从机读地址
+			Analog_IIC_Stop(scl_pin, sda_pin);
+			Analog_IIC_Start(scl_pin, sda_pin);
+			Analog_IIC_Send_Byte(scl_pin, sda_pin, (uint8_t)((slave_addr<<1)|0x01));//发送从机读地址
 			// delay(10);
-			iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+			iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 			// Serial.println(iic_ack);
 			if(iic_ack == 0)//如果从机响应
 			{
@@ -149,13 +175,13 @@ uint8_t TOF_IIC_Read_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slav
 				{
 					if(i<num-1)
 					{
-						pdata[i]=Analog_IIC_Read_Byte(1);//读取一个字节并发送ACK;
+						pdata[i]=Analog_IIC_Read_Byte(scl_pin, sda_pin, 1);//读取一个字节并发送ACK;
 					}
 					else if(i == num-1)
 					{
-						pdata[i]=Analog_IIC_Read_Byte(0);//读取一个字节并发送NACK
+						pdata[i]=Analog_IIC_Read_Byte(scl_pin, sda_pin, 0);//读取一个字节并发送NACK
 						mark=1;//正确读取
-						Analog_IIC_Stop();
+						Analog_IIC_Stop(scl_pin, sda_pin);
 					}
 
 				}
@@ -165,13 +191,13 @@ uint8_t TOF_IIC_Read_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slav
 		else
 		{
 			Serial.println("HELP");
-			Analog_IIC_Stop();
+			Analog_IIC_Stop(scl_pin, sda_pin);
 		}
 	}
 	else
 	{
 		Serial.println("HELP!!!");
-		Analog_IIC_Stop();
+		Analog_IIC_Stop(scl_pin, sda_pin);
 	}
 
 	return mark;//返回标志位
@@ -183,43 +209,43 @@ uint8_t TOF_IIC_Read_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slav
 参    数 ： Addr 需要写入的寄存器地址    data 写入该地址的数据  slave_addr从机地址
 返 回 值 ：mark 操作是否正确标志位，0错误，1正确
 *************************************************/
-uint8_t TOF_IIC_Write_One_Byte(uint8_t Addr,uint8_t data,uint8_t slave_addr)
+uint8_t TOF_IIC_Write_One_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr,uint8_t data,uint8_t slave_addr)
 {
 	uint8_t iic_ack=1;//从机响应状态变量，0表示应答
 	uint8_t mark=0;//操作是否正确标志位
 
-	Analog_IIC_Start();
-	Analog_IIC_Send_Byte((uint8_t)((slave_addr<<1)|0x00));//发送从机写地址
-	iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+	Analog_IIC_Start(scl_pin, sda_pin);
+	Analog_IIC_Send_Byte(scl_pin, sda_pin, (uint8_t)((slave_addr<<1)|0x00));//发送从机写地址
+	iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 	if(iic_ack == 0)//如果从机响应
 	{
 		iic_ack=1;
-		Analog_IIC_Send_Byte(Addr);//发送需要读取的寄存器地址
-		iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+		Analog_IIC_Send_Byte(scl_pin, sda_pin, Addr);//发送需要读取的寄存器地址
+		iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 		if(iic_ack == 0)//如果从机响应
 		{
 			iic_ack=1;
-			Analog_IIC_Send_Byte(data);//发送需要写入的数据
-			iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+			Analog_IIC_Send_Byte(scl_pin, sda_pin, data);//发送需要写入的数据
+			iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 			if(iic_ack == 0)//如果从机响应
 			{
 				iic_ack=1;
-				Analog_IIC_Stop();
+				Analog_IIC_Stop(scl_pin, sda_pin);
 				mark=1;//正确写入
 			}
 			else
 			{
-				Analog_IIC_Stop();
+				Analog_IIC_Stop(scl_pin, sda_pin);
 			}
 		}
 		else
 		{
-			Analog_IIC_Stop();
+			Analog_IIC_Stop(scl_pin, sda_pin);
 		}
 	}
 	else
 	{
-		Analog_IIC_Stop();
+		Analog_IIC_Stop(scl_pin, sda_pin);
 	}
 
 	return mark;//返回标志位
@@ -231,20 +257,20 @@ uint8_t TOF_IIC_Write_One_Byte(uint8_t Addr,uint8_t data,uint8_t slave_addr)
 参    数 ： Addr 需要开始写入的寄存器地址    num写入的字节数    *pdata写入缓存数组的指针  slave_addr从机地址
 返 回 值 ：mark 操作是否正确标志位，0错误，1正确
 *************************************************/
-uint8_t TOF_IIC_Write_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slave_addr)
+uint8_t TOF_IIC_Write_N_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t slave_addr)
 {
 	uint8_t iic_ack=1;//从机响应状态变量，0表示应答
 	uint8_t mark=0;//操作是否正确标志位
 	uint16_t i=0;//循环计数变量
 
-	Analog_IIC_Start();
-	Analog_IIC_Send_Byte((uint8_t)((slave_addr<<1)|0x00));//发送从机写地址
-	iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+	Analog_IIC_Start(scl_pin, sda_pin);
+	Analog_IIC_Send_Byte(scl_pin, sda_pin, (uint8_t)((slave_addr<<1)|0x00));//发送从机写地址
+	iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 	if(iic_ack == 0)//如果从机响应
 	{
 		iic_ack=1;
-		Analog_IIC_Send_Byte(Addr);//发送需要写入寄存器的地址
-		iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+		Analog_IIC_Send_Byte(scl_pin, sda_pin, Addr);//发送需要写入寄存器的地址
+		iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 		if(iic_ack == 0)//如果从机响应
 		{
 			for(i=0;i<num;i++)//写入num个字节
@@ -252,27 +278,27 @@ uint8_t TOF_IIC_Write_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t sla
 				iic_ack=1;
 				if(i<num-1)
 				{
-					Analog_IIC_Send_Byte(pdata[i]);//发送一个数据
-					iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+					Analog_IIC_Send_Byte(scl_pin, sda_pin, pdata[i]);//发送一个数据
+					iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 					if(iic_ack == 1)//如果从机不响应
 					{
-						Analog_IIC_Stop();
+						Analog_IIC_Stop(scl_pin, sda_pin);
 						break;//跳出for循环，结束本次写入
 					}
 
 				}
 				else if(i == num-1)
 				{
-					Analog_IIC_Send_Byte(pdata[i]);//发送一个数据
-					iic_ack=Analog_IIC_Wait_Ack();//等待从机响应
+					Analog_IIC_Send_Byte(scl_pin, sda_pin, pdata[i]);//发送一个数据
+					iic_ack=Analog_IIC_Wait_Ack(scl_pin, sda_pin);//等待从机响应
 					if(iic_ack == 0)//如果从机响应
 					{
-						Analog_IIC_Stop();
+						Analog_IIC_Stop(scl_pin, sda_pin);
 						mark=1;//正确写入
 					}
 					else
 					{
-						Analog_IIC_Stop();
+						Analog_IIC_Stop(scl_pin, sda_pin);
 					}
 				}
 
@@ -281,12 +307,12 @@ uint8_t TOF_IIC_Write_N_Byte(uint8_t Addr,uint8_t num,uint8_t *pdata,uint8_t sla
 		}
 		else
 		{
-			Analog_IIC_Stop();
+			Analog_IIC_Stop(scl_pin, sda_pin);
 		}
 	}
 	else
 	{
-		Analog_IIC_Stop();
+		Analog_IIC_Stop(scl_pin, sda_pin);
 	}
 
 	return mark;//返回标志位
