@@ -1,5 +1,6 @@
 #include <Lidar.h>
 #include <chrono>
+#include <vector>
 
 #define NUM_LIDARS 8
 #define NUM_EACH_BUS 8
