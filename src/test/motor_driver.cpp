@@ -308,19 +308,75 @@ void loop()
   // while(Serial.available()) Serial.read();
   // }
   
-  for (int i=0; i<NUM_DRIVERS; i++){
-    Serial.print("IN1");
-    Serial.print(i);
-    accel(IN1_pin[i]);
-    decel(IN1_pin[i]);
+  // for (int i=0; i<NUM_DRIVERS; i++){
+  //   Serial.print("IN1");
+  //   Serial.print(i);
+  //   accel(IN1_pin[i]);
+  //   decel(IN1_pin[i]);
+  //   delay(ACCEL_DELAY_MILLIS);
+  //   Serial.print("IN2");
+  //   Serial.print(i);
+  //   accel(IN2_pin[i]);
+  //   decel(IN2_pin[i]);
+  //   delay(ACCEL_DELAY_MILLIS);
+  //   Serial.println();
+  // }
+
+  for (int i=0; i<=100; i++){
+    analogWrite(IN1_pin[0], i);
+    analogWrite(IN1_pin[2], i);
     delay(ACCEL_DELAY_MILLIS);
-    Serial.print("IN2");
-    Serial.print(i);
-    accel(IN2_pin[i]);
-    decel(IN2_pin[i]);
-    delay(ACCEL_DELAY_MILLIS);
-    Serial.println();
   }
+  // delay(ACCEL_DELAY_MILLIS);
+
+  for (int i=100; i>=0; i--){
+    analogWrite(IN1_pin[0], i);
+    analogWrite(IN1_pin[2], i);
+    delay(ACCEL_DELAY_MILLIS);
+  }
+  delay(ACCEL_DELAY_MILLIS);
+
+  for (int i=0; i<=100; i++){
+    analogWrite(IN1_pin[1], i);
+    analogWrite(IN2_pin[3], i);
+    delay(ACCEL_DELAY_MILLIS);
+  }
+  // delay(ACCEL_DELAY_MILLIS);
+
+  for (int i=100; i>=0; i--){
+    analogWrite(IN1_pin[1], i);
+    analogWrite(IN2_pin[3], i);
+    delay(ACCEL_DELAY_MILLIS);
+  }
+  delay(ACCEL_DELAY_MILLIS);
+
+  for (int i=0; i<=100; i++){
+    analogWrite(IN2_pin[0], i);
+    analogWrite(IN2_pin[2], i);
+    delay(ACCEL_DELAY_MILLIS);
+  }
+  // delay(ACCEL_DELAY_MILLIS);
+
+  for (int i=100; i>=0; i--){
+    analogWrite(IN2_pin[0], i);
+    analogWrite(IN2_pin[2], i);
+    delay(ACCEL_DELAY_MILLIS);
+  }
+  delay(ACCEL_DELAY_MILLIS);
+
+  for (int i=0; i<=100; i++){
+    analogWrite(IN2_pin[1], i);
+    analogWrite(IN1_pin[3], i);
+    delay(ACCEL_DELAY_MILLIS);
+  }
+  // delay(ACCEL_DELAY_MILLIS);
+
+  for (int i=100; i>=0; i--){
+    analogWrite(IN2_pin[1], i);
+    analogWrite(IN1_pin[3], i);
+    delay(ACCEL_DELAY_MILLIS);
+  }
+  delay(ACCEL_DELAY_MILLIS);
 
   // Serial.print("running motor 1");
   // Serial.print("IN1");
