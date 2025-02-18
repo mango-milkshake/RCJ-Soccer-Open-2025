@@ -14,8 +14,8 @@ void send(){
 
 void setup(){
     Serial.begin(115200);
-    while(!Serial.available()) ;
-    while(Serial.available()) Serial.read();
+    // while(!Serial.available()) ;
+    // while(Serial.available()) Serial.read();
     Serial.println("started");
 
     Wire.setSDA(SDA_PIN);
@@ -29,11 +29,11 @@ void setup(){
     }
 }
 
-uint8_t counter = 0;
+// uint8_t counter = 0;
 
 void loop(){
     Serial.print("running");
     Wire.onRequest(send);
-    counter++;
+    // counter++;
     delay(10);
 }
