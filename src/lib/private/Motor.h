@@ -13,7 +13,9 @@ class Motor {
         }
 
         void setSpeed(float speed) {
-            _speed = speed * _multiplier;
+            _speed = constrain(speed, max(-1, _lastSpeed-0.1), min(_lastSpeed+0.1, 1));
+            _lastSpeed = _speed;
+            _speed = _speed * _multiplier;
             _speed = constrain(_speed, -1, 1);
             if (_speed >= 0) {
                 analogWrite(_pin2, 0);
@@ -24,13 +26,14 @@ class Motor {
             }
             // Serial.print(_pin1);
             // Serial.print(": ");
-            // Serial.print(speed);
+            // Serial.print(abs(speed)*_maxspeed);
+            // Serial.print(" ");
             // Serial.println(abs(_speed)*_maxspeed);
         }
 
     private:
         const uint8_t _pin1, _pin2, _maxspeed;
-        float _speed, _multiplier;
+        float _speed, _multiplier, _lastSpeed = 0;
 };
 
 #endif
