@@ -2,10 +2,20 @@
 
 // #define QUAT_ANIMATION // Uncomment this line to output data in the correct format for ZaneL's Node.js Quaternion animation tool: https://github.com/ZaneL/quaternion_sensor_3d_nodejs
 
-#define CS_PIN 1
-#define MISO_PIN 0 // RX
-#define MOSI_PIN 7 // TX
-#define SCK_PIN 6
+// #define SECOND_BUS
+
+#ifdef SECOND_BUS
+#define SPI SPI1
+#define CS_PIN 13
+#define MISO_PIN 12 // RX
+#define MOSI_PIN 15 // TX
+#define SCK_PIN 14
+#else
+#define CS_PIN 5
+#define MISO_PIN 4 // RX
+#define MOSI_PIN 3 // TX
+#define SCK_PIN 2
+#endif
 
 // On the SparkFun 9DoF IMU breakout the default is 1, and when the ADR jumper is closed the value becomes 0
 #define AD0_VAL 1
