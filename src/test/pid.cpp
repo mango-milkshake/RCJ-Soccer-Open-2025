@@ -1,6 +1,12 @@
 #include <Arduino.h>
 #include <PID.h>
 #include <IMU.h>
+#include <Adafruit_NeoPixel.h>
+
+#define led_pin 16
+#define led_count 1
+#define brightness 50
+Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 
 #define CS_PIN 5
 #define MISO_PIN 4 // RX
@@ -25,10 +31,17 @@ void setup(){
     Serial1.setTX(TX_PIN);
     Serial1.begin(115200);
     Serial.println("started");
+
+    strip.begin();
+    strip.setBrightness(brightness);
+    strip.setPixelColor(0, strip.Color(0, 0, 15));
+    strip.show();
 }
 
 void loop(){
     // Serial.println("running");
+    strip.setPixelColor(0, strip.Color(15, 15, 0));
+    strip.show();
     curTime = millis();
     if(!tared && curTime - startTime >= 5000){
         // wait 5 seconds for imu values to stabilise
