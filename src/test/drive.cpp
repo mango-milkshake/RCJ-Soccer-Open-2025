@@ -19,17 +19,23 @@ Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 #define MISO_PIN 0 // RX
 #define SCK_PIN 2
 
+#define TX_PIN 4
+#define RX_PIN 5
+#define DATA_LEN 3
+
+byte buffer[DATA_LEN];
+
 MotorDriver motor_driver(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
 uint8_t IN1_pin[NUM_DRIVERS] = {6, 8, 11, 13};
 uint8_t IN2_pin[NUM_DRIVERS] = {7, 9, 10, 12};
 uint8_t IPROPI_pin[NUM_DRIVERS] = {26, 27, 28, 29}; // make sure pins can read analog
 
-uint8_t maxspeed = 20;
+uint8_t maxspeed = 30;
 
 Motor motorFL(IN1_pin[0], IN2_pin[0], maxspeed, 1.0);
 Motor motorFR(IN1_pin[3], IN2_pin[3], maxspeed, 1.0);
-Motor motorBL(IN1_pin[1], IN2_pin[1], maxspeed, 1.0);
+Motor motorBL(IN1_pin[1], IN2_pin[1], maxspeed, 1.2);
 Motor motorBR(IN1_pin[2], IN2_pin[2], maxspeed, 1.0);
 
 Drive bot(motorFR, motorBR, motorBL, motorFL);
@@ -45,14 +51,18 @@ void setup()
   // while(!Serial.available()) continue;
   // while(Serial.available()) Serial.read();
 
-  analogWriteFreq(5000);
+  Serial2.setRX(RX_PIN);
+  Serial2.setTX(TX_PIN);
+  Serial2.begin(115200);
+
+  // analogWriteFreq(5000);
 
   motor_driver.init();
   motor_driver.setMode();
 
   strip.begin();
   strip.setBrightness(brightness);
-  strip.setPixelColor(0, strip.Color(0, 0, 15));
+  strip.setPixelColor(0, strip.Color(15, 0, 0));
   strip.show();
   delay(1000);
 }
@@ -63,6 +73,35 @@ void loop()
   strip.setPixelColor(0, strip.Color(15, 15, 0));
   strip.show();
   // while(!Serial.available()) continue;
+
+  if(Serial2.available()>=DATA_LEN){
+    while(Serial2.peek()!=1) {
+        Serial.println("first byte not 1");
+        Serial2.read();
+    }
+    int len = Serial2.readBytes(buffer, DATA_LEN);
+    if(len!=DATA_LEN || buffer[0]!=1){
+        Serial.print("Received bad data: length: ");
+        Serial.print(len);
+        Serial.print(", data: ");
+        for (auto i : buffer) {
+            Serial.print(i);
+            Serial.print(" ");
+        }
+    }
+    else{
+        for (auto i : buffer){
+            Serial.print(i);
+            Serial.print(" ");
+        }
+        float rotate = (float)(buffer[1] + (buffer[2]<<8)) / 128;
+        bot.setDrive(speed, 0, rotate);
+    }
+    Serial.println();
+  }
+  else{
+    Serial.println("No data received");
+  }
 
   // Serial.print("FAULT: ");
   // motor_driver.spiComms(0b01000001, 0b00000000);

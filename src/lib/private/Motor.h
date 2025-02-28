@@ -13,9 +13,10 @@ class Motor {
         }
 
         void setSpeed(float speed) {
-            _speed = constrain(speed, max(-1, _lastSpeed-0.1), min(_lastSpeed+0.1, 1));
-            _lastSpeed = _speed;
-            _speed = _speed * _multiplier;
+            // _speed = constrain(speed, max(-1, _lastSpeed-0.1), min(_lastSpeed+0.1, 1));
+            // _lastSpeed = _speed;
+            // _speed = _speed * _multiplier;
+            _speed = speed * _multiplier;
             _speed = constrain(_speed, -1, 1);
             if (_speed >= 0) {
                 analogWrite(_pin2, 0);
