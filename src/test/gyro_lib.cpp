@@ -1,0 +1,50 @@
+#include <Arduino.h>
+#include <IMU.h>
+
+// #define SECOND_BUS
+
+#ifdef SECOND_BUS
+#define SPI SPI1
+#define CS_PIN 13
+#define MISO_PIN 12 // RX
+#define MOSI_PIN 15 // TX
+#define SCK_PIN 14
+#else
+#define CS_PIN 5
+#define MISO_PIN 4 // RX
+#define MOSI_PIN 3 // TX
+#define SCK_PIN 2
+#endif
+
+IMU imu(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, SPI);
+
+void setup(){
+    Serial.begin(115200);
+    while(!Serial.available()) ;
+    while(Serial.available()) Serial.read();
+    Serial.println("started");
+    imu.init();
+}
+
+float lastTime = 0, curTime = 0;
+int counter = 0;
+
+void loop(){
+    if(counter==800) imu.tareYaw();
+    double res = imu.readYaw();
+    // int16_t res = imu.readAccelX();
+    if(res==267) Serial.println("Error reading yaw data");
+    // else if(res==631) Serial.println("Waiting for data");
+    else if(res!=631) {
+        curTime = millis();
+        float duration = curTime - lastTime;
+        Serial.print("Yaw: ");
+        Serial.println(res);
+        // Serial.print("duration: ");
+        // Serial.println(duration);
+        // Serial.println(counter);
+        Serial.println();
+        lastTime = curTime;
+        counter++;
+    }
+}

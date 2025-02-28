@@ -76,9 +76,9 @@ void setup()
   success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_GAME_ROTATION_VECTOR) == ICM_20948_Stat_Ok);
 
   // Enable any additional sensors / features
-  success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE) == ICM_20948_Stat_Ok);
-  success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER) == ICM_20948_Stat_Ok);
-  success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_MAGNETIC_FIELD_UNCALIBRATED) == ICM_20948_Stat_Ok);
+  // success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_GYROSCOPE) == ICM_20948_Stat_Ok);
+  // success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER) == ICM_20948_Stat_Ok);
+  // success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_MAGNETIC_FIELD_UNCALIBRATED) == ICM_20948_Stat_Ok);
 
   // Configuring DMP to output data at multiple ODRs:
   // DMP is capable of outputting multiple sensor data at different rates to FIFO.
@@ -86,11 +86,11 @@ void setup()
   // Value = (DMP running rate / ODR ) - 1
   // E.g. For a 5Hz ODR rate when DMP is running at 55Hz, value = (55/5) - 1 = 10.
   success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Quat6, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Accel, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Gyro, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Gyro_Calibr, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Cpass, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-  success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Cpass_Calibr, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+  // success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Accel, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+  // success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Gyro, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+  // success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Gyro_Calibr, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+  // success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Cpass, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+  // success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Cpass_Calibr, 0) == ICM_20948_Stat_Ok); // Set to the maximum
 
   // Enable the FIFO
   success &= (ICM.enableFIFO() == ICM_20948_Stat_Ok);
@@ -118,6 +118,8 @@ void setup()
   }
 }
 
+float lastTime = 0, curTime = 0;
+
 void loop()
 {
   // Read any DMP data waiting in the FIFO
@@ -128,6 +130,7 @@ void loop()
   //    readDMPdataFromFIFO will return ICM_20948_Stat_Ok if a valid frame was read.
   //    readDMPdataFromFIFO will return ICM_20948_Stat_FIFOMoreDataAvail if a valid frame was read _and_ the FIFO contains more (unread) data.
   icm_20948_DMP_data_t data;
+  lastTime = curTime;
   ICM.readDMPdataFromFIFO(&data);
 
   if ((ICM.status == ICM_20948_Stat_Ok) || (ICM.status == ICM_20948_Stat_FIFOMoreDataAvail)) // Was valid data available?
@@ -145,6 +148,8 @@ void loop()
       // The quaternion data is scaled by 2^30.
 
       //SERIAL_PORT.printf("Quat6 data is: Q1:%ld Q2:%ld Q3:%ld\r\n", data.Quat6.Data.Q1, data.Quat6.Data.Q2, data.Quat6.Data.Q3);
+
+      curTime = millis();
 
       // Scale to +/- 1
       double q1 = ((double)data.Quat6.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
@@ -173,12 +178,15 @@ void loop()
       double t4 = +1.0 - 2.0 * (qy * qy + qz * qz);
       double yaw = atan2(t3, t4) * 180.0 / PI;
 
+      float duration = curTime - lastTime;
       Serial.print("Roll: ");
       Serial.print(roll, 3);
       Serial.print(" Pitch: ");
       Serial.print(pitch, 3);
       Serial.print(" Yaw: ");
       Serial.println(yaw, 3);  
+      Serial.print(" duration: ");
+      Serial.println(duration, 2);
 
     }
 
@@ -210,17 +218,22 @@ void loop()
         int16_t accel_x = data.Raw_Accel.Data.X;
         int16_t accel_y = data.Raw_Accel.Data.Y;
         int16_t accel_z = data.Raw_Accel.Data.Z;
+
+        curTime = millis();
+        float duration = curTime - lastTime;
         // Serial.print("accel - X: ");
         // Serial.print(accel_x);
         // Serial.print(" Y: ");
         // Serial.print(accel_y);
         // Serial.print(" Z: ");
         // Serial.println(accel_z);
+        // Serial.print("duration: ");
+        // Serial.println(duration);
     }
   }
   else {
     Serial.println("Waiting for data");
-    delay(100);
+    // delay(100);
   }
 
   if (ICM.status != ICM_20948_Stat_FIFOMoreDataAvail) // If more data is available then we should read it right away - and not delay
