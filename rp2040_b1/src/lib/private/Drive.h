@@ -37,18 +37,23 @@ class Drive {
                 speedFR *= k;
                 speedFL *= k;
                 speedBR *= k;
-                speedBR *= k;
+                speedBL *= k;
             }
 
             speedFR += rotationRate;
             speedFL += rotationRate;
             speedBR += rotationRate;
-            speedBR += rotationRate;
+            speedBL += rotationRate;
 
             _motorFL.setSpeed(speedFL + rotationRate);
             _motorFR.setSpeed(speedFR + rotationRate);
             _motorBL.setSpeed(speedBL + rotationRate);
             _motorBR.setSpeed(speedBR + rotationRate);
+
+            // Serial.print(speedFL+rotationRate);
+            // Serial.print(" ");
+            // Serial.print(speedBL+rotationRate);
+            // Serial.println();
         };
 
     private:

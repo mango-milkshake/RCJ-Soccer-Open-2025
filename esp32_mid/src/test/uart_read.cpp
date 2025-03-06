@@ -13,8 +13,6 @@ void setup(){
     while(Serial.available()) Serial.read();
     Serial.println("started");
 
-    // Serial1.setRX(RX_PIN);
-    // Serial1.setTX(TX_PIN);
     Serial1.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
     Serial1.setRxBufferSize(SERIAL_SIZE);
     Serial1.setTxBufferSize(SERIAL_SIZE);
