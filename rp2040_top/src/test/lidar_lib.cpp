@@ -54,21 +54,21 @@ void loop(){
     for (int i=0; i<NUM_LIDARS; i++){
         // auto start_time = std::chrono::steady_clock::now();
         // if(i%2!=1) continue;
-        // distRaw[i] = lidar[i].readRaw();
-        coords[i] = lidar[i].readCoords();
+        distRaw[i] = lidar[i].readRaw(); 
+        // coords[i] = lidar[i].readCoords();
         // auto cur_time = std::chrono::steady_clock::now();
         // std::chrono::nanoseconds diff = cur_time - start_time;
         // fps = 0.9 * fps + 0.1 * (1000000000 / diff.count());
 
         // Serial.print("Read Sensor ");
-        // Serial.print(i+1);
+        Serial.print(i+1);
         // Serial.print(" - time: ");
         // Serial.println(fps);
 
         // Serial.print(" dist: ");
-        // Serial.print(" ");
-        // Serial.print(distRaw[i]);
-        // Serial.print("\t");
+        Serial.print(" ");
+        Serial.print(distRaw[i]);
+        Serial.print("\t");
         // Serial.println();
 
         // Serial.print("{");
@@ -84,11 +84,11 @@ void loop(){
     int hullSize = convexHull(coords, NUM_POINTS, hull);
     MinAreaRect rect = findMinAreaRect(hull, hullSize);
 
-    Serial.print("main");
-    Serial.print(rect.width);
-    Serial.print(" ");
-    Serial.print(rect.height);
-    Serial.print("\t");
+    // Serial.print("main");
+    // Serial.print(rect.width);
+    // Serial.print(" ");
+    // Serial.print(rect.height);
+    // Serial.print("\t");
 
     // Serial.print(rect.vector_width.x);
     // Serial.print(" ");
@@ -100,8 +100,8 @@ void loop(){
     // Serial.print(rect.vector_width.y);
     // Serial.print("\t");
 
-    Serial.print("area: ");
-    Serial.println(rect.area);
+    // Serial.print("area: ");
+    // Serial.println(rect.area);
 
     float heading = 0, basicAngle = 0;
 
@@ -125,22 +125,18 @@ void loop(){
 
     if(heading>=180) heading -= 180;
     
-    Serial.print("heading: ");
-    Serial.print(heading);
-    // Serial.print(" ");
-    // Serial.print(test1);
-    // Serial.print(" ");
-    // Serial.println(test2);
-    Serial.println();
+    // Serial.print("heading: ");
+    // Serial.print(heading);
+    // Serial.println();
 
     Point cur_coords = getCoords(rect, basicAngle);
-    Serial.print("coordinates: ");
-    Serial.print("{");
-    Serial.print(cur_coords.x);
-    Serial.print(", ");
-    Serial.print(cur_coords.y);
-    Serial.print("}, ");
-    Serial.println();
+    // Serial.print("coordinates: ");
+    // Serial.print("{");
+    // Serial.print(cur_coords.x);
+    // Serial.print(", ");
+    // Serial.print(cur_coords.y);
+    // Serial.print("}, ");
+    // Serial.println();
     
     delay(100);
 }
