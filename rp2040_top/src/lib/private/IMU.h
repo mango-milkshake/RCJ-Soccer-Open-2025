@@ -16,6 +16,7 @@ class IMU {
         ICM_20948_SPI ICM;
         icm_20948_DMP_data_t data;
         double offset = 0, tareVal = 631, lastYaw = 631;
+        int16_t lastAccelX = 0, lastAccelY = 0, lastAccelZ = 0;
 
         void init(){
             _spi.setRX(_miso);
@@ -44,9 +45,9 @@ class IMU {
             bool success = true;
             success &= (ICM.initializeDMP() == ICM_20948_Stat_Ok);
             success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_GAME_ROTATION_VECTOR) == ICM_20948_Stat_Ok);
-            // success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER) == ICM_20948_Stat_Ok);
+            success &= (ICM.enableDMPSensor(INV_ICM20948_SENSOR_RAW_ACCELEROMETER) == ICM_20948_Stat_Ok);
             success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Quat6, 0) == ICM_20948_Stat_Ok); // Set to the maximum
-            // success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Accel, 0) == ICM_20948_Stat_Ok); // Set to the maximum
+            success &= (ICM.setDMPODRrate(DMP_ODR_Reg_Accel, 0) == ICM_20948_Stat_Ok); // Set to the maximum
             success &= (ICM.enableFIFO() == ICM_20948_Stat_Ok); // enable FIFO
             success &= (ICM.enableDMP() == ICM_20948_Stat_Ok); // enable DMP
             success &= (ICM.resetDMP() == ICM_20948_Stat_Ok); // reset DMP
@@ -88,25 +89,51 @@ class IMU {
             else return lastYaw;
         }
 
-        int16_t readAccelX(){
-            bool status = _update();
-            if (!status){
-                return 631;
-            }
-            if ((data.header & DMP_header_bitmap_Accel) > 0){
-                int16_t accel_x = data.Raw_Accel.Data.X;
-                // int16_t accel_y = data.Raw_Accel.Data.Y;
-                // int16_t accel_z = data.Raw_Accel.Data.Z;
-                return accel_x;
-            }
-            else return 267;
-        }
         void tareYaw(){
             while(tareVal==631 || tareVal==267){
                 tareVal = readYaw();
             }
             offset = tareVal;
         }
+
+        int16_t readAccelX(){
+            bool status = _update();
+            if (!status){
+                return lastAccelX;
+            }
+            if ((data.header & DMP_header_bitmap_Accel) > 0){
+                int16_t accel_x = data.Raw_Accel.Data.X;
+                lastAccelX = accel_x;
+                return accel_x;
+            }
+            else return lastAccelX;
+        }
+
+        int16_t readAccelY(){
+            bool status = _update();
+            if (!status){
+                return lastAccelY;
+            }
+            if ((data.header & DMP_header_bitmap_Accel) > 0){
+                int16_t accel_y = data.Raw_Accel.Data.Y;
+                lastAccelY = accel_y;
+                return accel_y;
+            }
+            else return lastAccelY;
+        }
+
+        int16_t readAccelZ(){
+            bool status = _update();
+            if (!status){
+                return lastAccelZ;
+            }
+            if ((data.header & DMP_header_bitmap_Accel) > 0){
+                int16_t accel_z = data.Raw_Accel.Data.Z;
+                lastAccelZ = accel_z;
+                return accel_z;
+            }
+            else return lastAccelZ;
+        }       
 
     private:
         const int _mosi, _miso, _sck, _cs, _dataSize = 16;
