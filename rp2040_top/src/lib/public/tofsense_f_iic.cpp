@@ -196,7 +196,7 @@ uint8_t TOF_IIC_Read_N_Byte(uint8_t scl_pin, uint8_t sda_pin, uint8_t Addr,uint8
 	}
 	else
 	{
-		Serial.println("HELP!!!");
+		// Serial.println("HELP!!!");
 		Analog_IIC_Stop(scl_pin, sda_pin);
 	}
 
