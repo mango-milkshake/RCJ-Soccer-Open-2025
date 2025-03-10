@@ -1,3 +1,6 @@
+#ifndef PID_H
+#define PID_H
+
 #include <Arduino.h>
 class PID {
     public:
@@ -60,3 +63,5 @@ class PID {
         float         _lastOutput;
         const float   _timeStep;
 };
+
+#endif
