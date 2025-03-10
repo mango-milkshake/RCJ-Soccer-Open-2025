@@ -5,6 +5,9 @@
 #include <CommonUtils.h>
 #include <IMU.h>
 
+#define FIELD_WIDTH 1.82
+#define FIELD_HEIGHT 2.43
+
 #define PICO_LED 16
 #define PICO_LED_BRIGHTNESS 50
 Adafruit_NeoPixel pico_led(1, PICO_LED, NEO_GRB + NEO_KHZ800);
@@ -135,7 +138,10 @@ void loop(){
 
     float other_heading = heading + (heading<180 ? 180 : -180);
     float diff1 = abs(prev_heading - heading), diff2 = abs(prev_heading - other_heading);
+    if(diff1>180) diff1 = 360 - diff1;
+    if(diff2>180) diff2 = 360 - diff2;
     float final_heading = diff1 <= diff2 ? heading : other_heading;
+    bool swapped = diff1 <= diff2 ? false : true;
     int uart_heading = floor(final_heading * 128);
     prev_heading = final_heading;
     
@@ -144,6 +150,10 @@ void loop(){
     Serial.println();
 
     Point cur_coords = getCoords(rect, basicAngle);
+    if(swapped){
+        cur_coords.x = FIELD_WIDTH - cur_coords.x;
+        cur_coords.y = FIELD_HEIGHT - cur_coords.y;
+    }
     Serial.print("coordinates: ");
     Serial.print("{");
     Serial.print(cur_coords.x);
