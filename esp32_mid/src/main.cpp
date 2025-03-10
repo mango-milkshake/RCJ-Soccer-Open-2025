@@ -1,62 +1,115 @@
 #include <Arduino.h>
 #include <Wire.h>
+#include <PID.h>
+#include <CommonUtils.h>
+
+#define DEBUG(x) Serial.print(#x); Serial.print(": "); Serial.println(x);
+#define TURN_OFF_SW 40
+bool turnOff = false;
 
 #define SDA_PIN 8
 #define SCL_PIN 9
 #define I2C_RCV_DATA_LEN 32
-#define I2C_SEND_DATA_LEN 8
+#define I2C_SEND_DATA_LEN 7
 #define I2C_RCV_PICO_ADDR 0x08
 #define I2C_SEND_PICO_ADDR 0x09
 
 #define PICO_TX_PIN 16
 #define PICO_RX_PIN 17
-#define SERIAL_DATA_LEN 7
+#define SERIAL_DATA_LEN 10
 
-HardwareSerial Serial0(0);
-HardwareSerial Serial2(1);
-HardwareSerial Serial2(2);
+HardwareSerial Seriall0(0);
+HardwareSerial Seriall1(1);
+HardwareSerial Seriall2(2);
 
 byte uartBuffer[SERIAL_DATA_LEN];
 
 byte rcvBuffer[I2C_RCV_DATA_LEN+1], sendBuffer[I2C_SEND_DATA_LEN];
+byte zeroBuffer[I2C_SEND_DATA_LEN];
 SemaphoreHandle_t i2cMutex, coordMutex;
+
+PID pid_rotate(0.6, 0, 0, 5000);
+PID pid_speed(0.1, 0, 0, 5000);
 
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
-float cur_x, cur_y, cur_heading;
+float cur_x, cur_y, cur_lidar_heading, cur_imu_heading;
 float target_x = FIELD_WIDTH/2, target_y = FIELD_HEIGHT/2;
 
 // core 0 handles main game logic and writing motor control info to rp2040
 void core0Task(void *pvParameters){
-    for (int i=0; i<I2C_SEND_DATA_LEN; i++) sendBuffer[i] = (i+1)*30;
-    float self_x = 0, self_y = 0, self_heading = 0;
+    float self_x = 0, self_y = 0, self_lidar_heading = 0, self_imu_heading;
+    float speed, angle, rotation;
+    zeroBuffer[0] = 0;
+    for (int i=1; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
     while(1){
+        // Serial.print("Core0");
+        if(digitalRead(TURN_OFF_SW)==HIGH) turnOff = true;
+        else turnOff = false;
         if(xSemaphoreTake(coordMutex, 0)){
             self_x = cur_x;
             self_y = cur_y;
-            self_heading = cur_heading;
+            self_lidar_heading = cur_lidar_heading;
+            self_imu_heading = cur_imu_heading;
             xSemaphoreGive(coordMutex);
+            // Serial.println("Updated coordinates");
         }
-        if(xSemaphoreTake(i2cMutex, 0)){
+
+        float x_dist = target_x - self_x, y_dist = target_y - self_y;
+        float distance = sqrt(x_dist * x_dist + y_dist * y_dist);
+        angle = atanf(y_dist / x_dist);
+        if(angle<0) angle += 360;
+        if(angle>=360) angle -= 360;
+        rotation = constrain(pid_rotate.compute(0, RAD(self_imu_heading)), -1, 1);
+        speed = constrain(pid_speed.compute(0, distance), -1, 1);
+        // DEBUG(rotation);
+        // DEBUG(speed);
+
+        angle = 30.0 - self_imu_heading; // TO CHANGE!! FOR TESTING 
+        if(angle<0) angle += 360;
+        if(angle>=360) angle -= 360;
+        
+        uint8_t rotation_sign, speed_sign;
+        if(copysign(1, rotation)==1) rotation_sign = 1;
+        else rotation_sign = 0;
+        if(copysign(1, speed)==1) speed_sign = 1;
+        else speed_sign = 0;
+        uint8_t rounded_rotation = floor(abs(rotation) * 255);
+        uint8_t rounded_speed = floor(abs(speed) * 255);
+        int rounded_angle = floor(angle * 128);
+
+        sendBuffer[0] = 1;
+        sendBuffer[1] = speed_sign;
+        sendBuffer[2] = rounded_speed;
+        sendBuffer[3] = rotation_sign;
+        sendBuffer[4] = rounded_rotation;
+        sendBuffer[5] = (rounded_angle & 0xFF);
+        sendBuffer[6] = ((rounded_angle >> 8) & 0xFF);
+
+        if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){
             Wire.beginTransmission(I2C_SEND_PICO_ADDR);
-            Wire.write(sendBuffer, I2C_SEND_DATA_LEN);
+            if(turnOff) {
+                Serial.println("Bot off");
+                Wire.write(zeroBuffer, I2C_SEND_DATA_LEN);
+            }
+            else Wire.write(sendBuffer, I2C_SEND_DATA_LEN);
             Wire.endTransmission();
             xSemaphoreGive(i2cMutex);
-            Serial.println("Data sent");
+            // Serial.println("Data sent");
         }
-        delay(10);
     }
 }
 
 // core 1 handles receiving data and processing to get final self and ball coordinates
 void core1Task(void *pvParameters){
     while(1){
-        if(Serial2.available()>=SERIAL_DATA_LEN){
-            while(Serial2.peek()!=1) {
+        // Serial.print("Core1");
+        if(Seriall2.available()>=SERIAL_DATA_LEN){
+            while(Seriall2.peek()!=1) {
                 Serial.println("first byte not 1");
-                Serial2.read();
+                Seriall2.read();
             }
-            int len = Serial2.readBytes(uartBuffer, SERIAL_DATA_LEN);
+            int len = Seriall2.readBytes(uartBuffer, SERIAL_DATA_LEN);
             if(len!=SERIAL_DATA_LEN || uartBuffer[0]!=1){
                 Serial.print("Received bad data: length: ");
                 Serial.print(len);
@@ -69,18 +122,30 @@ void core1Task(void *pvParameters){
             else{
                 float coord_x = (float)(uartBuffer[1] + (uartBuffer[2]<<8)) / 128;
                 float coord_y = (float)(uartBuffer[3] + (uartBuffer[4]<<8)) / 128;
-                float heading = (float)uartBuffer[5] + (uartBuffer[6]<<8) / 128;
-                Serial.print(coord_x, 3);
-                Serial.print("\t");
-                Serial.print(coord_y, 3);
-                Serial.print("\t");
-                Serial.print(heading, 3);
+                float lidar_heading = (float)(uartBuffer[5] + (uartBuffer[6]<<8)) / 128;
+
+                float imu_heading = (float)(uartBuffer[8] + (uartBuffer[9]<<8)) / 128;
+                if(uartBuffer[7]==0) imu_heading *= -1;
+
+                // DEBUG(coord_x);
+                // DEBUG(coord_y);
+                // DEBUG(lidar_heading);
+                // DEBUG(imu_heading);
+                // Serial.print(coord_x, 3);
+                // Serial.print("\t");
+                // Serial.print(coord_y, 3);
+                // Serial.print("\t");
+                // Serial.print(lidar_heading, 3);
+                // Serial.print("\t");
+                // Serial.print(imu_heading, 3);
+
                 if(xSemaphoreTake(coordMutex, portMAX_DELAY)){
                     cur_x = coord_x;
                     cur_y = coord_y;
-                    cur_heading = heading;
+                    cur_lidar_heading = lidar_heading;
+                    cur_imu_heading = imu_heading;
                     xSemaphoreGive(coordMutex);
-                    Serial.println("Coordinate data updated");
+                    // Serial.println("Coordinate data updated");
                 }
                 // for (auto i : uartBuffer){
                 //     Serial.print(i);
@@ -89,9 +154,9 @@ void core1Task(void *pvParameters){
             }
             Serial.println();
         }
-        else{
-            Serial.println("No data received");
-        }
+        // else{
+        //     Serial.println("No data received");
+        // }
     }
 }
 
@@ -99,16 +164,18 @@ void core1Task(void *pvParameters){
 void setup(){
     Serial.begin(115200);
 
-    // while(!Serial.available()) ;
-    // while(Serial.available()) Serial.read();
-    // Serial.println("started");
+    Seriall2.begin(115200, SERIAL_8N1, PICO_RX_PIN, PICO_TX_PIN);
 
-    Serial2.begin(115200, SERIAL_8N1, PICO_RX_PIN, PICO_TX_PIN);
+    pinMode(TURN_OFF_SW, INPUT);
 
     i2cMutex = xSemaphoreCreateMutex(); 
     coordMutex = xSemaphoreCreateMutex();
-    Wire.begin(SDA_PIN, SCL_PIN, 400000);
-    Serial.println("finished Wire setup");
+    Wire.begin(SDA_PIN, SCL_PIN, 100000);
+    // Serial.println("finished Wire setup");
+
+    // while(!Serial.available()) ;
+    // while(Serial.available()) Serial.read();
+    // Serial.println("started");
 
     xTaskCreatePinnedToCore(core0Task, "Read Data", 16384, NULL, 1, NULL, 0);
     xTaskCreatePinnedToCore(core1Task, "Send Data", 16384, NULL, 1, NULL, 1);
