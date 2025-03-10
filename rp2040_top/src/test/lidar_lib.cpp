@@ -22,6 +22,14 @@ float calib[NUM_LIDARS] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 Point coords[NUM_LIDARS], hull[NUM_LIDARS];
 double fps = 0;
 
+void printPoint(Point p){
+    Serial.print("{");
+    Serial.print(p.x);
+    Serial.print(", ");
+    Serial.print(p.y);
+    Serial.print("}\t");
+}
+
 void setup(){
     Serial.begin(115200);
 
@@ -76,7 +84,7 @@ void loop(){
         Serial.print(", ");
         Serial.print(coords[i].y);
         Serial.print("}, ");
-        Serial.println();
+        // Serial.println();
     }
     // Serial.println('}');
     Serial.println();
@@ -99,6 +107,12 @@ void loop(){
     // Serial.print(" ");
     // Serial.print(rect.vector_width.y);
     // Serial.print("\t");
+
+    printPoint(rect.bottom_left);
+    printPoint(rect.bottom_right);
+    printPoint(rect.top_left);
+    printPoint(rect.top_right);
+    Serial.println();
 
     Serial.print("area: ");
     Serial.println(rect.area);
