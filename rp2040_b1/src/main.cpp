@@ -29,7 +29,7 @@ uint8_t IN1_pin[NUM_DRIVERS] = {6, 8, 11, 13};
 uint8_t IN2_pin[NUM_DRIVERS] = {7, 9, 10, 12};
 uint8_t IPROPI_pin[NUM_DRIVERS] = {26, 27, 28, 29}; // make sure pins can read analog
 
-uint8_t maxspeed = 50;
+uint8_t maxspeed = 80;
 
 Motor motorFL(IN1_pin[0], IN2_pin[0], maxspeed, 1.0);
 Motor motorFR(IN1_pin[3], IN2_pin[3], maxspeed, 1.0);
@@ -51,7 +51,7 @@ void receive(int num_bytes){
         }
     }
     buffer[DATA_LEN] = '\0';
-    if(buffer[0]!=1 && buffer[0]!=0) {
+    if(buffer[0]!=5 && buffer[0]!=0) {
         Serial.print("Received bad data");
         return;
     }
@@ -61,14 +61,14 @@ void receive(int num_bytes){
         return;
     }
     Serial.println("Received motor data");
-    bool speedsign = true ? buffer[1]==1 : false;
-    bool rotationsign = true ? buffer[3]==1 : false;
+    bool speedsign = buffer[1]==1 ? true : false;
+    bool rotationsign = buffer[3]==1 ? true : false;
     speed = (float)(buffer[2]) / 255;
     if(!speedsign) speed *= -1;
     rotation = (float)(buffer[4]) / 255;
     if(!rotationsign) rotation *= -1;
     moveAngle = (float)(buffer[5] + (buffer[6]<<8)) / 128;
-    bot.setDrive(1.0, moveAngle, rotation);
+    bot.setDrive(speed, moveAngle, rotation);
     // for (auto i : buffer){
     //     Serial.print(i);
     //     Serial.print(" ");
