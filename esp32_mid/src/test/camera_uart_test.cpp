@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
-#define TX_PIN 2
-#define RX_PIN 3
+#define TX_PIN 10
+#define RX_PIN 11
 
 byte buffer[9];
 
