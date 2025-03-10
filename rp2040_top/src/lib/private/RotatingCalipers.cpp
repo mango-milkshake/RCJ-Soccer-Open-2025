@@ -105,11 +105,6 @@ MinAreaRect findMinAreaRect(Point hull[], size_t n) {
             result.width = width;
             result.height = height;
             result.area = area;
-
-            if(result.width > result.height){
-                swap(result.width, result.height);
-                swap(result.vector_width, result.vector_height);
-            }
         }
     }
 
@@ -121,6 +116,16 @@ MinAreaRect findMinAreaRect(Point hull[], size_t n) {
         result.bottom_right.y + result.height * result.vector_height.y};
     result.top_left = {result.bottom_left.x + result.height * result.vector_height.x,
         result.bottom_left.y + result.height * result.vector_height.y};
+    
+    if(result.width > result.height){
+        result.swap = true;
+        swap(result.width, result.height);
+        swap(result.vector_width, result.vector_height);
+
+        // note this may make top left and top right wrong
+        // swap(result.bottom_left, result.top_left); 
+    }
+    else result.swap = false;
 
     return result;
 }
