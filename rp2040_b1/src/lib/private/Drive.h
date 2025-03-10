@@ -27,32 +27,32 @@ class Drive {
             speedFL = -speedY;
             speedBL = -speedX;
 
-            // Check if any of the wheel's speed exceeds ± 1,
-            // if yes, find the wheel's speed that exceeded the most,
-            // divide all the movement components by the amount needed such that it does not exceed ±1
             float maxSpeed    = max(abs(speedX), abs(speedY));
-            float absRotation = abs(rotationRate);
-            if (maxSpeed + absRotation > 1) {
-                float k = (1 - absRotation) / maxSpeed;
+            if (maxSpeed > 1) {
+                float k = 1 / maxSpeed;
                 speedFR *= k;
                 speedFL *= k;
                 speedBR *= k;
                 speedBL *= k;
             }
 
-            speedFR += rotationRate;
-            speedFL += rotationRate;
-            speedBR += rotationRate;
-            speedBL += rotationRate;
+            speedFR = 0.6 * speedFR - 0.4 * rotationRate;
+            speedFL = 0.6 * speedFL - 0.4 * rotationRate;
+            speedBL = 0.6 * speedBL - 0.4 * rotationRate;
+            speedBR = 0.6 * speedBR - 0.4 * rotationRate;
 
-            _motorFL.setSpeed(speedFL + rotationRate);
-            _motorFR.setSpeed(speedFR + rotationRate);
-            _motorBL.setSpeed(speedBL + rotationRate);
-            _motorBR.setSpeed(speedBR + rotationRate);
+            _motorFL.setSpeed(speedFL);
+            _motorFR.setSpeed(speedFR);
+            _motorBL.setSpeed(speedBL);
+            _motorBR.setSpeed(speedBR);
 
-            // Serial.print(speedFL+rotationRate);
+            // Serial.print(speedFR);
             // Serial.print(" ");
-            // Serial.print(speedBL+rotationRate);
+            // Serial.print(speedFL);
+            // Serial.print(" ");
+            // Serial.print(speedBL);
+            // Serial.print(" ");
+            // Serial.print(speedBR);
             // Serial.println();
         };
 
