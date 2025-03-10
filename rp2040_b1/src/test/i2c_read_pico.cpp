@@ -1,14 +1,15 @@
 #include <Arduino.h>
 #include <Wire.h>
 
-#define SDA_PIN 0
-#define SCL_PIN 1
-#define DATA_LEN 8
+#define SDA_PIN 4
+#define SCL_PIN 5
+#define DATA_LEN 9
 #define ADDR 0x09
 
 byte buffer[DATA_LEN+1];
 
 void receive(int num_bytes){
+    Serial.println("Receive function");
     if(num_bytes != DATA_LEN){
         Serial.print("Received bad data: ");
     }
@@ -34,10 +35,10 @@ void setup(){
 
     Wire.setSDA(SDA_PIN);
     Wire.setSCL(SCL_PIN);
-    Wire.setClock(400000);
+    Wire.setClock(40000);
     Wire.begin(ADDR);
-    Serial.print("finished Wire setup");
     Serial.println("finished Wire setup");
+    // Wire.onReceive(receive);
 }
 
 void loop(){

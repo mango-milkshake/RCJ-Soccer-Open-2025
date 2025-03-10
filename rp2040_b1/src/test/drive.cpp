@@ -31,7 +31,7 @@ uint8_t IN1_pin[NUM_DRIVERS] = {6, 8, 11, 13};
 uint8_t IN2_pin[NUM_DRIVERS] = {7, 9, 10, 12};
 uint8_t IPROPI_pin[NUM_DRIVERS] = {26, 27, 28, 29}; // make sure pins can read analog
 
-uint8_t maxspeed = 20;
+uint8_t maxspeed = 50;
 
 Motor motorFL(IN1_pin[0], IN2_pin[0], maxspeed, 1.0);
 Motor motorFR(IN1_pin[3], IN2_pin[3], maxspeed, 1.0);
@@ -131,12 +131,12 @@ void loop()
   // }
 
 // move in circle
-  // for (int i=0; i<365; i++){
-  //   bot.setDrive(speed, i, 0);
-  //   delay(5);
-  // }
+  for (int i=0; i<365; i++){
+    bot.setDrive(speed, i, 0);
+    delay(5);
+  }
 
 // testing
-  bot.setDrive(0, 0, 1);
+  // bot.setDrive(0, 0, 0);
 
 }
