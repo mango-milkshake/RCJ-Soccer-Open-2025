@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <IMU.h>
+#include <Adafruit_NeoPixel.h>
 
 // #define SECOND_BUS
 
@@ -16,6 +17,11 @@
 #define SCK_PIN 2
 #endif
 
+#define led_pin 16
+#define led_count 1
+#define brightness 50
+Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
+
 IMU imu(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, SPI);
 
 void setup(){
@@ -24,14 +30,23 @@ void setup(){
     while(Serial.available()) Serial.read();
     Serial.println("started");
     imu.init();
+
+    strip.begin();
+    strip.setBrightness(brightness);
+    strip.setPixelColor(0, strip.Color(0, 15, 0));
+    strip.show();
 }
 
 float lastTime = 0, curTime = 0;
 int counter = 0;
 
 void loop(){
+    strip.setPixelColor(0, strip.Color(15, 15, 0));
+    strip.show();
+
     if(counter==800) imu.tareYaw();
     double res = imu.readYaw();
+
     // int16_t res = imu.readAccelX();
     if(res==267) Serial.println("Error reading yaw data");
     // else if(res==631) Serial.println("Waiting for data");

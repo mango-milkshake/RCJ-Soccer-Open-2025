@@ -15,7 +15,7 @@ class IMU {
 
         ICM_20948_SPI ICM;
         icm_20948_DMP_data_t data;
-        double offset = 0, tareVal = 631, lastYaw = 631;
+        double offset = 0, tareVal = 631, lastYaw = 631, roll = 0, pitch = 0;
         int16_t lastAccelX = 0, lastAccelY = 0, lastAccelZ = 0;
 
         void init(){
@@ -60,7 +60,7 @@ class IMU {
             }
         }
 
-        double readYaw(){
+        double readRawYaw(){
             bool status = _update();
             if (!status){
                 return lastYaw;
@@ -76,24 +76,41 @@ class IMU {
                 double qy = q1;
                 double qz = -q3;
 
+                double t0 = +2.0 * (qw * qx + qy * qz);
+                double t1 = +1.0 - 2.0 * (qx * qx + qy * qy);
+                roll = atan2(t0, t1) * 180.0 / PI;
+
+                double t2 = +2.0 * (qw * qy - qx * qz);
+                t2 = t2 > 1.0 ? 1.0 : t2;
+                t2 = t2 < -1.0 ? -1.0 : t2;
+                pitch = asin(t2) * 180.0 / PI;
+
                 double t3 = +2.0 * (qw * qz + qx * qy);
                 double t4 = +1.0 - 2.0 * (qy * qy + qz * qz);
                 double yaw = atan2(t3, t4) * 180.0 / PI;
-                
-                yaw = yaw - offset;
-                if(yaw < -180) yaw += 180.0;
-                else if(yaw > 180) yaw -= 180.0;
+
                 lastYaw = yaw;
                 return yaw;
             }
             else return lastYaw;
         }
 
+        double readYaw(){
+            double yaw = readRawYaw();
+            yaw = yaw - offset;
+            if(yaw < -180) yaw += 360.0;
+            else if(yaw > 180) yaw -= 360.0;
+            return yaw;
+        }
+
         void tareYaw(){
-            while(tareVal==631 || tareVal==267){
-                tareVal = readYaw();
+            bool tared = false;
+            while(!tared || tareVal==offset || (tareVal==631 || tareVal==267)){
+                tareVal = readRawYaw();
+                if(tareVal != offset) tared = true;
             }
             offset = tareVal;
+            // Serial.println(offset);
         }
 
         int16_t readAccelX(){
