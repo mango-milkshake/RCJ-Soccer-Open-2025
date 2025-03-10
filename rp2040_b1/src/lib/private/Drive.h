@@ -46,14 +46,14 @@ class Drive {
             _motorBL.setSpeed(speedBL);
             _motorBR.setSpeed(speedBR);
 
-            // Serial.print(speedFR);
-            // Serial.print(" ");
-            // Serial.print(speedFL);
-            // Serial.print(" ");
-            // Serial.print(speedBL);
-            // Serial.print(" ");
-            // Serial.print(speedBR);
-            // Serial.println();
+            Serial.print(speedFR);
+            Serial.print("\t");
+            Serial.print(speedFL);
+            Serial.print("\t");
+            Serial.print(speedBL);
+            Serial.print("\t");
+            Serial.print(speedBR);
+            Serial.println();
         };
 
     private:
