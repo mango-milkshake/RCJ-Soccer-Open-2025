@@ -30,14 +30,18 @@ struct MinAreaRect
 {
     Point corner, vector_width, vector_height; 
     float width, height, area;
-    Point bottom_left, bottom_right, top_left, top_right;   
-    bool swap;     
+    Point bottom_left, bottom_right, top_left, top_right;  
+    bool swap, flip;  
 };
 
 MinAreaRect findMinAreaRect(Point hull[], size_t n);
 
-Point getDist(Point p, float angle);
+Point getDist(float len, float angle);
 
 Point getCoords(MinAreaRect r, float angle);
+
+Point rotatePoint(Point p, float angle);
+
+Point scaleCoord(MinAreaRect r, Point p);
 
 #endif

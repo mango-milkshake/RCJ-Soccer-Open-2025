@@ -5,6 +5,8 @@
 #include <CommonUtils.h>
 #include <IMU.h>
 
+#define DEBUG(x) Serial.print(#x); Serial.print(": "); Serial.println(x);
+
 #define FIELD_WIDTH 1.82
 #define FIELD_HEIGHT 2.43
 
@@ -53,6 +55,14 @@ float imu_angle = 0; // access only on core 0
 float shared_imu_angle = 0; // use mutex for accessing on both cores
 float yaw = 0; // access only on core 1
 
+void printPoint(Point p){
+    Serial.print("{");
+    Serial.print(p.x);
+    Serial.print(", ");
+    Serial.print(p.y);
+    Serial.print("}\t");
+}
+
 void setup(){
     Serial.begin(115200);
 
@@ -97,15 +107,31 @@ void loop(){
     pico_led.setPixelColor(0, pico_led.Color(15, 0, 0));
     pico_led.show();
 
+    Serial.print("Lidar coordinates: {");
+
     for (int i=0; i<NUM_LIDARS; i++){
         // distRaw[i] = lidar[i].readRaw();
         coords[i] = lidar[i].readCoords();
         if(lidar[i].buffer.dis<=0.10) strip.setPixelColor(i, strip.Color(15, 0, 0));
+
+        Serial.print("{");
+        Serial.print(coords[i].x);
+        Serial.print(", ");
+        Serial.print(coords[i].y);
+        Serial.print("}, ");
     }
     strip.show();
+    Serial.println("}");
 
     int hullSize = convexHull(coords, NUM_POINTS, hull);
     MinAreaRect rect = findMinAreaRect(hull, hullSize);
+
+    Serial.print("Corners before swap: "); // BL BR TL TR
+    printPoint(rect.bottom_left);
+    printPoint(rect.bottom_right);
+    printPoint(rect.top_left);
+    printPoint(rect.top_right);
+    Serial.println();
 
     Serial.print("dimensions");
     Serial.print(rect.width);
@@ -149,17 +175,31 @@ void loop(){
     Serial.print(final_heading);
     Serial.println();
 
-    Point cur_coords = getCoords(rect, basicAngle);
-    if(swapped){
-        cur_coords.x = FIELD_WIDTH - cur_coords.x;
-        cur_coords.y = FIELD_HEIGHT - cur_coords.y;
-    }
+    // if((rect.bottom_left.x * rect.bottom_right.y) - (rect.bottom_left.y * rect.bottom_right.x)<0){
+    //     swap(rect.bottom_left, rect.bottom_right); // might mess up stuff
+    // }
+    if(rect.flip) swap(rect.bottom_left, rect.bottom_right);
+    Serial.print("bottom left point after swap:");
+    printPoint(rect.bottom_left);
+    Serial.println();
+
+    Point unscaled_coords = rotatePoint(rect.bottom_left, final_heading);
+    Point cur_coords = scaleCoord(rect, unscaled_coords);
+    // if(rect.flip){
+    //     // Serial.println("flip");
+    //     cur_coords.x = FIELD_WIDTH - cur_coords.x;
+    // }
+    // if(swapped){
+    //     Serial.println("swap");
+    //     cur_coords.x = FIELD_WIDTH - cur_coords.x;
+    //     cur_coords.y = FIELD_HEIGHT - cur_coords.y;
+    // }
     Serial.print("coordinates: ");
     Serial.print("{");
-    Serial.print(cur_coords.x);
+    Serial.print(abs(cur_coords.x));
     Serial.print(", ");
-    Serial.print(cur_coords.y);
-    Serial.print("}, ");
+    Serial.print(abs(cur_coords.y));
+    Serial.println("}, ");
     Serial.println();
 
     int rounded_coord_x = floor(cur_coords.x * 128);

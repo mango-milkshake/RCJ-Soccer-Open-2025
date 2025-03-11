@@ -105,8 +105,23 @@ MinAreaRect findMinAreaRect(Point hull[], size_t n) {
             result.width = width;
             result.height = height;
             result.area = area;
+
+            // if(result.width > result.height){
+            //     swap(result.width, result.height);
+            //     swap(result.vector_width, result.vector_height);
+            // }
         }
     }
+
+    if(result.width > result.height){
+        swap(result.width, result.height);
+        swap(result.vector_width, result.vector_height);
+        result.swap = true;
+    }
+    else result.swap = false;
+
+    if(result.vector_width.x<0) result.flip = true;
+    else result.flip = false;
 
     // Compute rectangle vertices
     result.bottom_left = result.corner;
@@ -116,24 +131,12 @@ MinAreaRect findMinAreaRect(Point hull[], size_t n) {
         result.bottom_right.y + result.height * result.vector_height.y};
     result.top_left = {result.bottom_left.x + result.height * result.vector_height.x,
         result.bottom_left.y + result.height * result.vector_height.y};
-    
-    if(result.width > result.height){
-        result.swap = true;
-        swap(result.width, result.height);
-        swap(result.vector_width, result.vector_height);
-
-        // note this may make top left and top right wrong
-        // swap(result.bottom_left, result.top_left); 
-    }
-    else result.swap = false;
 
     return result;
 }
 
-Point getDist(Point p, float angle){
+Point getDist(float len, float angle){
     Point res;
-    float len = sqrt(p.x*p.x + p.y*p.y);
-    angle = DEG(atanf(abs(p.y/p.x))) - abs(angle); // should be positive
     res.x = cosf(RAD(angle)) * len;
     res.y = sinf(RAD(angle)) * len;
     return res;
@@ -141,11 +144,32 @@ Point getDist(Point p, float angle){
 
 Point getCoords(MinAreaRect r, float angle){
     Point coord;
-    Point p = getDist(r.bottom_left, angle);
+
+    float len = sqrt(r.bottom_left.x*r.bottom_left.x + r.bottom_left.y*r.bottom_left.y);
+    angle = DEG(atanf(r.bottom_left.y/r.bottom_left.x)) - angle;
+
+    Point p = getDist(len, angle);
     float width_left = abs(p.x), height_bottom = abs(p.y);
     float width_ratio = FIELD_WIDTH / (r.width);
     float height_ratio = FIELD_HEIGHT / (r.height);
     coord.x = width_left * width_ratio;
     coord.y = height_bottom * height_ratio;
+    return coord;
+}
+
+Point rotatePoint(Point p, float angle){
+    // rotate coordinates of point p by angle, clockwise
+    Point res;
+    res.x = abs(-(p.x * cosf(RAD(angle)) + p.y * sinf(RAD(angle))));
+    res.y = abs(-(p.y * cosf(RAD(angle)) - p.x * sinf(RAD(angle))));
+    return res;
+}
+
+Point scaleCoord(MinAreaRect r, Point p){
+    Point coord;
+    float width_ratio = FIELD_WIDTH / (r.width);
+    float height_ratio = FIELD_HEIGHT / (r.height);
+    coord.x = p.x * width_ratio;
+    coord.y = p.y * height_ratio;
     return coord;
 }
