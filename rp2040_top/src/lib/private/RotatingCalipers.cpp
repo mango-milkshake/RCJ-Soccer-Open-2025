@@ -120,9 +120,6 @@ MinAreaRect findMinAreaRect(Point hull[], size_t n) {
     }
     else result.swap = false;
 
-    if(result.vector_width.x<0) result.flip = true;
-    else result.flip = false;
-
     // Compute rectangle vertices
     result.bottom_left = result.corner;
     result.bottom_right = {result.bottom_left.x + result.width * result.vector_width.x,
@@ -131,6 +128,14 @@ MinAreaRect findMinAreaRect(Point hull[], size_t n) {
         result.bottom_right.y + result.height * result.vector_height.y};
     result.top_left = {result.bottom_left.x + result.height * result.vector_height.x,
         result.bottom_left.y + result.height * result.vector_height.y};
+
+    if((result.bottom_right.x * result.top_left.y) - (result.bottom_right.y * result.top_left.x)<0){
+        swap(result.bottom_left, result.bottom_right); // might mess up stuff
+        result.vector_width.x = -result.vector_width.x;
+        result.vector_width.y = -result.vector_width.y;
+        result.flip = true;
+    }
+    else result.flip = false;
 
     return result;
 }
@@ -159,9 +164,10 @@ Point getCoords(MinAreaRect r, float angle){
 
 Point rotatePoint(Point p, float angle){
     // rotate coordinates of point p by angle, clockwise
+    // angle in radians
     Point res;
-    res.x = abs(-(p.x * cosf(RAD(angle)) + p.y * sinf(RAD(angle))));
-    res.y = abs(-(p.y * cosf(RAD(angle)) - p.x * sinf(RAD(angle))));
+    res.x = -(p.x * cosf(angle) + p.y * sinf(angle));
+    res.y = -(p.y * cosf(angle) - p.x * sinf(angle));
     return res;
 }
 

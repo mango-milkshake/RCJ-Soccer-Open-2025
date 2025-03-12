@@ -126,7 +126,7 @@ void loop(){
     int hullSize = convexHull(coords, NUM_POINTS, hull);
     MinAreaRect rect = findMinAreaRect(hull, hullSize);
 
-    Serial.print("Corners before swap: "); // BL BR TL TR
+    Serial.print("Corners (might have been swapped): "); // BL BR TL TR
     printPoint(rect.bottom_left);
     printPoint(rect.bottom_right);
     printPoint(rect.top_left);
@@ -141,6 +141,38 @@ void loop(){
 
     Serial.print("area: ");
     Serial.println(rect.area);
+
+    bool flip = false;
+    float rotate_rect_angle = 0;
+    if(rect.vector_width.x==0) rotate_rect_angle = PI/2;
+    else rotate_rect_angle = atanf(rect.vector_width.y / rect.vector_width.x); // in radians
+    Point unscaled_coords = rotatePoint(rect.bottom_left, rotate_rect_angle);
+    if(unscaled_coords.x < 0 && unscaled_coords.y < 0) {
+        flip = true;
+        unscaled_coords.x = -unscaled_coords.x;
+        unscaled_coords.y = -unscaled_coords.y;
+    }
+    else if(unscaled_coords.x >=0 && unscaled_coords.y >=0) flip = false;
+    else Serial.println("weird coords obtained");
+    Point cur_coords = scaleCoord(rect, unscaled_coords);
+    if(flip){
+        cur_coords.x = FIELD_WIDTH - cur_coords.x;
+        cur_coords.y = FIELD_HEIGHT - cur_coords.y;
+    }
+    float new_heading = DEG(rotate_rect_angle) + (flip ? 180 : 0);
+    if(new_heading < 0) new_heading += 360;
+    if(new_heading >= 360) new_heading -= 360;
+
+    Serial.print("new method heading: ");
+    Serial.print(new_heading);
+    Serial.println();
+
+    if(rect.flip){
+        // for testing - flip back to do old heading method
+        swap(rect.bottom_left, rect.bottom_right); // might mess up stuff
+        rect.vector_width.x = -rect.vector_width.x;
+        rect.vector_width.y = -rect.vector_width.y;
+    }
 
     float heading = 0, basicAngle = 0;
 
@@ -171,29 +203,10 @@ void loop(){
     int uart_heading = floor(final_heading * 128);
     prev_heading = final_heading;
     
-    Serial.print("heading: ");
+    Serial.print("old method heading: ");
     Serial.print(final_heading);
     Serial.println();
 
-    // if((rect.bottom_left.x * rect.bottom_right.y) - (rect.bottom_left.y * rect.bottom_right.x)<0){
-    //     swap(rect.bottom_left, rect.bottom_right); // might mess up stuff
-    // }
-    if(rect.flip) swap(rect.bottom_left, rect.bottom_right);
-    Serial.print("bottom left point after swap:");
-    printPoint(rect.bottom_left);
-    Serial.println();
-
-    Point unscaled_coords = rotatePoint(rect.bottom_left, final_heading);
-    Point cur_coords = scaleCoord(rect, unscaled_coords);
-    // if(rect.flip){
-    //     // Serial.println("flip");
-    //     cur_coords.x = FIELD_WIDTH - cur_coords.x;
-    // }
-    // if(swapped){
-    //     Serial.println("swap");
-    //     cur_coords.x = FIELD_WIDTH - cur_coords.x;
-    //     cur_coords.y = FIELD_HEIGHT - cur_coords.y;
-    // }
     Serial.print("coordinates: ");
     Serial.print("{");
     Serial.print(abs(cur_coords.x));
