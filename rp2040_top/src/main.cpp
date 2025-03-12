@@ -147,7 +147,12 @@ void loop(){
     if(rect.vector_width.x==0) rotate_rect_angle = PI/2;
     else rotate_rect_angle = atanf(rect.vector_width.y / rect.vector_width.x); // in radians
     Point unscaled_coords = rotatePoint(rect.bottom_left, rotate_rect_angle);
+    Serial.print("unscaled raw coords: ");
+    printPoint(unscaled_coords);
+    Serial.println();
+    
     if(unscaled_coords.x < 0 && unscaled_coords.y < 0) {
+        Serial.println("both coord negatives - flip");
         flip = true;
         unscaled_coords.x = -unscaled_coords.x;
         unscaled_coords.y = -unscaled_coords.y;
