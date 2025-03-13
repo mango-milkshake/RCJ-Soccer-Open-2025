@@ -129,7 +129,7 @@ MinAreaRect findMinAreaRect(Point hull[], size_t n) {
     result.top_left = {result.bottom_left.x + result.height * result.vector_height.x,
         result.bottom_left.y + result.height * result.vector_height.y};
 
-    if((result.bottom_right.x * result.top_left.y) - (result.bottom_right.y * result.top_left.x)<0){
+    if((result.vector_width.x * result.vector_height.y) - (result.vector_width.y * result.vector_height.x)<0){
         swap(result.bottom_left, result.bottom_right); // might mess up stuff
         result.vector_width.x = -result.vector_width.x;
         result.vector_width.y = -result.vector_width.y;
