@@ -16,17 +16,22 @@ bool turnOff = false;
 
 #define PICO_TX_PIN 16
 #define PICO_RX_PIN 17
-#define SERIAL_DATA_LEN 10
+#define PICO_SERIAL_DATA_LEN 10
 
-// HardwareSerial Seriall0(0);
+#define CAM_TX_PIN 10
+#define CAM_RX_PIN 11
+#define CAM_SERIAL_DATA_LEN 5
+
+HardwareSerial Seriall0(0);
 HardwareSerial Seriall1(1);
 HardwareSerial Seriall2(2);
 
-byte uartBuffer[SERIAL_DATA_LEN];
+byte uartBufferPico[PICO_SERIAL_DATA_LEN];
+byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 byte rcvBuffer[I2C_RCV_DATA_LEN+1], sendBuffer[I2C_SEND_DATA_LEN];
 byte zeroBuffer[I2C_SEND_DATA_LEN];
-SemaphoreHandle_t i2cMutex, coordMutex;
+SemaphoreHandle_t i2cMutex, coordMutex, ballMutex;
 
 PID pid_rotate(2, 0, 0, 5000);
 // PID pid_speed(5, 0, 0, 5000);
@@ -36,14 +41,13 @@ PID pid_y(10, 0, 0, 5000);
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
 float cur_x, cur_y, cur_lidar_heading, cur_imu_heading;
-float target_x = FIELD_WIDTH/2, target_y = FIELD_HEIGHT/2;
-
-// only core 0
-float self_x = 0, self_y = 0, self_lidar_heading = 0, self_imu_heading = 0;
-float speed_xdir, speed_ydir, angle, rotation;
+float cur_ball_x, cur_ball_y;
 
 // core 0 handles main game logic and writing motor control info to rp2040
 void core0Task(void *pvParameters){
+    float self_x = 0, self_y = 0, self_lidar_heading = 0, self_imu_heading = 0;
+    float speed_xdir, speed_ydir, angle, rotation;
+    float target_x = 0, target_y = 0;
     zeroBuffer[0] = 0;
     for (int i=1; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
     while(1){
@@ -57,6 +61,18 @@ void core0Task(void *pvParameters){
             self_imu_heading = cur_imu_heading;
             xSemaphoreGive(coordMutex);
             // Serial.println("Updated coordinates");
+        }
+
+        if(xSemaphoreTake(ballMutex, 0)){
+            if(cur_ball_x==0 && cur_ball_y==0){
+                target_x = FIELD_WIDTH / 2;
+                target_y = FIELD_HEIGHT / 2;
+            }
+            else{
+                target_x = cur_ball_x;
+                target_y = cur_ball_y - 8.5;
+            }
+            xSemaphoreGive(ballMutex);
         }
 
         float x_dist = target_x - self_x, y_dist = target_y - self_y;
@@ -140,30 +156,33 @@ void core0Task(void *pvParameters){
 
 // core 1 handles receiving data and processing to get final self and ball coordinates
 void core1Task(void *pvParameters){
+    float coord_x = 0, coord_y = 0, lidar_heading = 0, imu_heading = 0;
+    float ball_angle = 0, ball_dist = 0, ball_x = 0, ball_y = 0;
+    bool no_ball = false;
     while(1){
         // Serial.print("Core1");
-        if(Seriall2.available()>=SERIAL_DATA_LEN){
+        if(Seriall2.available()>=PICO_SERIAL_DATA_LEN){
             while(Seriall2.peek()!=1) {
-                Serial.println("first byte not 1");
+                Serial.println("Pico first byte not 1");
                 Seriall2.read();
             }
-            int len = Seriall2.readBytes(uartBuffer, SERIAL_DATA_LEN);
-            if(len!=SERIAL_DATA_LEN || uartBuffer[0]!=1){
+            int len = Seriall2.readBytes(uartBufferPico, PICO_SERIAL_DATA_LEN);
+            if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=1){
                 Serial.print("Received bad data: length: ");
                 Serial.print(len);
                 Serial.print(", data: ");
-                for (auto i : uartBuffer) {
+                for (auto i : uartBufferPico) {
                     Serial.print(i);
                     Serial.print(" ");
                 }
             }
             else{
-                float coord_x = (float)(uartBuffer[1] + (uartBuffer[2]<<8)) / 128;
-                float coord_y = (float)(uartBuffer[3] + (uartBuffer[4]<<8)) / 128;
-                float lidar_heading = (float)(uartBuffer[5] + (uartBuffer[6]<<8)) / 128;
+                coord_x = (float)(uartBufferPico[1] + (uartBufferPico[2]<<8)) / 128;
+                coord_y = (float)(uartBufferPico[3] + (uartBufferPico[4]<<8)) / 128;
+                lidar_heading = (float)(uartBufferPico[5] + (uartBufferPico[6]<<8)) / 128;
 
-                float imu_heading = (float)(uartBuffer[8] + (uartBuffer[9]<<8)) / 128;
-                if(uartBuffer[7]==0) imu_heading *= -1;
+                imu_heading = (float)(uartBufferPico[8] + (uartBufferPico[9]<<8)) / 128;
+                if(uartBufferPico[7]==0) imu_heading *= -1;
 
                 // DEBUG(coord_x);
                 // DEBUG(coord_y);
@@ -185,7 +204,54 @@ void core1Task(void *pvParameters){
                     xSemaphoreGive(coordMutex);
                     // Serial.println("Coordinate data updated");
                 }
-                // for (auto i : uartBuffer){
+                // for (auto i : uartBufferPico){
+                //     Serial.print(i);
+                //     Serial.print(" ");
+                // }
+            }
+            // Serial.println();
+        }
+        // else{
+        //     Serial.println("No data received");
+        // }
+
+        if(Seriall1.available()>=CAM_SERIAL_DATA_LEN){
+            while(Seriall1.peek()!=1) {
+                Serial.println("Camera first byte not 1");
+                Seriall1.read();
+            }
+            int len = Seriall1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
+            if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
+                Serial.print("Received bad data from camera: length: ");
+                Serial.print(len);
+                Serial.print(", data: ");
+                for (auto i : uartBufferCam) {
+                    Serial.print(i);
+                    Serial.print(" ");
+                }
+            }
+            else{
+                ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
+                ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
+                if(ball_angle==0 && ball_dist==0) no_ball = true;
+                else no_ball = false;
+                float relative_angle = 90 - (ball_angle + imu_heading);
+                ball_x = ball_dist * cosf(relative_angle);
+                ball_y = ball_dist * sinf(relative_angle);
+
+                if(xSemaphoreTake(ballMutex, portMAX_DELAY)){
+                    if(no_ball){
+                        cur_ball_x = 0;
+                        cur_ball_y = 0;
+                    }
+                    else{
+                        cur_ball_x = ball_x;
+                        cur_ball_y = ball_y;
+                    }
+                    xSemaphoreGive(ballMutex);
+                    // Serial.println("Ball data updated");
+                }
+                // for (auto i : uartBufferCam){
                 //     Serial.print(i);
                 //     Serial.print(" ");
                 // }
@@ -202,12 +268,14 @@ void core1Task(void *pvParameters){
 void setup(){
     Serial.begin(115200);
 
+    Seriall1.begin(115200, SERIAL_8N1, CAM_RX_PIN, CAM_TX_PIN);
     Seriall2.begin(115200, SERIAL_8N1, PICO_RX_PIN, PICO_TX_PIN);
 
     pinMode(TURN_OFF_SW, INPUT);
 
     i2cMutex = xSemaphoreCreateMutex(); 
     coordMutex = xSemaphoreCreateMutex();
+    ballMutex = xSemaphoreCreateMutex();
     Wire.begin(SDA_PIN, SCL_PIN, 100000);
     // Serial.println("finished Wire setup");
 
