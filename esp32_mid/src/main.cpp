@@ -18,8 +18,6 @@ bool turnOff = false;
 #define PICO_RX_PIN 17
 #define SERIAL_DATA_LEN 10
 
-//first git commit
-
 // HardwareSerial Seriall0(0);
 HardwareSerial Seriall1(1);
 HardwareSerial Seriall2(2);
