@@ -1,6 +1,9 @@
 #ifndef PID_H
 #define PID_H
 
+#define DECAY 0.99
+#define MAX_I 0.3
+
 #include <Arduino.h>
 class PID {
     public:
@@ -24,7 +27,9 @@ class PID {
 
                 if (_ki) { // Integral component
                     _integral += error * dt;
-                    output += _ki * _integral;
+                    _integral *= DECAY;
+                    double a = _ki * _integral;
+                    output += constrain(a, -MAX_I, MAX_I);
                 };
 
                 if (_kd) { // Derivative component

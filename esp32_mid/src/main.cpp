@@ -10,7 +10,7 @@ bool turnOff = false;
 #define SDA_PIN 8
 #define SCL_PIN 9
 #define I2C_RCV_DATA_LEN 32
-#define I2C_SEND_DATA_LEN 7
+#define I2C_SEND_DATA_LEN 9
 #define I2C_RCV_PICO_ADDR 0x08
 #define I2C_SEND_PICO_ADDR 0x09
 
@@ -29,7 +29,9 @@ byte zeroBuffer[I2C_SEND_DATA_LEN];
 SemaphoreHandle_t i2cMutex, coordMutex;
 
 PID pid_rotate(0.8, 0, 0, 5000);
-PID pid_speed(5, 0, 0, 5000);
+// PID pid_speed(5, 0, 0, 5000);
+PID pid_x(10, 0, 0, 5000);
+PID pid_y(10, 0, 0, 5000);
 
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
@@ -39,7 +41,7 @@ float target_x = FIELD_WIDTH/2, target_y = FIELD_HEIGHT/2;
 // core 0 handles main game logic and writing motor control info to rp2040
 void core0Task(void *pvParameters){
     float self_x = 0, self_y = 0, self_lidar_heading = 0, self_imu_heading = 0;
-    float speed, angle, rotation;
+    float speed_xdir, speed_ydir, speedX, speedY, angle, rotation;
     zeroBuffer[0] = 0;
     for (int i=1; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
     while(1){
@@ -56,7 +58,9 @@ void core0Task(void *pvParameters){
         }
 
         float x_dist = target_x - self_x, y_dist = target_y - self_y;
-        float distance = sqrt(x_dist * x_dist + y_dist * y_dist);
+        speed_xdir = constrain(pid_x.compute(0, x_dist), -1, 1);
+        speed_ydir = constrain(pid_y.compute(0, y_dist), -1, 1);
+        // float distance = sqrt(x_dist * x_dist + y_dist * y_dist);
 
         if(x_dist==0) {
             if(y_dist>=0) angle = 90;
@@ -77,31 +81,49 @@ void core0Task(void *pvParameters){
         if(angle<0) angle += 360;
         if(angle>=360) angle -= 360;
         rotation = constrain(pid_rotate.compute(0, RAD(self_imu_heading)), -1, 1);
-        speed = constrain(pid_speed.compute(0, distance), -1, 1);
+        // speed = constrain(pid_speed.compute(0, distance), -1, 1);
         // DEBUG(rotation);
         // DEBUG(speed); 
-        DEBUG(angle);
+        // DEBUG(angle);
 
-        angle = angle - self_imu_heading; // TO CHANGE!! FOR TESTING
+        angle = angle - self_imu_heading;
         if(angle<0) angle += 360;
         if(angle>=360) angle -= 360;
+
+        float calc_angle = 90 - angle;
+        if(calc_angle<0) calc_angle += 360;
+        if(calc_angle>=360) calc_angle -= 360;
+
+        DEBUG(speed_xdir);
+        DEBUG(speed_ydir);
+
+        speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
+        speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
+
+        DEBUG(speedX);
+        DEBUG(speedY);
         
-        uint8_t rotation_sign, speed_sign;
+        uint8_t rotation_sign, speed_x_sign, speed_y_sign;
         if(copysign(1, rotation)==1) rotation_sign = 1;
         else rotation_sign = 0;
-        if(copysign(1, speed)==1) speed_sign = 1;
-        else speed_sign = 0;
+        if(copysign(1, speedX)==1) speed_x_sign = 1;
+        else speed_x_sign = 0;
+        if(copysign(1, speedY)==1) speed_y_sign = 1;
+        else speed_y_sign = 0;
         uint8_t rounded_rotation = floor(abs(rotation) * 255);
-        uint8_t rounded_speed = floor(abs(speed) * 255);
+        uint8_t rounded_speed_x = floor(abs(speedX) * 255);
+        uint8_t rounded_speed_y = floor(abs(speedY) * 255);
         int rounded_angle = floor(angle * 128);
 
         sendBuffer[0] = 5;
-        sendBuffer[1] = speed_sign;
-        sendBuffer[2] = rounded_speed;
-        sendBuffer[3] = rotation_sign;
-        sendBuffer[4] = rounded_rotation;
-        sendBuffer[5] = (rounded_angle & 0xFF);
-        sendBuffer[6] = ((rounded_angle >> 8) & 0xFF);
+        sendBuffer[1] = speed_x_sign;
+        sendBuffer[2] = rounded_speed_x;
+        sendBuffer[3] = speed_y_sign;
+        sendBuffer[4] = rounded_speed_y;
+        sendBuffer[5] = rotation_sign;
+        sendBuffer[6] = rounded_rotation;
+        sendBuffer[7] = (rounded_angle & 0xFF);
+        sendBuffer[8] = ((rounded_angle >> 8) & 0xFF);
 
         if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){
             Wire.beginTransmission(I2C_SEND_PICO_ADDR);

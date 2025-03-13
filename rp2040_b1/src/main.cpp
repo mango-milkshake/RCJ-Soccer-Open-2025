@@ -7,7 +7,7 @@
 
 #define SDA_PIN 4
 #define SCL_PIN 5
-#define DATA_LEN 7
+#define DATA_LEN 9
 #define ADDR 0x09
 byte buffer[DATA_LEN+1];
 
@@ -29,7 +29,7 @@ uint8_t IN1_pin[NUM_DRIVERS] = {6, 8, 11, 13};
 uint8_t IN2_pin[NUM_DRIVERS] = {7, 9, 10, 12};
 uint8_t IPROPI_pin[NUM_DRIVERS] = {26, 27, 28, 29}; // make sure pins can read analog
 
-uint8_t maxspeed = 80;
+uint8_t maxspeed = 100;
 
 Motor motorFL(IN1_pin[0], IN2_pin[0], maxspeed, 1.0);
 Motor motorFR(IN1_pin[3], IN2_pin[3], maxspeed, 1.0);
@@ -37,7 +37,7 @@ Motor motorBL(IN1_pin[1], IN2_pin[1], maxspeed, 1.0);
 Motor motorBR(IN1_pin[2], IN2_pin[2], maxspeed, 1.0);
 
 Drive bot(motorFR, motorBR, motorBL, motorFL);
-float speed = 1.0, moveAngle = 0.0, rotation = 0.0;
+float speedX = 1.0, speedY = 1.0, moveAngle = 0.0, rotation = 0.0;
 
 void receive(int num_bytes){
     if(num_bytes != DATA_LEN){
@@ -61,14 +61,19 @@ void receive(int num_bytes){
         return;
     }
     Serial.println("Received motor data");
-    bool speedsign = buffer[1]==1 ? true : false;
-    bool rotationsign = buffer[3]==1 ? true : false;
-    speed = (float)(buffer[2]) / 255;
-    if(!speedsign) speed *= -1;
-    rotation = (float)(buffer[4]) / 255;
+    bool speed_x_sign = buffer[1]==1 ? true : false;
+    bool speed_y_sign = buffer[3]==1 ? true : false;
+    bool rotationsign = buffer[5]==1 ? true : false;
+    speedX = (float)(buffer[2]) / 255;
+    if(!speedX) speedX *= -1;
+    speedY = (float)(buffer[4]) / 255;
+    if(!speedY) speedY *= -1;
+    rotation = (float)(buffer[6]) / 255;
     if(!rotationsign) rotation *= -1;
-    moveAngle = (float)(buffer[5] + (buffer[6]<<8)) / 128;
-    bot.setDrive(speed, moveAngle, rotation);
+    moveAngle = (float)(buffer[7] + (buffer[8]<<8)) / 128;
+    bot.setDrive(speedX, speedY, rotation);
+
+    // bot.setDrive(speed, moveAngle, rotation);
     // for (auto i : buffer){
     //     Serial.print(i);
     //     Serial.print(" ");
