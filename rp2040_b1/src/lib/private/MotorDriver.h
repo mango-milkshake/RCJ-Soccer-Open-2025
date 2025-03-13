@@ -84,6 +84,10 @@ class MotorDriver {
             digitalWrite(_drvoff, LOW);
         }
 
+        void readRegister(uint8_t addr){
+            spiComms(addr, 0b00000000);
+        }
+
     private:
         const uint8_t _mosi, _miso, _sck, _cs, _nsleep, _drvoff;
 };

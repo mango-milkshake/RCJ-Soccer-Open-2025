@@ -5,10 +5,13 @@
 
 class Motor {
     public:
-        Motor(uint8_t pin1, uint8_t pin2, uint8_t maxspeed, float multiplier) :
-            _pin1(pin1), _pin2(pin2), _maxspeed(maxspeed), _multiplier(multiplier) {
+        const uint8_t nfault;
+
+        Motor(uint8_t pin1, uint8_t pin2, uint8_t nfault_pin, uint8_t maxspeed, float multiplier) :
+            _pin1(pin1), _pin2(pin2), nfault(nfault_pin), _maxspeed(maxspeed), _multiplier(multiplier) {
             pinMode(_pin1, OUTPUT);
             pinMode(_pin2, OUTPUT);
+            pinMode(nfault, INPUT);
             // pin1 = clockwise, pin2 = anticlockwise
         }
 

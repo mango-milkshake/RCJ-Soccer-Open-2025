@@ -57,9 +57,9 @@ class Drive {
         };
 
         void setDrive(float speedX, float speedY, float rotationRate) {
-            DEBUG(speedX);
-            DEBUG(speedY);
-            DEBUG(rotationRate);
+            // DEBUG(speedX);
+            // DEBUG(speedY);
+            // DEBUG(rotationRate);
 
             float speedFL, speedFR, speedBL, speedBR; 
             speedFR = 0.6 * speedX + 0.4 * rotationRate;
@@ -68,7 +68,7 @@ class Drive {
             speedBL = 0.6 * (-speedX) + 0.4 * rotationRate;
 
             float maxSpeed = max(max(abs(speedFR), abs(speedFL)), max(abs(speedBR), abs(speedBL)));
-            DEBUG(maxSpeed);
+            // DEBUG(maxSpeed);
             if (maxSpeed > 1) {
                 float k = 1 / maxSpeed;
                 speedFR *= k;
@@ -82,14 +82,14 @@ class Drive {
             _motorBL.setSpeed(speedBL);
             _motorBR.setSpeed(speedBR);
 
-            Serial.print(speedFR);
-            Serial.print("\t");
-            Serial.print(speedFL);
-            Serial.print("\t");
-            Serial.print(speedBL);
-            Serial.print("\t");
-            Serial.print(speedBR);
-            Serial.println(" // FR FL BL BR");
+            // Serial.print(speedFR);
+            // Serial.print("\t");
+            // Serial.print(speedFL);
+            // Serial.print("\t");
+            // Serial.print(speedBL);
+            // Serial.print("\t");
+            // Serial.print(speedBR);
+            // Serial.println(" // FR FL BL BR");
         };
 
     private:

@@ -27,17 +27,34 @@ MotorDriver motor_driver(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF
 
 uint8_t IN1_pin[NUM_DRIVERS] = {6, 8, 11, 13};
 uint8_t IN2_pin[NUM_DRIVERS] = {7, 9, 10, 12};
-uint8_t IPROPI_pin[NUM_DRIVERS] = {26, 27, 28, 29}; // make sure pins can read analog
+uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29}; // make sure pins can read analog
 
 uint8_t maxspeed = 100;
 
-Motor motorFL(IN1_pin[0], IN2_pin[0], maxspeed, 1.0);
-Motor motorFR(IN1_pin[3], IN2_pin[3], maxspeed, 1.0);
-Motor motorBL(IN1_pin[1], IN2_pin[1], maxspeed, 1.0);
-Motor motorBR(IN1_pin[2], IN2_pin[2], maxspeed, 1.0);
+Motor motorFL(IN1_pin[0], IN2_pin[0], NFAULT_pin[0], maxspeed, 1.0);
+Motor motorFR(IN1_pin[3], IN2_pin[3], NFAULT_pin[3], maxspeed, 1.0);
+Motor motorBL(IN1_pin[1], IN2_pin[1], NFAULT_pin[1], maxspeed, 1.0);
+Motor motorBR(IN1_pin[2], IN2_pin[2], NFAULT_pin[2], maxspeed, 1.0);
+float lastFault = 0;
 
 Drive bot(motorFR, motorBR, motorBL, motorFL);
 float speedX = 1.0, speedY = 1.0, speed_xdir = 1.0, speed_ydir = 1.0, moveAngle = 0.0, rotation = 0.0;
+
+void checkFault(){
+    bool faulted = false;
+    if(digitalRead(motorFL.nfault)==LOW) faulted = true;
+    if(digitalRead(motorFR.nfault)==LOW) faulted = true;
+    if(digitalRead(motorBL.nfault)==LOW) faulted = true;
+    if(digitalRead(motorBR.nfault)==LOW) faulted = true;
+    if(faulted){
+        Serial.println("faulted");
+        float curTime = millis();
+        if(curTime - lastFault >= 500){
+            motor_driver.readRegister(0b01000001);
+            lastFault = millis();
+        }
+    } 
+}
 
 void receive(int num_bytes){
     if(num_bytes != DATA_LEN){
@@ -72,8 +89,8 @@ void receive(int num_bytes){
     if(!rotationsign) rotation *= -1;
     moveAngle = (float)(buffer[7] + (buffer[8]<<8)) / 128;
 
-    DEBUG(speed_xdir);
-    DEBUG(speed_ydir);
+    // DEBUG(speed_xdir);
+    // DEBUG(speed_ydir);
 
     speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
     speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
@@ -113,6 +130,7 @@ void loop(){
     // Serial.println("running");
     strip.setPixelColor(0, strip.Color(0, 0, 15));
     strip.show();
+    checkFault();
     Wire.onReceive(receive);
     // Serial.print(moveAngle);
     // bot.setDrive(speed, moveAngle, rotation);
