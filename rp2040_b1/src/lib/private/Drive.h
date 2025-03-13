@@ -62,10 +62,10 @@ class Drive {
             DEBUG(rotationRate);
 
             float speedFL, speedFR, speedBL, speedBR; 
-            speedFR = 0.6 * speedX - 0.4 * rotationRate;
-            speedBR = 0.6 * speedY - 0.4 * rotationRate;
-            speedFL = 0.6 * (-speedY) - 0.4 * rotationRate;
-            speedBL = 0.6 * (-speedX) - 0.4 * rotationRate;
+            speedFR = 0.6 * speedX + 0.4 * rotationRate;
+            speedBR = 0.6 * speedY + 0.4 * rotationRate;
+            speedFL = 0.6 * (-speedY) + 0.4 * rotationRate;
+            speedBL = 0.6 * (-speedX) + 0.4 * rotationRate;
 
             float maxSpeed = max(max(abs(speedFR), abs(speedFL)), max(abs(speedBR), abs(speedBL)));
             DEBUG(maxSpeed);

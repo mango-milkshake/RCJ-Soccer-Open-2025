@@ -17,7 +17,7 @@ class PID {
                 double dt = (now - lastTime) / 1000;
                 lastTime  = now;
 
-                double error = goal - actual; // Floats are not precise enough
+                double error = actual - goal; // Floats are not precise enough
 
                 float output = 0;
 

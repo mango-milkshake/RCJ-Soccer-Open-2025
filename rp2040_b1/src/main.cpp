@@ -37,7 +37,7 @@ Motor motorBL(IN1_pin[1], IN2_pin[1], maxspeed, 1.0);
 Motor motorBR(IN1_pin[2], IN2_pin[2], maxspeed, 1.0);
 
 Drive bot(motorFR, motorBR, motorBL, motorFL);
-float speedX = 1.0, speedY = 1.0, moveAngle = 0.0, rotation = 0.0;
+float speedX = 1.0, speedY = 1.0, speed_xdir = 1.0, speed_ydir = 1.0, moveAngle = 0.0, rotation = 0.0;
 
 void receive(int num_bytes){
     if(num_bytes != DATA_LEN){
@@ -64,13 +64,19 @@ void receive(int num_bytes){
     bool speed_x_sign = buffer[1]==1 ? true : false;
     bool speed_y_sign = buffer[3]==1 ? true : false;
     bool rotationsign = buffer[5]==1 ? true : false;
-    speedX = (float)(buffer[2]) / 255;
-    if(!speedX) speedX *= -1;
-    speedY = (float)(buffer[4]) / 255;
-    if(!speedY) speedY *= -1;
+    speed_xdir = (float)(buffer[2]) / 255;
+    if(!speed_x_sign) speed_xdir *= -1;
+    speed_ydir = (float)(buffer[4]) / 255;
+    if(!speed_y_sign) speed_ydir *= -1;
     rotation = (float)(buffer[6]) / 255;
     if(!rotationsign) rotation *= -1;
     moveAngle = (float)(buffer[7] + (buffer[8]<<8)) / 128;
+
+    DEBUG(speed_xdir);
+    DEBUG(speed_ydir);
+
+    speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
+    speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
     bot.setDrive(speedX, speedY, rotation);
 
     // bot.setDrive(speed, moveAngle, rotation);

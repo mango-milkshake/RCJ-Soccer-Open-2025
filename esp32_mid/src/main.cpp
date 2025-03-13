@@ -3,7 +3,7 @@
 #include <PID.h>
 #include <CommonUtils.h>
 
-#define DEBUG(x) Serial.print(#x); Serial.print(": "); Serial.println(x);
+#define DEBUG(x) Serial.println(String(#x) + String(": ") + String(x) + String('\r')); 
 #define TURN_OFF_SW 40
 bool turnOff = false;
 
@@ -18,7 +18,7 @@ bool turnOff = false;
 #define PICO_RX_PIN 17
 #define SERIAL_DATA_LEN 10
 
-HardwareSerial Seriall0(0);
+// HardwareSerial Seriall0(0);
 HardwareSerial Seriall1(1);
 HardwareSerial Seriall2(2);
 
@@ -30,18 +30,20 @@ SemaphoreHandle_t i2cMutex, coordMutex;
 
 PID pid_rotate(0.8, 0, 0, 5000);
 // PID pid_speed(5, 0, 0, 5000);
-PID pid_x(10, 0, 0, 5000);
-PID pid_y(10, 0, 0, 5000);
+PID pid_x(5, 0, 0, 5000);
+PID pid_y(5, 0, 0, 5000);
 
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
 float cur_x, cur_y, cur_lidar_heading, cur_imu_heading;
 float target_x = FIELD_WIDTH/2, target_y = FIELD_HEIGHT/2;
 
+// only core 0
+float self_x = 0, self_y = 0, self_lidar_heading = 0, self_imu_heading = 0;
+float speed_xdir, speed_ydir, angle, rotation;
+
 // core 0 handles main game logic and writing motor control info to rp2040
 void core0Task(void *pvParameters){
-    float self_x = 0, self_y = 0, self_lidar_heading = 0, self_imu_heading = 0;
-    float speed_xdir, speed_ydir, speedX, speedY, angle, rotation;
     zeroBuffer[0] = 0;
     for (int i=1; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
     while(1){
@@ -94,25 +96,22 @@ void core0Task(void *pvParameters){
         if(calc_angle<0) calc_angle += 360;
         if(calc_angle>=360) calc_angle -= 360;
 
-        DEBUG(speed_xdir);
-        DEBUG(speed_ydir);
+        // DEBUG(speed_xdir);
+        // DEBUG(speed_ydir);
 
-        speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
-        speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
-
-        DEBUG(speedX);
-        DEBUG(speedY);
+        // DEBUG(speedX);
+        // DEBUG(speedY);
         
         uint8_t rotation_sign, speed_x_sign, speed_y_sign;
         if(copysign(1, rotation)==1) rotation_sign = 1;
         else rotation_sign = 0;
-        if(copysign(1, speedX)==1) speed_x_sign = 1;
+        if(copysign(1, speed_xdir)==1) speed_x_sign = 1;
         else speed_x_sign = 0;
-        if(copysign(1, speedY)==1) speed_y_sign = 1;
+        if(copysign(1, speed_ydir)==1) speed_y_sign = 1;
         else speed_y_sign = 0;
         uint8_t rounded_rotation = floor(abs(rotation) * 255);
-        uint8_t rounded_speed_x = floor(abs(speedX) * 255);
-        uint8_t rounded_speed_y = floor(abs(speedY) * 255);
+        uint8_t rounded_speed_x = floor(abs(speed_xdir) * 255);
+        uint8_t rounded_speed_y = floor(abs(speed_ydir) * 255);
         int rounded_angle = floor(angle * 128);
 
         sendBuffer[0] = 5;
