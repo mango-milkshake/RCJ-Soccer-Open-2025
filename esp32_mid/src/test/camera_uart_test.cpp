@@ -17,13 +17,13 @@ void setup(){
 }
 
 void loop(){
-    if(Serial1.available()>=9){
+    if(Serial1.available()>=5){
         while(Serial1.peek()!=1) {
             Serial.println("first byte not 1");
             Serial1.read();
         }
-        int len = Serial1.readBytes(buffer, 9);
-        if(len!=9 || buffer[0]!=1){
+        int len = Serial1.readBytes(buffer, 5);
+        if(len!=5 || buffer[0]!=1){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
             Serial.print(", data: ");
@@ -35,15 +35,15 @@ void loop(){
         else{
             float ball_angle = (float)(buffer[1] + (buffer[2]<<8)) / 128;
             float ball_dist = (float)(buffer[3] + (buffer[4]<<8)) / 128;
-            float goal_angle = (float)buffer[5] + (buffer[6]<<8) / 128;
-            float goal_dist = (float)buffer[7] + (buffer[8]<<8) / 128;
+            // float goal_angle = (float)buffer[5] + (buffer[6]<<8) / 128;
+            // float goal_dist = (float)buffer[7] + (buffer[8]<<8) / 128;
             Serial.print(ball_angle, 3);
             Serial.print("\t");
             Serial.print(ball_dist, 3);
-            Serial.print("\t");
-            Serial.print(goal_angle, 3);
-            Serial.print("\t");
-            Serial.print(goal_dist, 3);
+            // Serial.print("\t");
+            // Serial.print(goal_angle, 3);
+            // Serial.print("\t");
+            // Serial.print(goal_dist, 3);
         }
         Serial.println();
     }
