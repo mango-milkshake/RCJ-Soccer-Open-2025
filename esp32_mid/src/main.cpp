@@ -3,11 +3,6 @@
 #include <PID.h>
 #include <CommonUtils.h>
 
-
-
-
-
-
 #define DEBUG(x) Serial.println(String(#x) + String(": ") + String(x) + String('\r')); 
 #define TURN_OFF_SW 40
 bool turnOff = false;
