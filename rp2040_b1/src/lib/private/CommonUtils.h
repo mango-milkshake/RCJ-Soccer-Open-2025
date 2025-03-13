@@ -13,4 +13,6 @@
 #define DELTA_ANGLE(a, b) (abs(fmod((a - b + 180), 360)) - 180)
 #define ANGLE_360_TO_180(angle) (angle > 180 ? angle - 360 : angle)
 
+#define DEBUG(x) Serial.print(#x); Serial.print(": "); Serial.println(x);
+
 #endif
