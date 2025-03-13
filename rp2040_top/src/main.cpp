@@ -107,31 +107,31 @@ void loop(){
     pico_led.setPixelColor(0, pico_led.Color(15, 0, 0));
     pico_led.show();
 
-    Serial.print("Lidar coordinates: {");
+    // Serial.print("Lidar coordinates: {");
 
     for (int i=0; i<NUM_LIDARS; i++){
         // distRaw[i] = lidar[i].readRaw();
         coords[i] = lidar[i].readCoords();
         if(lidar[i].buffer.dis<=0.10) strip.setPixelColor(i, strip.Color(15, 0, 0));
 
-        Serial.print("{");
-        Serial.print(coords[i].x);
-        Serial.print(", ");
-        Serial.print(coords[i].y);
-        Serial.print("}, ");
+        // Serial.print("{");
+        // Serial.print(coords[i].x);
+        // Serial.print(", ");
+        // Serial.print(coords[i].y);
+        // Serial.print("}, ");
     }
     strip.show();
-    Serial.println("}");
+    // Serial.println("}");
 
     int hullSize = convexHull(coords, NUM_POINTS, hull);
     MinAreaRect rect = findMinAreaRect(hull, hullSize);
 
-    Serial.print("Corners (might have been swapped): "); // BL BR TL TR
-    printPoint(rect.bottom_left);
-    printPoint(rect.bottom_right);
-    printPoint(rect.top_left);
-    printPoint(rect.top_right);
-    Serial.println();
+    // Serial.print("Corners (might have been swapped): "); // BL BR TL TR
+    // printPoint(rect.bottom_left);
+    // printPoint(rect.bottom_right);
+    // printPoint(rect.top_left);
+    // printPoint(rect.top_right);
+    // Serial.println();
 
     Serial.print("dimensions");
     Serial.print(rect.width);
@@ -150,12 +150,12 @@ void loop(){
     }
     else rotate_rect_angle = atanf(rect.vector_width.y / rect.vector_width.x); // in radians
     Point unscaled_coords = rotatePoint(rect.bottom_left, rotate_rect_angle);
-    Serial.print("unscaled raw coords: ");
-    printPoint(unscaled_coords);
-    Serial.println();
+    // Serial.print("unscaled raw coords: ");
+    // printPoint(unscaled_coords);
+    // Serial.println();
 
     if(unscaled_coords.x < 0 && unscaled_coords.y < 0) {
-        Serial.println("both coord negatives - flip");
+        // Serial.println("both coord negatives - flip");
         flip = true;
         unscaled_coords.x = -unscaled_coords.x;
         unscaled_coords.y = -unscaled_coords.y;
@@ -163,17 +163,17 @@ void loop(){
     else if(unscaled_coords.x >=0 && unscaled_coords.y >=0) flip = false;
     else Serial.println("weird coords obtained");
     Point cur_coords = scaleCoord(rect, unscaled_coords);
-    Serial.print("rotate rect angle: ");
-    Serial.println(DEG(rotate_rect_angle));
+    // Serial.print("rotate rect angle: ");
+    // Serial.println(DEG(rotate_rect_angle));
 
     // float new_heading = DEG(rotate_rect_angle);
     float heading = DEG(rotate_rect_angle) + (flip ? 180 : 0);
     if(heading < 0) heading += 360;
     if(heading >= 360) heading -= 360;
 
-    Serial.print("new method heading: ");
-    Serial.print(heading);
-    Serial.println();
+    // Serial.print("new method heading: ");
+    // Serial.print(heading);
+    // Serial.println();
 
     // if(rect.flip){
     //     // for testing - flip back to do old heading method
@@ -211,7 +211,7 @@ void loop(){
     int rounded_imu_angle = floor(abs(imu_angle) * 128);
 
     float other_heading = heading + (heading<180 ? 180 : -180);
-    float diff1 = abs(prev_heading - heading), diff2 = abs(prev_heading - other_heading);
+    float diff1 = abs(imu_angle - heading), diff2 = abs(imu_angle - other_heading);
     if(diff1>180) diff1 = 360 - diff1;
     if(diff2>180) diff2 = 360 - diff2;
     float final_heading = heading;
