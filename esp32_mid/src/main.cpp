@@ -41,7 +41,7 @@ PID pid_y(5, 0, 0, 5000);
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
 float cur_x, cur_y, cur_lidar_heading, cur_imu_heading;
-float cur_ball_x, cur_ball_y;
+float cur_ball_x = 0, cur_ball_y = 0;
 
 // core 0 handles main game logic and writing motor control info to rp2040
 void core0Task(void *pvParameters){
@@ -162,9 +162,12 @@ void core1Task(void *pvParameters){
     while(1){
         // Serial.print("Core1");
         if(Seriall2.available()>=PICO_SERIAL_DATA_LEN){
+            int counter = 0;
             while(Seriall2.peek()!=1) {
                 Serial.println("Pico first byte not 1");
                 Seriall2.read();
+                counter++;
+                if(counter>=PICO_SERIAL_DATA_LEN) break;
             }
             int len = Seriall2.readBytes(uartBufferPico, PICO_SERIAL_DATA_LEN);
             if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=1){
@@ -216,9 +219,12 @@ void core1Task(void *pvParameters){
         // }
 
         if(Seriall1.available()>=CAM_SERIAL_DATA_LEN){
+            int counter = 0;
             while(Seriall1.peek()!=1) {
                 Serial.println("Camera first byte not 1");
                 Seriall1.read();
+                counter++;
+                if(counter>=CAM_SERIAL_DATA_LEN) break;
             }
             int len = Seriall1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
             if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
