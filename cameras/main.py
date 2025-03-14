@@ -68,6 +68,7 @@ while True:
     img.draw_cross(centre_x, centre_y)
 
     if len(ball)>0:
+        no_ball = False
         # print("ball")
         b = max(ball, key = lambda b:b.pixels())
         img.draw_rectangle(b.rect())
