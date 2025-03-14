@@ -2,8 +2,9 @@
 
 #define TX_PIN 10
 #define RX_PIN 11
+#define DATA_LEN 5
 
-byte buffer[9];
+byte buffer[DATA_LEN];
 
 void setup(){
     Serial.begin(115200);
@@ -17,13 +18,13 @@ void setup(){
 }
 
 void loop(){
-    if(Serial1.available()>=5){
+    if(Serial1.available()>=DATA_LEN){
         while(Serial1.peek()!=1) {
             Serial.println("first byte not 1");
             Serial1.read();
         }
-        int len = Serial1.readBytes(buffer, 5);
-        if(len!=5 || buffer[0]!=1){
+        int len = Serial1.readBytes(buffer, DATA_LEN);
+        if(len!=DATA_LEN || buffer[0]!=1){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
             Serial.print(", data: ");

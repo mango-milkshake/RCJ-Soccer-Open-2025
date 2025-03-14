@@ -22,8 +22,8 @@ led2 = pyb.LED(2)
 led2.on()
 #led3.on()
 
-centre_x = 168
-centre_y = 113
+centre_x = 163
+centre_y = 115
 
 # thresh_ball = (35, 77, 7, 50, 25, 65) # old
 thresh_ball = (55, 100, -2, 37, 18, 62)

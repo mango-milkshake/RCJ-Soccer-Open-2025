@@ -2,6 +2,12 @@
 #include <Wire.h>
 #include <PID.h>
 #include <CommonUtils.h>
+#include <Adafruit_NeoPixel.h>
+
+#define LED_PIN 18
+#define LED_COUNT 10
+#define LED_BRIGHTNESS 50
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 #define DEBUG(x) Serial.println(String(#x) + String(": ") + String(x) + String('\r')); 
 #define TURN_OFF_SW 40
@@ -61,18 +67,22 @@ void core0Task(void *pvParameters){
             self_imu_heading = cur_imu_heading;
             xSemaphoreGive(coordMutex);
             // Serial.println("Updated coordinates");
+            // DEBUG(self_x);
+            // DEBUG(self_y);
         }
 
         if(xSemaphoreTake(ballMutex, 0)){
             if(cur_ball_x==0 && cur_ball_y==0){
-                target_x = FIELD_WIDTH / 2;
-                target_y = FIELD_HEIGHT / 2;
+                target_x = 0.80;
+                target_y = 0.91;
             }
             else{
-                target_x = cur_ball_x;
-                target_y = cur_ball_y - 8.5;
+                target_x = self_x + cur_ball_x;
+                target_y = self_y + cur_ball_y - 8.5;
             }
             xSemaphoreGive(ballMutex);
+            // DEBUG(target_x);
+            // DEBUG(target_y);
         }
 
         float x_dist = target_x - self_x, y_dist = target_y - self_y;
@@ -159,15 +169,84 @@ void core1Task(void *pvParameters){
     float coord_x = 0, coord_y = 0, lidar_heading = 0, imu_heading = 0;
     float ball_angle = 0, ball_dist = 0, ball_x = 0, ball_y = 0;
     bool no_ball = false;
+    int loopcount = 0;
     while(1){
         // Serial.print("Core1");
+        // Serial.println(loopcount);
+        // loopcount++;
+        if(Seriall1.available()>=CAM_SERIAL_DATA_LEN){
+            int counter = 0;
+            while(Seriall1.peek()!=1) {
+                // Serial.println("Cam first byte not 1");
+                Seriall1.read();
+                counter++;
+                // Serial.println(counter);
+                // if(counter>=10) break;
+            }
+            int len = Seriall1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
+            // while(Seriall1.available()) Seriall1.read();
+            if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
+                Serial.print("Received bad data: length: ");
+                Serial.print(len);
+                Serial.print(", data: ");
+                for (auto i : uartBufferCam) {
+                    Serial.print(i);
+                    Serial.print(" ");
+                }
+            }
+            else{
+                ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
+                ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
+                if(ball_angle==0 && ball_dist==0) no_ball = true;
+                else no_ball = false;
+                DEBUG(ball_angle);
+                DEBUG(ball_dist);
+
+                float relative_angle = 90 - (ball_angle + imu_heading);
+                ball_x = (ball_dist * cosf(relative_angle)) / 100;
+                ball_y = (ball_dist * sinf(relative_angle)) / 100;
+
+                if(no_ball){
+                    strip.setPixelColor(0, strip.Color(0, 0, 15));
+                    strip.show();
+                }
+                else{
+                    strip.setPixelColor(0, strip.Color(0, 15, 0));
+                    strip.show();
+                }
+
+                if(xSemaphoreTake(ballMutex, portMAX_DELAY)){
+                    if(no_ball){
+                        cur_ball_x = 0;
+                        cur_ball_y = 0;
+                    }
+                    else{
+                        cur_ball_x = ball_x;
+                        cur_ball_y = ball_y;
+                    }
+                    xSemaphoreGive(ballMutex);
+                    // DEBUG(ball_x);
+                    // DEBUG(ball_y);
+                    // Serial.println("Ball data updated");
+                }
+                // for (auto i : uartBufferCam){
+                //     Serial.print(i);
+                //     Serial.print(" ");
+                // }
+            }
+            // Serial.println();
+        }
+        // else{
+        //     Serial.println("No data received");
+        // }
+        
         if(Seriall2.available()>=PICO_SERIAL_DATA_LEN){
             int counter = 0;
             while(Seriall2.peek()!=1) {
                 Serial.println("Pico first byte not 1");
                 Seriall2.read();
                 counter++;
-                if(counter>=PICO_SERIAL_DATA_LEN) break;
+                // if(counter>=PICO_SERIAL_DATA_LEN) break;
             }
             int len = Seriall2.readBytes(uartBufferPico, PICO_SERIAL_DATA_LEN);
             if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=1){
@@ -217,56 +296,6 @@ void core1Task(void *pvParameters){
         // else{
         //     Serial.println("No data received");
         // }
-
-        if(Seriall1.available()>=CAM_SERIAL_DATA_LEN){
-            int counter = 0;
-            while(Seriall1.peek()!=1) {
-                Serial.println("Camera first byte not 1");
-                Seriall1.read();
-                counter++;
-                if(counter>=CAM_SERIAL_DATA_LEN) break;
-            }
-            int len = Seriall1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
-            if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
-                Serial.print("Received bad data from camera: length: ");
-                Serial.print(len);
-                Serial.print(", data: ");
-                for (auto i : uartBufferCam) {
-                    Serial.print(i);
-                    Serial.print(" ");
-                }
-            }
-            else{
-                ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
-                ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
-                if(ball_angle==0 && ball_dist==0) no_ball = true;
-                else no_ball = false;
-                float relative_angle = 90 - (ball_angle + imu_heading);
-                ball_x = ball_dist * cosf(relative_angle);
-                ball_y = ball_dist * sinf(relative_angle);
-
-                if(xSemaphoreTake(ballMutex, portMAX_DELAY)){
-                    if(no_ball){
-                        cur_ball_x = 0;
-                        cur_ball_y = 0;
-                    }
-                    else{
-                        cur_ball_x = ball_x;
-                        cur_ball_y = ball_y;
-                    }
-                    xSemaphoreGive(ballMutex);
-                    // Serial.println("Ball data updated");
-                }
-                // for (auto i : uartBufferCam){
-                //     Serial.print(i);
-                //     Serial.print(" ");
-                // }
-            }
-            // Serial.println();
-        }
-        // else{
-        //     Serial.println("No data received");
-        // }
     }
 }
 
@@ -288,6 +317,10 @@ void setup(){
     // while(!Serial.available()) ;
     // while(Serial.available()) Serial.read();
     // Serial.println("started");
+
+    strip.begin();
+    strip.setBrightness(LED_BRIGHTNESS);
+    strip.show();
 
     xTaskCreatePinnedToCore(core0Task, "Read Data", 16384, NULL, 1, NULL, 0);
     xTaskCreatePinnedToCore(core1Task, "Send Data", 16384, NULL, 1, NULL, 1);
