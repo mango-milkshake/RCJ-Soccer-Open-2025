@@ -1,4 +1,3 @@
-#black bot
 import sensor, time, math, pyb
 from pyb import UART
 
@@ -6,10 +5,6 @@ sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QVGA)
 
-centre_x = 173
-centre_y = 109
-
-# sensor.set_windowing((centre_x-120, 0, 240, 240))
 sensor.set_gainceiling(128)
 sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
@@ -30,24 +25,19 @@ led2.on()
 centre_x = 168
 centre_y = 113
 
-# thresh_ball = (35, 77, 7, 50, 25, 65) # good one
+# thresh_ball = (35, 77, 7, 50, 25, 65) # old
 thresh_ball = (55, 100, -2, 37, 18, 62)
-thresh_yellow_goal = (45, 100, -25, 15, 24, 72)
-thresh_blue_goal = (46, 58, -27, -7, -34, -17)
+thresh_yellow_goal = (45, 100, -25, 15, 24, 72) # old
+thresh_blue_goal = (46, 58, -27, -7, -34, -17) # old
 
-# fitting dist
-# dists = [0, 44, 72, 87, 98.5, 104, 107, 110.005]
-# Y = 0.0032779180010127974 * e^(0.08938137527794597 * x) + 0.4046707205307676 * x + -0.90086019612582
-m, t, c, d = 0.0032779180010127974, 0.08938137527794597, 0.4046707205307676, -0.90086019612582
-
-uart = UART(3, 230400)
-uart.init(230400, bits=8, parity=None, stop=1, timeout_char=1000)
+uart = UART(3, 115200)
+uart.init(115200, bits=8, parity=None, stop=1, timeout_char=1000)
 count = 0
 
 # find use goal
-img = sensor.snapshot()
-yellow_goal = img.find_blobs([thresh_yellow_goal], pixel_threshold=100, area_threshold=0, merge=True, margin=5)
-blue_goal = img.find_blobs([thresh_blue_goal], pixel_threshold=100, area_threshold=0, merge=True, margin=5)
+#img = sensor.snapshot()
+#yellow_goal = img.find_blobs([thresh_yellow_goal], pixel_threshold=100, area_threshold=0, merge=True, margin=5)
+#blue_goal = img.find_blobs([thresh_blue_goal], pixel_threshold=100, area_threshold=0, merge=True, margin=5)
 # while(len(yellow_goal)<1 or len(blue_goal)<1):
 #     img = sensor.snapshot()
 #     yellow_goal = img.find_blobs([thresh_yellow_goal], pixel_threshold=100, area_threshold=0, merge=True, margin=5)
@@ -59,7 +49,7 @@ blue_goal = img.find_blobs([thresh_blue_goal], pixel_threshold=100, area_thresho
 # else:
 #     use_goal = "yellow"
 
-use_goal = "yellow"
+use_goal = "blue"
 no_ball = False
 no_goal = True
 
@@ -75,8 +65,6 @@ while True:
     #     yellow_goal = img.find_blobs([thresh_yellow_goal], pixel_threshold=100, area_threshold=0, merge=True, margin=20)
     # else:
     #     blue_goal = img.find_blobs([thresh_blue_goal], pixel_threshold=100, area_threshold=0, merge=True, margin=20)
-    # img.draw_cross(centre_x, centre_y)
-    print(sensor.get_exposure_us())
     img.draw_cross(centre_x, centre_y)
 
     if len(ball)>0:
@@ -138,53 +126,6 @@ while True:
     #     dist_ygoal_uart = round(ygoal_dist * 128)
     # else:
     #     no_goal = True
-
-#    if(len(yellow_goal)<1):
-#        # print("yellow undetected")
-#        if(use_goal =="blue"):
-#            bot_y = 4.6 + bgoal_dist
-#        else:
-#            bot_y = 4.6 + 233.8 - bgoal_dist
-
-#    elif(len(blue_goal)<1):
-#        # print("blue undetected")
-#        if(use_goal == "yellow"):
-#            bot_y = 4.6 + ygoal_dist
-#        else:
-#            bot_y = 4.6 + 233.8 - ygoal_dist
-
-#    else:
-#        if(bg.cx() == yg.cx()):
-#            proj_x = bg.cx()
-#            proj_y = centre_y
-#        else:
-#            grad = (yg.cy()-bg.cy()) / (yg.cx()-bg.cx())
-#            if(grad==0):
-#                proj_x = centre_x
-#                proj_y = bg.cy()
-#            else:
-#                perp_grad = -1/grad
-#                proj_x = (grad*bg.cx() - perp_grad*centre_x + centre_y - bg.cy()) / (grad-perp_grad)
-#                proj_y = grad*(proj_x-bg.cx()) + bg.cy()
-
-#        img.draw_cross(round(proj_x), round(proj_y))
-
-#        y_pixels = ((yg.cx()-centre_x) ** 2 + (yg.cy()-centre_y) ** 2) ** 0.5
-#        b_pixels = ((bg.cx()-centre_x) ** 2 + (bg.cy()-centre_y) ** 2) ** 0.5
-#        dist_to_y = m * math.exp(t*y_pixels) + c*y_pixels + d
-#        dist_to_b = m * math.exp(t*b_pixels) + c*b_pixels + d
-#        total_y_dist = dist_to_y + dist_to_b
-
-#        if(use_goal=="blue"): # blue below in img
-#            bot_y = 4.6 + (dist_to_b / total_y_dist) * 233.8
-#        else:
-#            bot_y = 4.6 + (dist_to_y / total_y_dist) * 233.8
-
-#    print("bot", bot_y)
-#    uart.writechar(1)
-#    uart.writechar(round(bot_y) & 0xFF)
-#    uart.writechar((round(bot_y) >> 8) & 0xFF)
-#    uart.sendbreak()
 
     uart.writechar(1)
     if(no_ball==False):
