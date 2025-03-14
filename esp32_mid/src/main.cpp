@@ -73,12 +73,12 @@ void core0Task(void *pvParameters){
 
         if(xSemaphoreTake(ballMutex, 0)){
             if(cur_ball_x==0 && cur_ball_y==0){
-                target_x = 0.80;
-                target_y = 0.91;
+                target_x = 1.82/2;
+                target_y = 2.43/2;
             }
             else{
                 target_x = self_x + cur_ball_x;
-                target_y = self_y + cur_ball_y - 0.085;
+                target_y = self_y + cur_ball_y - 0.255;
             }
             xSemaphoreGive(ballMutex);
             // DEBUG(target_x);
