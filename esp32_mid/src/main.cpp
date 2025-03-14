@@ -78,7 +78,7 @@ void core0Task(void *pvParameters){
             }
             else{
                 target_x = self_x + cur_ball_x;
-                target_y = self_y + cur_ball_y - 8.5;
+                target_y = self_y + cur_ball_y - 0.085;
             }
             xSemaphoreGive(ballMutex);
             // DEBUG(target_x);
@@ -170,10 +170,37 @@ void core1Task(void *pvParameters){
     float ball_angle = 0, ball_dist = 0, ball_x = 0, ball_y = 0;
     bool no_ball = false;
     int loopcount = 0;
+    Serial.println("core1rantask");
     while(1){
         // Serial.print("Core1");
         // Serial.println(loopcount);
         // loopcount++;
+        if(Seriall2.available()>=PICO_SERIAL_DATA_LEN){
+            int counter = 0;
+            while(Seriall2.peek()!=1) {
+                Serial.println("Pico first byte not 1");
+                Seriall2.read();
+                counter++;
+                // if(counter>=PICO_SERIAL_DATA_LEN) break;
+            }
+            int len = Seriall2.readBytes(uartBufferPico, PICO_SERIAL_DATA_LEN);
+            if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=1){
+                Serial.print("Received bad data: length: ");
+                Serial.print(len);
+                Serial.print(", data: ");
+                for (auto i : uartBufferPico) {
+                    Serial.print(i);
+                    Serial.print(" ");
+                }
+            }
+            else{
+                coord_x = (float)(uartBufferPico[1] + (uartBufferPico[2]<<8)) / 128;
+                coord_y = (float)(uartBufferPico[3] + (uartBufferPico[4]<<8)) / 128;
+                lidar_heading = (float)(uartBufferPico[5] + (uartBufferPico[6]<<8)) / 128;
+
+                imu_heading = (float)(uartBufferPico[8] + (uartBufferPico[9]<<8)) / 128;
+                if(uartBufferPico[7]==0) imu_heading *= -1;
+        
         if(Seriall1.available()>=CAM_SERIAL_DATA_LEN){
             int counter = 0;
             while(Seriall1.peek()!=1) {
@@ -184,6 +211,7 @@ void core1Task(void *pvParameters){
                 // if(counter>=10) break;
             }
             int len = Seriall1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
+            Serial.println(len);
             // while(Seriall1.available()) Seriall1.read();
             if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
                 Serial.print("Received bad data: length: ");
@@ -196,6 +224,7 @@ void core1Task(void *pvParameters){
             }
             else{
                 ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
+                Serial.print(ball_angle);
                 ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
                 if(ball_angle==0 && ball_dist==0) no_ball = true;
                 else no_ball = false;
@@ -203,16 +232,18 @@ void core1Task(void *pvParameters){
                 DEBUG(ball_dist);
 
                 float relative_angle = 90 - (ball_angle + imu_heading);
-                ball_x = (ball_dist * cosf(relative_angle)) / 100;
-                ball_y = (ball_dist * sinf(relative_angle)) / 100;
+                ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
+                ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
 
                 if(no_ball){
                     strip.setPixelColor(0, strip.Color(0, 0, 15));
                     strip.show();
+                    Serial.print("what the sigma");
                 }
                 else{
                     strip.setPixelColor(0, strip.Color(0, 15, 0));
                     strip.show();
+                    Serial.print("what the sigma got ball");
                 }
 
                 if(xSemaphoreTake(ballMutex, portMAX_DELAY)){
@@ -240,31 +271,6 @@ void core1Task(void *pvParameters){
         //     Serial.println("No data received");
         // }
         
-        if(Seriall2.available()>=PICO_SERIAL_DATA_LEN){
-            int counter = 0;
-            while(Seriall2.peek()!=1) {
-                Serial.println("Pico first byte not 1");
-                Seriall2.read();
-                counter++;
-                // if(counter>=PICO_SERIAL_DATA_LEN) break;
-            }
-            int len = Seriall2.readBytes(uartBufferPico, PICO_SERIAL_DATA_LEN);
-            if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=1){
-                Serial.print("Received bad data: length: ");
-                Serial.print(len);
-                Serial.print(", data: ");
-                for (auto i : uartBufferPico) {
-                    Serial.print(i);
-                    Serial.print(" ");
-                }
-            }
-            else{
-                coord_x = (float)(uartBufferPico[1] + (uartBufferPico[2]<<8)) / 128;
-                coord_y = (float)(uartBufferPico[3] + (uartBufferPico[4]<<8)) / 128;
-                lidar_heading = (float)(uartBufferPico[5] + (uartBufferPico[6]<<8)) / 128;
-
-                imu_heading = (float)(uartBufferPico[8] + (uartBufferPico[9]<<8)) / 128;
-                if(uartBufferPico[7]==0) imu_heading *= -1;
 
                 // DEBUG(coord_x);
                 // DEBUG(coord_y);
@@ -327,5 +333,5 @@ void setup(){
 }
 
 void loop(){
-    // Serial.println("running");
+    
 }
