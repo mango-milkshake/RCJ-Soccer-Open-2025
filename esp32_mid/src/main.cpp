@@ -200,6 +200,37 @@ void core1Task(void *pvParameters){
 
                 imu_heading = (float)(uartBufferPico[8] + (uartBufferPico[9]<<8)) / 128;
                 if(uartBufferPico[7]==0) imu_heading *= -1;
+
+                // DEBUG(coord_x);
+                // DEBUG(coord_y);
+                // DEBUG(lidar_heading);
+                // DEBUG(imu_heading);
+                // Serial.print(coord_x, 3);
+                // Serial.print("\t");
+                // Serial.print(coord_y, 3);
+                // Serial.print("\t");
+                // Serial.print(lidar_heading, 3);
+                // Serial.print("\t");
+                // Serial.print(imu_heading, 3);
+
+                if(xSemaphoreTake(coordMutex, portMAX_DELAY)){
+                    cur_x = coord_x;
+                    cur_y = coord_y;
+                    cur_lidar_heading = lidar_heading;
+                    cur_imu_heading = imu_heading;
+                    xSemaphoreGive(coordMutex);
+                    // Serial.println("Coordinate data updated");
+                }
+                // for (auto i : uartBufferPico){
+                //     Serial.print(i);
+                //     Serial.print(" ");
+                // }
+            }
+            // Serial.println();
+        }
+        // else{
+        //     Serial.println("No data received");
+        // }
         
         if(Seriall1.available()>=CAM_SERIAL_DATA_LEN){
             int counter = 0;
@@ -261,38 +292,6 @@ void core1Task(void *pvParameters){
                     // Serial.println("Ball data updated");
                 }
                 // for (auto i : uartBufferCam){
-                //     Serial.print(i);
-                //     Serial.print(" ");
-                // }
-            }
-            // Serial.println();
-        }
-        // else{
-        //     Serial.println("No data received");
-        // }
-        
-
-                // DEBUG(coord_x);
-                // DEBUG(coord_y);
-                // DEBUG(lidar_heading);
-                // DEBUG(imu_heading);
-                // Serial.print(coord_x, 3);
-                // Serial.print("\t");
-                // Serial.print(coord_y, 3);
-                // Serial.print("\t");
-                // Serial.print(lidar_heading, 3);
-                // Serial.print("\t");
-                // Serial.print(imu_heading, 3);
-
-                if(xSemaphoreTake(coordMutex, portMAX_DELAY)){
-                    cur_x = coord_x;
-                    cur_y = coord_y;
-                    cur_lidar_heading = lidar_heading;
-                    cur_imu_heading = imu_heading;
-                    xSemaphoreGive(coordMutex);
-                    // Serial.println("Coordinate data updated");
-                }
-                // for (auto i : uartBufferPico){
                 //     Serial.print(i);
                 //     Serial.print(" ");
                 // }
