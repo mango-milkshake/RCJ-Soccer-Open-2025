@@ -46,7 +46,7 @@ float prev_heading = 0;
 #define MOSI1_PIN 15 // TX
 #define SCK1_PIN 14
 
-#define IMU_TARE_BUTTON 29
+#define TARE_BUTTON 29
 IMU imu0(MOSI0_PIN, MISO0_PIN, SCK0_PIN, CS0_PIN, SPI);
 IMU imu1(MOSI1_PIN, MISO1_PIN, SCK1_PIN, CS1_PIN, SPI1);
 
@@ -98,7 +98,7 @@ void setup(){
 }
 
 void setup1(){
-    pinMode(IMU_TARE_BUTTON, INPUT);
+    pinMode(TARE_BUTTON, INPUT);
     imu0.init();
     // imu1.init();
 }
@@ -255,7 +255,7 @@ void loop(){
 }
 
 void loop1(){
-    if(digitalRead(IMU_TARE_BUTTON)==HIGH){
+    if(digitalRead(TARE_BUTTON)==HIGH){
         imu0.tareYaw();
         // imu1.tareYaw();
         // Serial.println("tared IMU0");
