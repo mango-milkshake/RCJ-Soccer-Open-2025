@@ -73,6 +73,13 @@ bool no_ball = false;
 
 //// ** FUNCTIONS ** ////
 
+void setLED(int first, int last, uint32_t color){
+    for (int i=first; i<=last; i++){
+        strip.setPixelColor(i, color);
+    }
+    strip.show();
+}
+
 void getTopPlateData(){
     if(Serial2.available()>=PICO_SERIAL_DATA_LEN){
         while(Serial2.peek()!=1) {
@@ -88,6 +95,7 @@ void getTopPlateData(){
                 Serial.print(i);
                 Serial.print(" ");
             }
+            setLED(0, LED_COUNT/2-1, strip.Color(15, 0, 15));
         }
         else{
             coord_x = (float)(uartBufferPico[1] + (uartBufferPico[2]<<8)) / 128;
@@ -105,6 +113,7 @@ void getTopPlateData(){
                 xSemaphoreGive(coordMutex);
                 // Serial.println("Coordinate data updated");
             }
+            setLED(0, LED_COUNT/2-1, strip.Color(0, 15, 15));
         }
     }
 }
@@ -139,14 +148,8 @@ void getTopCamData(){
             ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
             ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
 
-            if(no_ball){
-                strip.setPixelColor(0, strip.Color(0, 0, 15));
-                strip.show();
-            }
-            else{
-                strip.setPixelColor(0, strip.Color(0, 15, 0));
-                strip.show();
-            }
+            if(no_ball) setLED(LED_COUNT/2, LED_COUNT-1, strip.Color(0, 0, 15));
+            else setLED(LED_COUNT/2, LED_COUNT-1, strip.Color(0, 15, 0));
 
             if(xSemaphoreTake(ballMutex, portMAX_DELAY)){
                 if(no_ball){
