@@ -12,7 +12,7 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 #define DEBUG(x) Serial.println(String(#x) + String(": ") + String(x) + String('\r')); 
 #define TURN_OFF_SW 40
 bool turnOff = false;
-
+// test
 #define SDA_PIN 8
 #define SCL_PIN 9
 #define I2C_RCV_DATA_LEN 32
