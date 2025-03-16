@@ -39,10 +39,10 @@ byte rcvBuffer[I2C_RCV_DATA_LEN+1], sendBuffer[I2C_SEND_DATA_LEN];
 byte zeroBuffer[I2C_SEND_DATA_LEN];
 SemaphoreHandle_t i2cMutex, coordMutex, ballMutex;
 
-PID pid_rotate(2, 0, 0, 5000);
+PID pid_rotate(2, 0, 0, 1);
 // PID pid_speed(5, 0, 0, 5000);
-PID pid_x(10, 0, 0, 5000);
-PID pid_y(10, 0, 0, 5000);
+PID pid_x(6, 0, 0, 5000);
+PID pid_y(6, 0, 0, 5000);
 
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
