@@ -11,7 +11,7 @@ class Motor {
             _pin1(pin1), _pin2(pin2), nfault(nfault_pin), _maxspeed(maxspeed), _multiplier(multiplier) {
             pinMode(_pin1, OUTPUT);
             pinMode(_pin2, OUTPUT);
-            pinMode(nfault, INPUT);
+            pinMode(nfault, INPUT_PULLUP);
             // pin1 = clockwise, pin2 = anticlockwise
         }
 
