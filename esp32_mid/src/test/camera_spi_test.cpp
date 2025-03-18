@@ -6,8 +6,10 @@
 #define SCK_PIN 5
 #define CS_PIN 4
 
-#define speedMaximum 400000
+#define speedMaximum 100000
 SPISettings CamSetting(speedMaximum, MSBFIRST, SPI_MODE2);
+
+SPIClass vspi(SPI);
 
 #define DATA_LEN 9
 byte buffer[DATA_LEN];
@@ -18,18 +20,18 @@ void setup(){
     while(Serial.available()) Serial.read();
     Serial.println("started");
 
-    SPI.begin(SCK_PIN, MISO_PIN, MOSI_PIN, CS_PIN);
+    vspi.begin(SCK_PIN, MISO_PIN, MOSI_PIN, CS_PIN);
     pinMode(CS_PIN, OUTPUT);
     digitalWrite(CS_PIN, HIGH);
 }
 
 void loop(){
 
-    SPI.beginTransaction(CamSetting);
+    vspi.beginTransaction(CamSetting);
     digitalWrite(CS_PIN, LOW);
-    SPI.transferBytes(NULL, buffer, DATA_LEN);
+    vspi.transferBytes(NULL, buffer, DATA_LEN);
     digitalWrite(CS_PIN, HIGH);
-    SPI.endTransaction();
+    vspi.endTransaction();
 
     for (auto i : buffer){
         Serial.print(i);
