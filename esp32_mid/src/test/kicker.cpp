@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <Kicker.h>
-#define KICKER_PIN 3
+#define KICKER_PIN 42
 
 Kicker kicker(KICKER_PIN);
 
