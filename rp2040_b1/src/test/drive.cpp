@@ -29,14 +29,14 @@ MotorDriver motor_driver(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF
 
 uint8_t IN1_pin[NUM_DRIVERS] = {6, 8, 11, 13};
 uint8_t IN2_pin[NUM_DRIVERS] = {7, 9, 10, 12};
-uint8_t IPROPI_pin[NUM_DRIVERS] = {26, 27, 28, 29}; // make sure pins can read analog
+uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29}; // make sure pins can read analog
 
 uint8_t maxspeed = 50;
 
-Motor motorFL(IN1_pin[0], IN2_pin[0], maxspeed, 1.0);
-Motor motorFR(IN1_pin[3], IN2_pin[3], maxspeed, 1.0);
-Motor motorBL(IN1_pin[1], IN2_pin[1], maxspeed, 1.0);
-Motor motorBR(IN1_pin[2], IN2_pin[2], maxspeed, 1.0);
+Motor motorFL(IN1_pin[0], IN2_pin[0], NFAULT_pin[0], maxspeed, 1.0);
+Motor motorFR(IN1_pin[3], IN2_pin[3], NFAULT_pin[3], maxspeed, 1.0);
+Motor motorBL(IN1_pin[1], IN2_pin[1], NFAULT_pin[1], maxspeed, 1.0);
+Motor motorBR(IN1_pin[2], IN2_pin[2], NFAULT_pin[2], maxspeed, 1.0);
 
 Drive bot(motorFR, motorBR, motorBL, motorFL);
 float speed = 1.0;
@@ -132,7 +132,7 @@ void loop()
 
 // move in circle
   for (int i=0; i<365; i++){
-    bot.setDrive(speed, i, 0);
+    bot.setDriveOld(speed, i, 0);
     delay(5);
   }
 
