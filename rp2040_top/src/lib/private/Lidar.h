@@ -5,7 +5,7 @@
 #include "../public/tofsense_f_iic.h"
 #include <CommonUtils.h>
 #include <RotatingCalipers.h>
-#define DIST_FROM_CENTRE 0.085
+#define DIST_FROM_CENTRE 0.065
 
 class Lidar{
     public:

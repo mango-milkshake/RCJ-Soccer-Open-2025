@@ -140,28 +140,6 @@ MinAreaRect findMinAreaRect(Point hull[], size_t n) {
     return result;
 }
 
-Point getDist(float len, float angle){
-    Point res;
-    res.x = cosf(RAD(angle)) * len;
-    res.y = sinf(RAD(angle)) * len;
-    return res;
-}
-
-Point getCoords(MinAreaRect r, float angle){
-    Point coord;
-
-    float len = sqrt(r.bottom_left.x*r.bottom_left.x + r.bottom_left.y*r.bottom_left.y);
-    angle = DEG(atanf(r.bottom_left.y/r.bottom_left.x)) - angle;
-
-    Point p = getDist(len, angle);
-    float width_left = abs(p.x), height_bottom = abs(p.y);
-    float width_ratio = FIELD_WIDTH / (r.width);
-    float height_ratio = FIELD_HEIGHT / (r.height);
-    coord.x = width_left * width_ratio;
-    coord.y = height_bottom * height_ratio;
-    return coord;
-}
-
 Point rotatePoint(Point p, float angle){
     // rotate coordinates of point p by angle, clockwise
     // angle in radians
