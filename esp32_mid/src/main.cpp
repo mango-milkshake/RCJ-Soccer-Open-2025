@@ -26,6 +26,10 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 #define TURN_OFF_SW 40
 bool turnOff = false;
 
+// Voltage checker
+#define VOLTAGE_PIN 2
+#define VOLTAGE_ANALOG_THRESH 3300
+
 // Dimensions
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
@@ -105,6 +109,11 @@ void setLED(int first, int last, uint32_t color){
         strip.setPixelColor(i, color);
     }
     strip.show();
+}
+
+void readVoltage(){
+    float value = analogRead(VOLTAGE_PIN);
+    if(value < VOLTAGE_ANALOG_THRESH) setLED(0, LED_COUNT, strip.Color(50, 0, 0));
 }
 
 void checkFault(){
@@ -334,6 +343,7 @@ void core0Task(void *pvParameters){
 void core1Task(void *pvParameters){
     while(1){
         // Serial.print("Core1");
+        readVoltage();
         checkFault();
         getTopPlateData();
         getTopCamData();
@@ -347,6 +357,8 @@ void setup(){
     Serial2.begin(115200, SERIAL_8N1, PICO_RX_PIN, PICO_TX_PIN);
 
     pinMode(TURN_OFF_SW, INPUT);
+    pinMode(VOLTAGE_PIN, INPUT);
+    analogSetAttenuation(ADC_11db);
 
     i2cMutex = xSemaphoreCreateMutex(); 
     coordMutex = xSemaphoreCreateMutex();
