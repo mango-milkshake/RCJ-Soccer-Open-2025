@@ -3,6 +3,8 @@
 #include <PID.h>
 #include <CommonUtils.h>
 #include <Adafruit_NeoPixel.h>
+#include <Dribbler.h>
+#include <Motor.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -54,6 +56,22 @@ byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 PID pid_rotate(2, 0, 0, 1000);
 PID pid_x(6, 0, 0, 5000);
 PID pid_y(6, 0, 0, 5000);
+
+// Dribbler
+#define MOSI_PIN 12
+#define MISO_PIN 13
+#define SCK_PIN 14
+#define CS_PIN 15
+#define DRIBBLER_IN1 34
+#define DRIBBLER_IN2 33
+#define DRIBBLER_NFAULT 35
+#define NSLEEP_PIN 36
+#define DRVOFF_PIN 37
+MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
+
+uint8_t dribbler_maxspeed = 80;
+Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
+float lastFault = 0;
 
 // Mutexes
 SemaphoreHandle_t i2cMutex, coordMutex, ballMutex;
@@ -309,6 +327,9 @@ void setup(){
     coordMutex = xSemaphoreCreateMutex();
     ballMutex = xSemaphoreCreateMutex();
     Wire.begin(SDA_PIN, SCL_PIN, 100000);
+
+    dribblerMD.init();
+    dribblerMD.setMode();
 
     strip.begin();
     strip.setBrightness(LED_BRIGHTNESS);
