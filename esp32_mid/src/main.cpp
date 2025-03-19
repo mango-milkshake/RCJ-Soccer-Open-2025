@@ -32,7 +32,7 @@ bool turnOff = false;
 #define SDA_PIN 8
 #define SCL_PIN 9
 #define I2C_RCV_DATA_LEN 32
-#define I2C_SEND_DATA_LEN 9
+#define I2C_SEND_DATA_LEN 7
 #define I2C_RCV_PICO_ADDR 0x08
 #define I2C_SEND_PICO_ADDR 0x09
 byte rcvBuffer[I2C_RCV_DATA_LEN+1], sendBuffer[I2C_SEND_DATA_LEN];
@@ -280,75 +280,11 @@ void core0Task(void *pvParameters){
 
         updateData();
 
-        float x_dist = target_x - self_x, y_dist = target_y - self_y;
-        speed_xdir = constrain(pid_x.compute(0, x_dist), -1, 1);
-        speed_ydir = constrain(pid_y.compute(0, y_dist), -1, 1);
-        // float distance = sqrt(x_dist * x_dist + y_dist * y_dist);
-
-        if(x_dist==0) {
-            if(y_dist>=0) angle = 90;
-            else angle = 270;
-         }
-         else if(y_dist==0){
-             if(x_dist>=0) angle = 0;
-             else angle = 180;
-         }
-         else{
-             angle = DEG(atanf(abs(y_dist / x_dist)));
-             if(y_dist>0 && x_dist<0) angle = 180 - angle;
-             else if(y_dist<0 && x_dist<0) angle = 180 + angle;
-             else if(y_dist<0 && x_dist>0) angle = 360 - angle;
-         }
-
-        angle = 90 - angle;
-        if(angle<0) angle += 360;
-        if(angle>=360) angle -= 360;
-        rotation = constrain(pid_rotate.compute(0, RAD(self_imu_heading)), -1, 1);
-        // speed = constrain(pid_speed.compute(0, distance), -1, 1);
-        // DEBUG(rotation);
-        // DEBUG(speed); 
-        // DEBUG(angle);
-
-        angle = angle - self_imu_heading;
-        if(angle<0) angle += 360;
-        if(angle>=360) angle -= 360;
-
-        // DEBUG(speed_xdir);
-        // DEBUG(speed_ydir);
-
-        uint8_t rotation_sign, speed_x_sign, speed_y_sign;
-        if(copysign(1, rotation)==1) rotation_sign = 1;
-        else rotation_sign = 0;
-        if(copysign(1, speed_xdir)==1) speed_x_sign = 1;
-        else speed_x_sign = 0;
-        if(copysign(1, speed_ydir)==1) speed_y_sign = 1;
-        else speed_y_sign = 0;
-        uint8_t rounded_rotation = floor(abs(rotation) * 255);
-        uint8_t rounded_speed_x = floor(abs(speed_xdir) * 255);
-        uint8_t rounded_speed_y = floor(abs(speed_ydir) * 255);
-        int rounded_angle = floor(angle * 128);
-
-        sendBuffer[0] = 5;
-        sendBuffer[1] = speed_x_sign;
-        sendBuffer[2] = rounded_speed_x;
-        sendBuffer[3] = speed_y_sign;
-        sendBuffer[4] = rounded_speed_y;
-        sendBuffer[5] = rotation_sign;
-        sendBuffer[6] = rounded_rotation;
-        sendBuffer[7] = (rounded_angle & 0xFF);
-        sendBuffer[8] = ((rounded_angle >> 8) & 0xFF);
-
-        if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){
-            Wire.beginTransmission(I2C_SEND_PICO_ADDR);
-            if(turnOff) {
-                // Serial.println("Bot off");
-                Wire.write(zeroBuffer, I2C_SEND_DATA_LEN);
-            }
-            else Wire.write(sendBuffer, I2C_SEND_DATA_LEN);
-            Wire.endTransmission();
-            xSemaphoreGive(i2cMutex);
-            // Serial.println("Data sent");
+        if(self_ball_x==0 && self_ball_y==0){
+            movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
         }
+        else if(selfBallCap) aim();
+        else ballTrack();
     }
 }
 
