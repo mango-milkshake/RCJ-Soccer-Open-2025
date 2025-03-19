@@ -6,8 +6,8 @@ Kicker kicker(KICKER_PIN);
 
 void setup() {
     Serial.begin(115200);
-    while(!Serial.available()) ;
-    while(Serial.available()) Serial.read();
+    // while(!Serial.available()) ;
+    // while(Serial.available()) Serial.read();
     Serial.println("started");
 }
 

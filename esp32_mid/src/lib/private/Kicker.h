@@ -2,6 +2,7 @@
 #define KICKER_H
 
 #include <Arduino.h>
+#define KICKER_DELAY 60
 
 class Kicker {
     public:
@@ -15,7 +16,7 @@ class Kicker {
             float _curTime = millis();
             if(_curTime - _lastKick < 2000) return;
             digitalWrite(_pin, HIGH);
-            delay(60);
+            delay(KICKER_DELAY);
             digitalWrite(_pin, LOW);
             _lastKick = millis();
         };
