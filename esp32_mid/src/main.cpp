@@ -157,6 +157,10 @@ void getTopCamData(){
                 lastBallCap = millis();
                 setLED(9, 11, strip.Color(15, 0, 15));
             }
+            else if(millis() - lastBallCap <= 3000 && !no_ball && (ball_angle <= 20 || ball_angle >= 340) && ball_dist <= BALL_CAP_THRESH + 8){
+                ballCap = true;
+                setLED(9, 11, strip.Color(0, 15, 15));
+            }
             else {
                 ballCap = false;
                 setLED(9, 11, strip.Color(15, 15, 0));
