@@ -15,7 +15,7 @@
 
 // Debug LEDs
 #define LED_PIN 18
-#define LED_COUNT 10
+#define LED_COUNT 12
 #define LED_BRIGHTNESS 100
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -117,9 +117,10 @@ void getTopPlateData(){
                 xSemaphoreGive(coordMutex);
                 // Serial.println("Coordinate data updated");
             }
-            setLED(0, LED_COUNT/2-1, strip.Color(0, 15, 15));
+            setLED(1, 5, strip.Color(0, 15, 15));
         }
     }
+    else setLED(1, 5, strip.Color(15, 0, 15));
 }
 
 void getTopCamData(){
@@ -143,13 +144,25 @@ void getTopCamData(){
             ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
             Serial.print(ball_angle);
             ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
+            if(ball_angle==0 && ball_dist==0) {
+                no_ball = true;
+                setLED(6, 8, strip.Color(0, 0, 15));
+            }
+            else {
+                no_ball = false;
+                setLED(6, 8, strip.Color(0, 15, 0));
+            }
             if(!no_ball && (ball_angle <= 15 || ball_angle >= 345) && ball_dist <= BALL_CAP_THRESH){
                 ballCap = true;
                 lastBallCap = millis();
+                setLED(9, 11, strip.Color(15, 0, 15));
             }
             else {
                 ballCap = false;
+                setLED(9, 11, strip.Color(15, 15, 0));
             }
+            // DEBUG(ball_angle);
+            // DEBUG(ball_dist);
 
             float relative_angle = 90 - (ball_angle + imu_heading);
             ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
