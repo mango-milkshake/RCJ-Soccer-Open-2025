@@ -63,8 +63,8 @@ float cur_ball_x = 0, cur_ball_y = 0;
 
 // Variables - core 0 only
 float self_x = 0, self_y = 0, self_lidar_heading = 0, self_imu_heading = 0;
-float speed_xdir, speed_ydir, angle, rotation;
-float target_x = 0, target_y = 0;
+float self_ball_x = 0, self_ball_y = 0, self_ball_angle = 0;
+float speed_xdir, speed_ydir, rotation;
 
 // Variables - core 1 only
 float coord_x = 0, coord_y = 0, lidar_heading = 0, imu_heading = 0;
@@ -182,14 +182,8 @@ void updateData(){
     }
 
     if(xSemaphoreTake(ballMutex, 0)){
-        if(cur_ball_x==0 && cur_ball_y==0){
-            target_x = 1.82/2;
-            target_y = 2.43/2;
-        }
-        else{
-            target_x = self_x + cur_ball_x;
-            target_y = self_y + cur_ball_y - 0.255;
-        }
+        self_ball_x = cur_ball_x;
+        self_ball_y = cur_ball_y;
         xSemaphoreGive(ballMutex);
 void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
     if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){
