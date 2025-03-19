@@ -307,9 +307,15 @@ void movement(float target_x, float target_y, float target_rotation){
 void ballTrack(){
     float absBallAngle = atan2(self_ball_y - self_y, self_ball_x - self_x);
     float goalToBallAngle = atan2(2.384 - self_ball_y, 0.91 - self_ball_x);
-    if(absBallAngle <= 60 || absBallAngle >= 300); // issue
     float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
-    movement(self_x + self_ball_x, self_y + self_ball_y - 0.09, 90-DEG(angleToFace));
+    if(absBallAngle <= 60 || absBallAngle >= 300){
+        movement(self_x + self_ball_x, self_y + self_ball_y - 0.09, 90-DEG(angleToFace));
+    }
+    else{
+        float new_x = self_x + self_ball_x + 0.10 * cosf(goalToBallAngle);
+        float new_y = self_y + self_ball_y + 0.10 * sinf(goalToBallAngle);
+        movement(new_x, new_y, 90-DEG(angleToFace));
+    }
 }
 
 void aim(){
