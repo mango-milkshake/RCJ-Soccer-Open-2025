@@ -102,6 +102,21 @@ void setLED(int first, int last, uint32_t color){
     strip.show();
 }
 
+void checkFault(){
+    bool faulted = false;
+    if(digitalRead(dribbler.nfault)==LOW) faulted = true;
+    if(faulted){
+        // Serial.println("faulted");
+        setLED(0, 0, strip.Color(15, 15, 15));
+        float curTime = millis();
+        if(curTime - lastFault >= 500){
+            dribblerMD.readRegister(0b01000001);
+            lastFault = millis();
+        }
+    } 
+    else setLED(0, 0, strip.Color(0, 0, 0));
+}
+
 void getTopPlateData(){
     if(Serial2.available()>=PICO_SERIAL_DATA_LEN){
         while(Serial2.peek()!=1) {
@@ -314,6 +329,7 @@ void core0Task(void *pvParameters){
 void core1Task(void *pvParameters){
     while(1){
         // Serial.print("Core1");
+        checkFault();
         getTopPlateData();
         getTopCamData();
     }
