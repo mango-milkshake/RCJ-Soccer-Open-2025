@@ -26,6 +26,7 @@ bool turnOff = false;
 // Dimensions
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
+#define BALL_CAP_THRESH 12 // in cm
 
 // I2C Comms with bottom plate
 #define SDA_PIN 8
@@ -60,16 +61,19 @@ SemaphoreHandle_t i2cMutex, coordMutex, ballMutex;
 // Variables - access from both cores
 float cur_x, cur_y, cur_lidar_heading, cur_imu_heading;
 float cur_ball_x = 0, cur_ball_y = 0;
+bool curBallCap = false;
 
 // Variables - core 0 only
 float self_x = 0, self_y = 0, self_lidar_heading = 0, self_imu_heading = 0;
 float self_ball_x = 0, self_ball_y = 0, self_ball_angle = 0;
 float speed_xdir, speed_ydir, rotation;
+bool selfBallCap = false;
 
 // Variables - core 1 only
 float coord_x = 0, coord_y = 0, lidar_heading = 0, imu_heading = 0;
 float ball_angle = 0, ball_dist = 0, ball_x = 0, ball_y = 0;
-bool no_ball = false;
+bool no_ball = false, ballCap = false;
+float lastBallCap = 0;
 
 //// ** FUNCTIONS ** ////
 
@@ -139,10 +143,13 @@ void getTopCamData(){
             ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
             Serial.print(ball_angle);
             ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
-            if(ball_angle==0 && ball_dist==0) no_ball = true;
-            else no_ball = false;
-            DEBUG(ball_angle);
-            DEBUG(ball_dist);
+            if(!no_ball && (ball_angle <= 15 || ball_angle >= 345) && ball_dist <= BALL_CAP_THRESH){
+                ballCap = true;
+                lastBallCap = millis();
+            }
+            else {
+                ballCap = false;
+            }
 
             float relative_angle = 90 - (ball_angle + imu_heading);
             ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
@@ -160,6 +167,7 @@ void getTopCamData(){
                     cur_ball_x = ball_x;
                     cur_ball_y = ball_y;
                 }
+                curBallCap = ballCap;
                 xSemaphoreGive(ballMutex);
                 // DEBUG(ball_x);
                 // DEBUG(ball_y);
@@ -184,7 +192,11 @@ void updateData(){
     if(xSemaphoreTake(ballMutex, 0)){
         self_ball_x = cur_ball_x;
         self_ball_y = cur_ball_y;
+        selfBallCap = curBallCap;
         xSemaphoreGive(ballMutex);
+    }
+}
+
 void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
     if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){
         Wire.beginTransmission(I2C_SEND_PICO_ADDR);
