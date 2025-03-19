@@ -5,6 +5,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <Dribbler.h>
 #include <Motor.h>
+#include <Kicker.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -72,6 +73,10 @@ MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_P
 uint8_t dribbler_maxspeed = 80;
 Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
 float lastFault = 0;
+
+// Kicker
+#define KICKER_PIN 42
+Kicker kicker(KICKER_PIN);
 
 // Mutexes
 SemaphoreHandle_t i2cMutex, coordMutex, ballMutex;
