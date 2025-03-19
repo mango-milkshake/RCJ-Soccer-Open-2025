@@ -7,7 +7,7 @@
 #define CS_PIN 4
 
 #define speedMaximum 100000
-SPISettings CamSetting(speedMaximum, MSBFIRST, SPI_MODE2);
+SPISettings CamSetting(speedMaximum, MSBFIRST, SPI_MODE0);
 
 SPIClass vspi(SPI);
 
