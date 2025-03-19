@@ -99,7 +99,6 @@ void getTopPlateData(){
                 Serial.print(i);
                 Serial.print(" ");
             }
-            setLED(0, LED_COUNT/2-1, strip.Color(15, 0, 15));
         }
         else{
             coord_x = (float)(uartBufferPico[1] + (uartBufferPico[2]<<8)) / 128;
@@ -142,7 +141,6 @@ void getTopCamData(){
         }
         else{
             ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
-            Serial.print(ball_angle);
             ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
             if(ball_angle==0 && ball_dist==0) {
                 no_ball = true;
@@ -171,9 +169,6 @@ void getTopCamData(){
             float relative_angle = 90 - (ball_angle + imu_heading);
             ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
             ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
-
-            if(no_ball) setLED(LED_COUNT/2, LED_COUNT-1, strip.Color(0, 0, 15));
-            else setLED(LED_COUNT/2, LED_COUNT-1, strip.Color(0, 15, 0));
 
             if(xSemaphoreTake(ballMutex, portMAX_DELAY)){
                 if(no_ball){
