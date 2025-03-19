@@ -184,6 +184,10 @@ void getTopCamData(){
             // DEBUG(ball_angle);
             // DEBUG(ball_dist);
 
+            if(no_ball) dribbler.setSpeed(0);
+            else if(ball_dist<=40) dribbler.setSpeed(1.0);
+            else dribbler.setSpeed(0.5);
+
             float relative_angle = 90 - (ball_angle + imu_heading);
             ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
             ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
