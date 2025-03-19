@@ -253,6 +253,20 @@ void movement(float target_x, float target_y, float target_rotation){
     else sendI2C(sendBuffer);
 }
 
+void ballTrack(){
+    float absBallAngle = atan2(self_ball_y - self_y, self_ball_x - self_x);
+    float goalToBallAngle = atan2(2.384 - self_ball_y, 0.91 - self_ball_x);
+    if(absBallAngle <= 60 || absBallAngle >= 300); // issue
+    float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
+    movement(self_x + self_ball_x, self_y + self_ball_y - 0.09, 90-DEG(angleToFace));
+}
+
+void aim(){
+    float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
+    movement(0.91, 2.06, 90-DEG(angleToFace));
+    // if(selfBallCap && self_y > 1.63 && (self_imu_heading > -90 && self_imu_heading < 90)) kicker.kick();
+}
+
 //// ** LOOPS ** ////
 
 // core 0 handles main game logic and writing motor control info to rp2040
