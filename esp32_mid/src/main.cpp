@@ -191,12 +191,49 @@ void updateData(){
             target_y = self_y + cur_ball_y - 0.255;
         }
         xSemaphoreGive(ballMutex);
-        // DEBUG(target_x);
-        // DEBUG(target_y);
+void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
+    if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){
+        Wire.beginTransmission(I2C_SEND_PICO_ADDR);
+        Wire.write(buffer, I2C_SEND_DATA_LEN);
+        Wire.endTransmission();
+        xSemaphoreGive(i2cMutex);
+        // Serial.println("Data sent");
     }
 }
 
+void movement(float target_x, float target_y, float target_rotation){
+    target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
+    target_y = constrain(target_y, 0.37, FIELD_HEIGHT - 0.37);
+    float x_dist = target_x - self_x, y_dist = target_y - self_y;
+    float rotation_dist = self_imu_heading - target_rotation;
+    while(rotation_dist > 180) rotation_dist -= 360;
+    while(rotation_dist < -180) rotation_dist += 360;
+    speed_xdir = constrain(pid_x.compute(0, x_dist), -1, 1);
+    speed_ydir = constrain(pid_y.compute(0, y_dist), -1, 1);
+    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), -1, 1);
 
+    uint8_t rotation_sign, speed_x_sign, speed_y_sign;
+    if(copysign(1, rotation)==1) rotation_sign = 1;
+    else rotation_sign = 0;
+    if(copysign(1, speed_xdir)==1) speed_x_sign = 1;
+    else speed_x_sign = 0;
+    if(copysign(1, speed_ydir)==1) speed_y_sign = 1;
+    else speed_y_sign = 0;
+    uint8_t rounded_rotation = floor(abs(rotation) * 255);
+    uint8_t rounded_speed_x = floor(abs(speed_xdir) * 255);
+    uint8_t rounded_speed_y = floor(abs(speed_ydir) * 255);
+
+    sendBuffer[0] = 5;
+    sendBuffer[1] = speed_x_sign;
+    sendBuffer[2] = rounded_speed_x;
+    sendBuffer[3] = speed_y_sign;
+    sendBuffer[4] = rounded_speed_y;
+    sendBuffer[5] = rotation_sign;
+    sendBuffer[6] = rounded_rotation;
+
+    if(turnOff) sendI2C(zeroBuffer);
+    else sendI2C(sendBuffer);
+}
 
 //// ** LOOPS ** ////
 
