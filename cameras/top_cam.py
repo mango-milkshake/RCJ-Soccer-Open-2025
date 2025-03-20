@@ -22,7 +22,7 @@ led2 = pyb.LED(2)
 led2.on()
 #led3.on()
 
-centre_x = 169
+centre_x = 177
 centre_y = 112
 mask_radius = 100
 
