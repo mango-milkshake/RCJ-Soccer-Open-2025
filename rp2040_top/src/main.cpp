@@ -256,11 +256,12 @@ void loop(){
 
 void loop1(){
     if(digitalRead(TARE_BUTTON)==HIGH){
-        imu0.tareYaw();
+        imu0.tareAll();
         // imu1.tareYaw();
         // Serial.println("tared IMU0");
     }
-    float angle0 = imu0.readYaw();
+    imu0.updateAllData();
+    float angle0 = imu0.yaw;
     // float angle1 = imu1.readYaw();
     // yaw = (angle0 + angle1) / 2;
     yaw = angle0;
