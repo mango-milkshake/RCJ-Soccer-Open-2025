@@ -32,6 +32,12 @@ Line lineMux4(0, 1, 2, 29);
 byte camBuffer[CAM_DATA_LEN];
 float cam_ball_x, cam_ball_y;
 
+#define LIDAR_TX_PIN 8
+#define LIDAR_RX_PIN 9
+#define LIDAR_DATA_LEN 6
+byte lidarBuffer[LIDAR_DATA_LEN];
+float lidar_ball_x, lidar_ball_y;
+
 void getAllLineData(){
     sendBuffer[12] = lineMux1.readData();
     sendBuffer[13] = lineMux2.readData();
@@ -62,7 +68,36 @@ void getCamData(){
     }
 }
 
+void getBallCapData(){
+    if(Serial2.available()>=LIDAR_DATA_LEN){
+        while(Serial2.peek()!=1) {
+            Serial.println("Lidar first byte not 1");
+            Serial2.read();
+        }
+        int len = Serial2.readBytes(lidarBuffer, LIDAR_DATA_LEN);
+        Serial.println(len);
+        if(len!=LIDAR_DATA_LEN || lidarBuffer[0]!=1){
+            Serial.print("Received bad data: length: ");
+            Serial.print(len);
+            Serial.print(", data: ");
+            for (auto i : lidarBuffer) {
+                Serial.print(i);
+                Serial.print(" ");
+            }
+        }
+        else{
+            for (int i=1; i<=5; i++) sendBuffer[i+5] = lidarBuffer[i];
+        }
+    }
+}
+
 void send(){
+    // sendBuffer[0] = 1;
+    // getCamData();
+    // getBallCapData();
+    // sendBuffer[11] = 0; // not done
+    // getAllLineData();
+
     #ifdef DEBUGGING
     for (auto i : sendBuffer){
         Serial.print(String(i) + " ");
@@ -80,6 +115,10 @@ void setup(){
     Serial1.setRX(CAM_RX_PIN);
     Serial1.begin(115200);
 
+    Serial2.setTX(LIDAR_TX_PIN);
+    Serial2.setRX(LIDAR_RX_PIN);
+    Serial2.begin(115200);
+
     Wire1.setSDA(SDA_PIN);
     Wire1.setSCL(SCL_PIN);
     Wire1.setClock(400000);
@@ -94,7 +133,11 @@ void setup(){
 void loop(){
     strip.setPixelColor(0, strip.Color(0, 15, 15));
     strip.show();
+
+    sendBuffer[0] = 1;
     getCamData();
+    getBallCapData();
+    sendBuffer[11] = 0; // not done
     getAllLineData();
     
     Wire1.onRequest(send);
