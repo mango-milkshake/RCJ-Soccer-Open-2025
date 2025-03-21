@@ -33,7 +33,7 @@ bool turnOff = false;
 // Dimensions
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
-#define BALL_CAP_THRESH 12 // in cm
+#define BALL_CAP_THRESH 15 // in cm
 
 // I2C Comms with bottom plate
 #define SDA_PIN 8
@@ -197,12 +197,12 @@ void getTopCamData(){
                 no_ball = false;
                 setLED(6, 8, strip.Color(0, 15, 0));
             }
-            if(!no_ball && (ball_angle <= 15 || ball_angle >= 345) && ball_dist <= BALL_CAP_THRESH){
+            if(!no_ball && (ball_angle <= 20 || ball_angle >= 345) && ball_dist <= BALL_CAP_THRESH){
                 ballCap = true;
                 lastBallCap = millis();
                 setLED(9, 11, strip.Color(15, 0, 15));
             }
-            else if(millis() - lastBallCap <= 3000 && !no_ball && (ball_angle <= 20 || ball_angle >= 340) && ball_dist <= BALL_CAP_THRESH + 8){
+            else if(millis() - lastBallCap <= 3000 && !no_ball){
                 ballCap = true;
                 setLED(9, 11, strip.Color(0, 15, 15));
             }
@@ -308,14 +308,16 @@ void ballTrack(){
     float absBallAngle = atan2(self_ball_y - self_y, self_ball_x - self_x);
     float goalToBallAngle = atan2(2.384 - self_ball_y, 0.91 - self_ball_x);
     float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
-    if(absBallAngle <= 60 || absBallAngle >= 300){
-        movement(self_x + self_ball_x, self_y + self_ball_y - 0.09, 90-DEG(angleToFace));
-    }
-    else{
-        float new_x = self_x + self_ball_x + 0.10 * cosf(goalToBallAngle);
-        float new_y = self_y + self_ball_y + 0.10 * sinf(goalToBallAngle);
-        movement(new_x, new_y, 90-DEG(angleToFace));
-    }
+    // if(absBallAngle <= 30 || absBallAngle >= 330){
+    //     movement(self_x + self_ball_x, self_y + self_ball_y - 0.12, 90-DEG(angleToFace));
+    // }
+    // else{
+    //     float new_x = self_x + self_ball_x + 0.40 * cosf(goalToBallAngle);
+    //     float new_y = self_y + self_ball_y + 0.40 * sinf(goalToBallAngle);
+    //     // movement(new_x, new_y, 90-DEG(angleToFace));
+    //     movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 90-DEG(angleToFace));
+    // }
+    movement(self_x + self_ball_x, self_y + self_ball_y - 0.12, 90-DEG(angleToFace));
 }
 
 void aim(){
@@ -338,7 +340,7 @@ void core0Task(void *pvParameters){
         updateData();
 
         if(self_ball_x==0 && self_ball_y==0){
-            movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+            movement(FIELD_WIDTH/2, 1.62, 0);
         }
         else if(selfBallCap) aim();
         else ballTrack();
