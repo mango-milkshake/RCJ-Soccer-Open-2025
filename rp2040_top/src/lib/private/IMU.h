@@ -3,6 +3,7 @@
 
 #include "ICM_20948.h"
 #include <SPI.h>
+#include <CommonUtils.h>
 
 // SPISettings ICMSetting(1000000, MSBFIRST, SPI_MODE1);
 #define AD0_VAL 1
@@ -15,8 +16,12 @@ class IMU {
 
         ICM_20948_SPI ICM;
         icm_20948_DMP_data_t data;
-        double offset = 0, tareVal = 631, lastYaw = 631, roll = 0, pitch = 0;
-        int16_t lastAccelX = 0, lastAccelY = 0, lastAccelZ = 0;
+        double yaw = 0, roll = 0, pitch = 0;
+        double rawYaw = 0, rawRoll = 0, rawPitch = 0;
+        double yawOffset = 0, rollOffset = 0, pitchOffset = 0;
+        int16_t accelX = 0, accelY = 0, accelZ = 0;
+        int16_t rawAccelX = 0, rawAccelY = 0, rawAccelZ = 0;
+        int16_t accelXOffset = 0, accelYOffset = 0, accelZOffset = 0;
 
         void init(){
             _spi.setRX(_miso);
@@ -60,11 +65,11 @@ class IMU {
             }
         }
 
-        double readRawYaw(){
+        bool readRawData(){
             bool status = _update();
-            if (!status){
-                return lastYaw;
-            }
+            if(!status) return false;
+
+            bool validData = true;
             if ((data.header & DMP_header_bitmap_Quat6) > 0){
                 double q1 = ((double)data.Quat6.Data.Q1) / 1073741824.0; // Convert to double. Divide by 2^30
                 double q2 = ((double)data.Quat6.Data.Q2) / 1073741824.0; // Convert to double. Divide by 2^30
@@ -78,79 +83,59 @@ class IMU {
 
                 double t0 = +2.0 * (qw * qx + qy * qz);
                 double t1 = +1.0 - 2.0 * (qx * qx + qy * qy);
-                roll = atan2(t0, t1) * 180.0 / PI;
+                rawRoll = DEG(atan2(t0, t1));
 
                 double t2 = +2.0 * (qw * qy - qx * qz);
                 t2 = t2 > 1.0 ? 1.0 : t2;
                 t2 = t2 < -1.0 ? -1.0 : t2;
-                pitch = asin(t2) * 180.0 / PI;
+                rawPitch = DEG(asin(t2));
 
                 double t3 = +2.0 * (qw * qz + qx * qy);
                 double t4 = +1.0 - 2.0 * (qy * qy + qz * qz);
-                double yaw = atan2(t3, t4) * 180.0 / PI;
-
-                lastYaw = yaw;
-                return yaw;
+                rawYaw = DEG(atan2(t3, t4));
             }
-            else return lastYaw;
+            else validData = false;
+
+            if ((data.header & DMP_header_bitmap_Accel) > 0){
+                rawAccelX = data.Raw_Accel.Data.X;
+                rawAccelY = data.Raw_Accel.Data.Y;
+                rawAccelZ = data.Raw_Accel.Data.Z;
+            }
+            else validData = false;
+
+            return validData;
         }
 
-        double readYaw(){
-            double yaw = readRawYaw();
-            yaw = yaw - offset;
-            if(yaw < -180) yaw += 360.0;
-            else if(yaw > 180) yaw -= 360.0;
-            return yaw;
+        void updateAllData(){
+            bool status = readRawData();
+            if(!status) return;
+
+            yaw = rawYaw - yawOffset;
+            LIM_ANGLE_180(yaw);
+            pitch = rawPitch - pitchOffset;
+            LIM_ANGLE_180(pitch);
+            roll = rawRoll - rollOffset;
+            LIM_ANGLE_180(roll);
+
+            accelX = rawAccelX - accelXOffset;
+            accelY = rawAccelY - accelYOffset;
+            accelZ = rawAccelZ - accelZOffset;
         }
 
-        void tareYaw(){
+        void tareAll(){
             bool tared = false;
-            while(!tared || tareVal==offset || (tareVal==631 || tareVal==267)){
-                tareVal = readRawYaw();
-                if(tareVal != offset) tared = true;
+            while(!tared){
+                bool status = readRawData();
+                tared = true;
             }
-            offset = tareVal;
-            // Serial.println(offset);
-        }
-
-        int16_t readAccelX(){
-            bool status = _update();
-            if (!status){
-                return lastAccelX;
-            }
-            if ((data.header & DMP_header_bitmap_Accel) > 0){
-                int16_t accel_x = data.Raw_Accel.Data.X;
-                lastAccelX = accel_x;
-                return accel_x;
-            }
-            else return lastAccelX;
-        }
-
-        int16_t readAccelY(){
-            bool status = _update();
-            if (!status){
-                return lastAccelY;
-            }
-            if ((data.header & DMP_header_bitmap_Accel) > 0){
-                int16_t accel_y = data.Raw_Accel.Data.Y;
-                lastAccelY = accel_y;
-                return accel_y;
-            }
-            else return lastAccelY;
-        }
-
-        int16_t readAccelZ(){
-            bool status = _update();
-            if (!status){
-                return lastAccelZ;
-            }
-            if ((data.header & DMP_header_bitmap_Accel) > 0){
-                int16_t accel_z = data.Raw_Accel.Data.Z;
-                lastAccelZ = accel_z;
-                return accel_z;
-            }
-            else return lastAccelZ;
-        }       
+            yawOffset = rawYaw;
+            pitchOffset = rawPitch;
+            rollOffset = rawRoll;
+            
+            accelXOffset = rawAccelX;
+            accelYOffset = rawAccelY;
+            accelZOffset = rawAccelZ;
+        }    
 
     private:
         const int _mosi, _miso, _sck, _cs, _dataSize = 16;
