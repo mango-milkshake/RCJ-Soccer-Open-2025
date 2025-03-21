@@ -29,9 +29,10 @@ void setup(){
 int16_t accel_x, accel_y, accel_z;
 
 void loop(){
-    accel_x = imu.readAccelX();
-    accel_y = imu.readAccelY();
-    accel_z = imu.readAccelZ();
+    imu.updateAllData();
+    accel_x = imu.accelX;
+    accel_y = imu.accelY;
+    accel_z = imu.accelZ;
 
     Serial.print("Accel: ");
     Serial.print(accel_x);
