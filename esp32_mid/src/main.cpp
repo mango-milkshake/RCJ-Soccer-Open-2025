@@ -38,7 +38,7 @@ bool turnOff = false;
 // I2C Comms with bottom plate
 #define SDA_PIN 8
 #define SCL_PIN 9
-#define I2C_RCV_DATA_LEN 32
+#define I2C_RCV_DATA_LEN 16
 #define I2C_SEND_DATA_LEN 7
 #define I2C_RCV_PICO_ADDR 0x08
 #define I2C_SEND_PICO_ADDR 0x09
@@ -82,6 +82,9 @@ float lastFault = 0;
 #define KICKER_PIN 42
 Kicker kicker(KICKER_PIN);
 
+// Line Sensors
+#define NUM_LINE_MUX 4
+
 // Mutexes
 SemaphoreHandle_t i2cMutex, coordMutex, ballMutex;
 
@@ -101,6 +104,9 @@ float coord_x = 0, coord_y = 0, lidar_heading = 0, imu_heading = 0;
 float ball_angle = 0, ball_dist = 0, ball_x = 0, ball_y = 0;
 bool no_ball = false, ballCap = false;
 float lastBallCap = 0;
+float cam_ball_x = 0, cam_ball_y = 0, lidar_ball_x = 0, lidar_ball_y = 0;
+float line_status[NUM_LINE_MUX];
+bool isOnLine = false;
 
 //// ** FUNCTIONS ** ////
 
@@ -163,10 +169,10 @@ void getTopPlateData(){
                 xSemaphoreGive(coordMutex);
                 // Serial.println("Coordinate data updated");
             }
-            setLED(1, 5, strip.Color(0, 15, 15));
+            setLED(1, 2, strip.Color(0, 15, 15));
         }
     }
-    else setLED(1, 5, strip.Color(15, 0, 15));
+    else setLED(1, 2, strip.Color(15, 0, 15));
 }
 
 void getTopCamData(){
@@ -237,6 +243,54 @@ void getTopCamData(){
                 // Serial.println("Ball data updated");
             }
         }
+    }
+}
+
+void getBottomPlateData(){
+    if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){
+        byte num_bytes = Wire.requestFrom(I2C_RCV_PICO_ADDR, I2C_RCV_DATA_LEN);
+        if(num_bytes != I2C_RCV_DATA_LEN){
+            Serial.print("Received bad data: ");
+            setLED(3, 4, strip.Color(15, 15, 0));
+        }
+        else Serial.print("Received: ");
+        for (int i=0; i<I2C_RCV_DATA_LEN; i++) {
+            if (Wire.available()) {
+                rcvBuffer[i] = Wire.read();
+            }
+        }
+        rcvBuffer[I2C_RCV_DATA_LEN] = '\0';
+        xSemaphoreGive(i2cMutex);
+        
+        if(rcvBuffer[0]!=1) {
+            Serial.println("Bad data received");
+            setLED(3, 4, strip.Color(15, 15, 0));
+        }
+        else setLED(3, 4, strip.Color(0, 15, 0));
+
+        cam_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
+        if(rcvBuffer[1]==0) cam_ball_x *= -1;
+        cam_ball_y = (float)(rcvBuffer[4] + (rcvBuffer[5]<<8)) / 128;
+
+        lidar_ball_x = (float)(rcvBuffer[7] + (rcvBuffer[8]<<8)) / 128;
+        if(rcvBuffer[6]==0) lidar_ball_x *= -1;
+        lidar_ball_y = (float)(rcvBuffer[9] + (rcvBuffer[10]<<8)) / 128;
+
+        DEBUG(cam_ball_x);
+        DEBUG(cam_ball_y);
+        DEBUG(lidar_ball_x);
+        DEBUG(lidar_ball_y);
+
+        // should add ball cap condition here
+
+        isOnLine = false;
+        for (uint8_t i=0; i<4; i++) {
+            line_status[i] = rcvBuffer[i+12];
+            if(line_status[i]>0) isOnLine = true;
+            DEBUG(line_status[i]);
+        }
+        if(isOnLine) setLED(5, 5, strip.Color(15, 15, 15));
+        else setLED(5, 5, strip.Color(0, 0, 0));
     }
 }
 
@@ -355,6 +409,7 @@ void core1Task(void *pvParameters){
         checkFault();
         getTopPlateData();
         getTopCamData();
+        getBottomPlateData();
     }
 }
 
