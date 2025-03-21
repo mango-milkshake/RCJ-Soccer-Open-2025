@@ -26,11 +26,40 @@ Line lineMux2(0, 1, 2, 27);
 Line lineMux3(0, 1, 2, 28);
 Line lineMux4(0, 1, 2, 29);
 
+#define CAM_TX_PIN 12
+#define CAM_RX_PIN 13
+#define CAM_DATA_LEN 6
+byte camBuffer[CAM_DATA_LEN];
+float cam_ball_x, cam_ball_y;
+
 void getAllLineData(){
     sendBuffer[12] = lineMux1.readData();
     sendBuffer[13] = lineMux2.readData();
     sendBuffer[14] = lineMux3.readData();
     sendBuffer[15] = lineMux4.readData();
+}
+
+void getCamData(){
+    if(Serial1.available()>=CAM_DATA_LEN){
+        while(Serial1.peek()!=1) {
+            Serial.println("Camera first byte not 1");
+            Serial1.read();
+        }
+        int len = Serial1.readBytes(camBuffer, CAM_DATA_LEN);
+        Serial.println(len);
+        if(len!=CAM_DATA_LEN || camBuffer[0]!=1){
+            Serial.print("Received bad data: length: ");
+            Serial.print(len);
+            Serial.print(", data: ");
+            for (auto i : camBuffer) {
+                Serial.print(i);
+                Serial.print(" ");
+            }
+        }
+        else{
+            for (int i=1; i<=5; i++) sendBuffer[i] = camBuffer[i];
+        }
+    }
 }
 
 void send(){
@@ -47,6 +76,10 @@ void send(){
 void setup(){
     Serial.begin(115200);
 
+    Serial1.setTX(CAM_TX_PIN);
+    Serial1.setRX(CAM_RX_PIN);
+    Serial1.begin(115200);
+
     Wire1.setSDA(SDA_PIN);
     Wire1.setSCL(SCL_PIN);
     Wire1.setClock(400000);
@@ -61,6 +94,7 @@ void setup(){
 void loop(){
     strip.setPixelColor(0, strip.Color(0, 15, 15));
     strip.show();
+    getCamData();
     getAllLineData();
     
     Wire1.onRequest(send);
