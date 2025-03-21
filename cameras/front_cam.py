@@ -108,25 +108,25 @@ while True:
 
     uart.writechar(1)
     if(no_ball==False):
-        if cur_ball_x < 0:
-            uart.writechar(0)
-            cur_ball_x = -cur_ball_x
-        else:
-            uart.writechar(1)
-        uart.writechar(cur_ball_x & 0xFF)
-        uart.writechar((cur_ball_x >> 8) & 0xFF)
-        uart.writechar(cur_ball_y & 0xFF)
-        uart.writechar((cur_ball_y >> 8) & 0xFF)
-
-#        if next_ball_x < 0:
+#        if cur_ball_x < 0:
 #            uart.writechar(0)
-#            next_ball_x = -next_ball_x
+#            cur_ball_x = -cur_ball_x
 #        else:
 #            uart.writechar(1)
-#        uart.writechar(next_ball_x & 0xFF)
-#        uart.writechar((next_ball_x >> 8) & 0xFF)
-#        uart.writechar(next_ball_y & 0xFF)
-#        uart.writechar((next_ball_y >> 8) & 0xFF)
+#        uart.writechar(cur_ball_x & 0xFF)
+#        uart.writechar((cur_ball_x >> 8) & 0xFF)
+#        uart.writechar(cur_ball_y & 0xFF)
+#        uart.writechar((cur_ball_y >> 8) & 0xFF)
+
+        if next_ball_x < 0:
+            uart.writechar(0)
+            next_ball_x = -next_ball_x
+        else:
+            uart.writechar(1)
+        uart.writechar(next_ball_x & 0xFF)
+        uart.writechar((next_ball_x >> 8) & 0xFF)
+        uart.writechar(next_ball_y & 0xFF)
+        uart.writechar((next_ball_y >> 8) & 0xFF)
     else:
         for i in range(5):
             uart.writechar(0)
