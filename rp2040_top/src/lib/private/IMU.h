@@ -126,7 +126,7 @@ class IMU {
             bool tared = false;
             while(!tared){
                 bool status = readRawData();
-                tared = true;
+                if(status) tared = true;
             }
             yawOffset = rawYaw;
             pitchOffset = rawPitch;
