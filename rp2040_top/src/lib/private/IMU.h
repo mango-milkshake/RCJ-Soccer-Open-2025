@@ -83,16 +83,16 @@ class IMU {
 
                 double t0 = +2.0 * (qw * qx + qy * qz);
                 double t1 = +1.0 - 2.0 * (qx * qx + qy * qy);
-                rawRoll = DEG(atan2(t0, t1));
+                rawRoll = atan2(t0, t1) * 180.0 / PI;
 
                 double t2 = +2.0 * (qw * qy - qx * qz);
                 t2 = t2 > 1.0 ? 1.0 : t2;
                 t2 = t2 < -1.0 ? -1.0 : t2;
-                rawPitch = DEG(asin(t2));
+                rawPitch = asin(t2) * 180.0 / PI;
 
                 double t3 = +2.0 * (qw * qz + qx * qy);
                 double t4 = +1.0 - 2.0 * (qy * qy + qz * qz);
-                rawYaw = DEG(atan2(t3, t4));
+                rawYaw = atan2(t3, t4) * 180.0 / PI;
             }
             else validData = false;
 
