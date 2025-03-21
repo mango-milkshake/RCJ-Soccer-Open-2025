@@ -1,6 +1,8 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
+#include <Line.h>
+
 #define DEBUGGING
 
 #define led_pin 16
@@ -18,6 +20,18 @@ byte sendBuffer[I2C_DATA_LEN];
 // 6-10: ballcap lidar
 // 11: tofsense lidar gate
 // 12-15: line sensors
+
+Line lineMux1(0, 1, 2, 26);
+Line lineMux2(0, 1, 2, 27);
+Line lineMux3(0, 1, 2, 28);
+Line lineMux4(0, 1, 2, 29);
+
+void getAllLineData(){
+    sendBuffer[12] = lineMux1.readData();
+    sendBuffer[13] = lineMux2.readData();
+    sendBuffer[14] = lineMux3.readData();
+    sendBuffer[15] = lineMux4.readData();
+}
 
 void send(){
     #ifdef DEBUGGING
@@ -47,6 +61,7 @@ void setup(){
 void loop(){
     strip.setPixelColor(0, strip.Color(0, 15, 15));
     strip.show();
+    getAllLineData();
     
     Wire1.onRequest(send);
 }
