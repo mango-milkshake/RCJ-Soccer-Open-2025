@@ -49,7 +49,7 @@
 ## I Fried It
 Fried RP2040-Zero Count: 4  
 Fried ESP32-S3-Pico Count: 1  
-Fried Motor Driver Count: ?
+Fried Motor Driver Count: ?  
 Fried TOFSense Count: ?
 
 Last updated: 2025-03-24
