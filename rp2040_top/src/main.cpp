@@ -7,6 +7,11 @@
 
 #define DEBUG(x) Serial.print(#x); Serial.print(": "); Serial.println(x);
 
+// #define PRINT_LIDARS
+// #define PRINT_RECT
+// #define PRINT_COORDS
+#define PRINT_IMU
+
 #define FIELD_WIDTH 1.82
 #define FIELD_HEIGHT 2.43
 
@@ -107,31 +112,39 @@ void loop(){
     pico_led.setPixelColor(0, pico_led.Color(15, 0, 0));
     pico_led.show();
 
-    // Serial.print("Lidar coordinates: {");
+    #ifdef PRINT_LIDARS
+    Serial.print("Lidar coordinates: {");
+    #endif
 
     for (int i=0; i<NUM_LIDARS; i++){
         // distRaw[i] = lidar[i].readRaw();
         coords[i] = lidar[i].readCoords();
         if(lidar[i].buffer.dis<=0.10) strip.setPixelColor(i, strip.Color(15, 0, 0));
 
-        // Serial.print("{");
-        // Serial.print(coords[i].x);
-        // Serial.print(", ");
-        // Serial.print(coords[i].y);
-        // Serial.print("}, ");
+        #ifdef PRINT_LIDARS
+        Serial.print("{");
+        Serial.print(coords[i].x);
+        Serial.print(", ");
+        Serial.print(coords[i].y);
+        Serial.print("}, ");
+        #endif
     }
     strip.show();
-    // Serial.println("}");
+
+    #ifdef PRINT_LIDARS
+    Serial.println("}");
+    #endif
 
     int hullSize = convexHull(coords, NUM_POINTS, hull);
     MinAreaRect rect = findMinAreaRect(hull, hullSize);
 
-    // Serial.print("Corners (might have been swapped): "); // BL BR TL TR
-    // printPoint(rect.bottom_left);
-    // printPoint(rect.bottom_right);
-    // printPoint(rect.top_left);
-    // printPoint(rect.top_right);
-    // Serial.println();
+    #ifdef PRINT_RECT
+    Serial.print("Corners (might have been swapped): "); // BL BR TL TR
+    printPoint(rect.bottom_left);
+    printPoint(rect.bottom_right);
+    printPoint(rect.top_left);
+    printPoint(rect.top_right);
+    Serial.println();
 
     Serial.print("dimensions");
     Serial.print(rect.width);
@@ -141,6 +154,7 @@ void loop(){
 
     Serial.print("area: ");
     Serial.println(rect.area);
+    #endif
 
     bool flip = false;
     float rotate_rect_angle = 0;
@@ -150,9 +164,12 @@ void loop(){
     }
     else rotate_rect_angle = atanf(rect.vector_width.y / rect.vector_width.x); // in radians
     Point unscaled_coords = rotatePoint(rect.bottom_left, rotate_rect_angle);
-    // Serial.print("unscaled raw coords: ");
-    // printPoint(unscaled_coords);
-    // Serial.println();
+
+    #ifdef PRINT_COORDS
+    Serial.print("unscaled raw coords: ");
+    printPoint(unscaled_coords);
+    Serial.println();
+    #endif
 
     if(unscaled_coords.x < 0 && unscaled_coords.y < 0) {
         // Serial.println("both coord negatives - flip");
@@ -163,8 +180,11 @@ void loop(){
     else if(unscaled_coords.x >=0 && unscaled_coords.y >=0) flip = false;
     else Serial.println("weird coords obtained");
     Point cur_coords = scaleCoord(rect, unscaled_coords);
-    // Serial.print("rotate rect angle: ");
-    // Serial.println(DEG(rotate_rect_angle));
+
+    #ifdef PRINT_COORDS
+    Serial.print("rotate rect angle: ");
+    Serial.println(DEG(rotate_rect_angle));
+    #endif
 
     // float new_heading = DEG(rotate_rect_angle);
     float heading = DEG(rotate_rect_angle) + (flip ? 180 : 0);
@@ -224,6 +244,7 @@ void loop(){
     int uart_heading = floor(final_heading * 128);
     prev_heading = final_heading;
     
+    #ifdef PRINT_COORDS
     Serial.print("final heading: ");
     Serial.print(final_heading);
     Serial.println();
@@ -235,6 +256,7 @@ void loop(){
     Serial.print(abs(cur_coords.y));
     Serial.println("}, ");
     Serial.println();
+    #endif
 
     int rounded_coord_x = floor(cur_coords.x * 128);
     int rounded_coord_y = floor(cur_coords.y * 128);
@@ -271,8 +293,11 @@ void loop1(){
         uint32_t irq_state = spin_lock_blocking(imuLock);
         shared_imu_angle = yaw;
         spin_unlock(imuLock, irq_state);
-        // Serial.print("IMU heading: ");
-        // Serial.println(yaw);
+        
+        #ifdef PRINT_IMU
+        Serial.print("IMU heading: ");
+        Serial.println(yaw);
+        #endif
     }
 
     if(abs(imu0.roll)>=10 || abs(imu0.pitch)>=10){
