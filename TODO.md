@@ -46,6 +46,7 @@
 - [ ] Make use of line sensor data
 - [ ] GAME LOGIC
 
+## I Fried It
 Fried RP2040-Zero Count: 4  
 Fried ESP32-S3-Pico Count: 1
 
