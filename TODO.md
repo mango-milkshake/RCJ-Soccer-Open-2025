@@ -46,7 +46,7 @@
 - [ ] Make use of line sensor data
 - [ ] GAME LOGIC
 
-Fried RP2040-Zero Count: 4
+Fried RP2040-Zero Count: 4  
 Fried ESP32-S3-Pico Count: 1
 
 Last updated: 2025-03-24
