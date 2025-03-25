@@ -5,6 +5,17 @@
 #include <RotatingCalipers.h>
 #include <CommonUtils.h>
 
+#define DEBUGGING
+
+#ifndef DEBUGGING
+#define Serial.print(x) 123;
+#define Serial.println(x) 123;
+#endif
+
+#define READ_RAW_LIDARS
+// #define READ_COORDS
+// #define READ_RECT
+
 #define led_pin 16
 #define led_count 1
 #define brightness 50
@@ -57,41 +68,60 @@ void loop(){
     strip.setPixelColor(0, strip.Color(15, 15, 0));
     strip.show();
 
-    // Serial.print("{");
+    #ifdef READ_COORDS
+    Serial.print("{");
+    #endif
 
     for (int i=0; i<NUM_LIDARS; i++){
         // auto start_time = std::chrono::steady_clock::now();
         // if(i%2!=1) continue;
-        // distRaw[i] = lidar[i].readRaw(); 
+        #ifdef READ_RAW_LIDARS
+        distRaw[i] = lidar[i].readRaw();
+        #endif
+        
+        #ifdef READ_COORDS
         coords[i] = lidar[i].readCoords();
+        #endif
+
         // auto cur_time = std::chrono::steady_clock::now();
         // std::chrono::nanoseconds diff = cur_time - start_time;
         // fps = 0.9 * fps + 0.1 * (1000000000 / diff.count());
 
         // Serial.print("Read Sensor ");
-        // Serial.print(i+1);
+        Serial.print(i+1);
         // Serial.print(" - time: ");
         // Serial.println(fps);
 
-        // Serial.print(" dist: ");
-        // Serial.print(" ");
-        // Serial.print(distRaw[i]);
-        // Serial.print("\t");
-        // Serial.println();
+        #ifdef READ_RAW_LIDARS
+        Serial.print(" dist: ");
+        Serial.print(" ");
+        Serial.print(distRaw[i]);
+        Serial.print("\t");
+        #endif
 
+        #ifdef READ_COORDS
         Serial.print("{");
         Serial.print(coords[i].x);
         Serial.print(", ");
         Serial.print(coords[i].y);
         Serial.print("}, ");
-        // Serial.println();
+        #endif
     }
-    // Serial.println('}');
+
+    #ifdef READ_RAW_LIDARS
+    Serial.println();
+    #endif
+
+    #ifdef READ_COORDS
+    Serial.println('}');
+    #endif 
+
     Serial.println();
 
     int hullSize = convexHull(coords, NUM_POINTS, hull);
     MinAreaRect rect = findMinAreaRect(hull, hullSize);
 
+    #ifdef READ_RECT
     Serial.print("dimensions");
     Serial.print(rect.width);
     Serial.print(" ");
@@ -116,6 +146,7 @@ void loop(){
 
     Serial.print("area: ");
     Serial.println(rect.area);
+    #endif
 
     float heading = 0, basicAngle = 0;
 
@@ -139,18 +170,20 @@ void loop(){
 
     if(heading>=180) heading -= 180;
     
+    #ifdef READ_RECT
     Serial.print("heading: ");
     Serial.print(heading);
     Serial.println();
 
-    Point cur_coords = getCoords(rect, basicAngle);
-    Serial.print("coordinates: ");
-    Serial.print("{");
-    Serial.print(cur_coords.x);
-    Serial.print(", ");
-    Serial.print(cur_coords.y);
-    Serial.print("}, ");
-    Serial.println();
+    // Point cur_coords = getCoords(rect, basicAngle);
+    // Serial.print("coordinates: ");
+    // Serial.print("{");
+    // Serial.print(cur_coords.x);
+    // Serial.print(", ");
+    // Serial.print(cur_coords.y);
+    // Serial.print("}, ");
+    // Serial.println();
+    #endif
     
     delay(100);
 }
