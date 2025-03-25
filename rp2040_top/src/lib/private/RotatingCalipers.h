@@ -36,12 +36,17 @@ struct MinAreaRect
 
 MinAreaRect findMinAreaRect(Point hull[], size_t n);
 
-Point getDist(float len, float angle);
-
-Point getCoords(MinAreaRect r, float angle);
-
 Point rotatePoint(Point p, float angle);
 
 Point scaleCoord(MinAreaRect r, Point p);
+
+Point shiftAndRotate(Point corner, Point p, float angle);
+
+struct Corners
+{
+    Point bl, br, tl, tr;
+};
+
+Corners getCorners(float heading, Point p);
 
 #endif

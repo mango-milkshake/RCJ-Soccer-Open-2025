@@ -1,8 +1,9 @@
 #include "RotatingCalipers.h"
 #include <CommonUtils.h>
-#define NUM_POINTS 24
-#define FIELD_WIDTH 1.82 // 0.91
-#define FIELD_HEIGHT 2.43 // 1.21
+#define NUM_POINTS 28
+#define FIELD_WIDTH 1.82f // 0.91f
+#define FIELD_HEIGHT 2.43f // 1.21f
+#define SHIFT_AMT 0.12
 
 Point nextToTop(stack<Point> &S)
 {
@@ -156,4 +157,31 @@ Point scaleCoord(MinAreaRect r, Point p){
     coord.x = p.x * width_ratio;
     coord.y = p.y * height_ratio;
     return coord;
+}
+
+Point shiftAndRotate(Point corner, Point p, float angle){
+    // shift such that p is at 0, 0
+    // angle in radians
+    float shiftedX = corner.x - p.x;
+    float shiftedY = corner.y - p.y;
+
+    Point res;
+    res.x = shiftedX * cosf(angle) - shiftedY * sinf(angle);
+    res.y = shiftedX * sinf(angle) + shiftedY * cosf(angle);
+    return res;
+}
+
+Corners getCorners(float heading, Point p){
+    Point fieldBL = {0.0f + SHIFT_AMT, 0.0f + SHIFT_AMT};
+    Point fieldBR = {FIELD_WIDTH - SHIFT_AMT, 0.0f + SHIFT_AMT};
+    Point fieldTL = {0.0f + SHIFT_AMT, FIELD_HEIGHT - SHIFT_AMT};
+    Point fieldTR = {FIELD_WIDTH - SHIFT_AMT, FIELD_HEIGHT - SHIFT_AMT};
+    float angle = RAD(heading);
+
+    Corners res;
+    res.bl = shiftAndRotate(fieldBL, p, angle);
+    res.br = shiftAndRotate(fieldBR, p, angle);
+    res.tl = shiftAndRotate(fieldTL, p, angle);
+    res.tr = shiftAndRotate(fieldTR, p, angle);
+    return res;
 }
