@@ -10,9 +10,9 @@
 // #define PRINT_LIDARS
 // #define PRINT_RECT
 #define PRINT_COORDS
-// #define PRINT_DUMMY_POINTS
+#define PRINT_DUMMY_POINTS
 #define PRINT_HEADING
-// #define PRINT_IMU
+#define PRINT_IMU
 
 #define FIELD_WIDTH 1.82f
 #define FIELD_HEIGHT 2.43f
@@ -41,12 +41,12 @@ float calib[NUM_LIDARS] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
 #define NUM_POINTS 28
 Point coords[NUM_POINTS], hull[NUM_POINTS];
-float prev_heading = 0.0f;
+float prev_heading = 0.0f, temp_heading = 0.0f;
 Point prev_coords = {0.0f, 0.0f};
 Corners dummyPoints;
 
-#define LIDAR_ANGLE_WEIGHT 0.10
-#define IMU_ANGLE_WEIGHT 0.90
+#define LIDAR_ANGLE_WEIGHT 0.03f
+#define IMU_ANGLE_WEIGHT 0.97f
 // weights should add up to 1.0
 
 #define TX_PIN 0
@@ -67,9 +67,8 @@ IMU imu0(MOSI0_PIN, MISO0_PIN, SCK0_PIN, CS0_PIN, SPI);
 IMU imu1(MOSI1_PIN, MISO1_PIN, SCK1_PIN, CS1_PIN, SPI1);
 
 spin_lock_t *imuLock;
-float imu_heading = 0.0f; // access only on core 0
-float shared_imu_heading = 0.0f; // use mutex for accessing on both cores
-float yaw = 0.0f; // access only on core 1
+float imu0_heading = 0.0f, prev_imu0_heading, imu1_heading, prev_imu1_heading; // access only on core 0
+float shared_imu0 = 0.0f, shared_imu1 = 0.0f; // use mutex for accessing on both cores
 
 void printPoint(Point p){
     Serial.print("{");
@@ -123,11 +122,27 @@ void loop(){
     pico_led.setPixelColor(0, pico_led.Color(15, 0, 0));
     pico_led.show();
 
+    if(digitalRead(TARE_BUTTON)==HIGH){
+        prev_heading = 0.0f;
+        temp_heading = 0.0f;
+    }
+
     if (!is_spin_locked(imuLock)) {  
         uint32_t irq_state = spin_lock_blocking(imuLock);
-        imu_heading = shared_imu_heading;
+        imu0_heading = shared_imu0;
+        imu1_heading = shared_imu1;
         spin_unlock(imuLock, irq_state);
+
+        #ifdef PRINT_IMU
+        Serial.print("IMU heading: ");
+        Serial.print(imu0_heading);
+        Serial.print("\t");
+        Serial.println(imu1_heading);
+        #endif
     }
+
+    float angle_diff = (imu0_heading - prev_imu0_heading + imu1_heading - prev_imu1_heading)/2;
+    temp_heading = angle_diff + prev_heading;
 
     #ifdef PRINT_LIDARS
     Serial.print("Lidar coordinates: {");
@@ -152,8 +167,8 @@ void loop(){
     Serial.println("}");
     #endif
 
-    if(imu_heading != 0 && prev_coords.x != 0 && prev_coords.y != 0){
-        dummyPoints = getCorners(imu_heading, prev_coords);
+    if(prev_imu0_heading != 0 && prev_imu1_heading != 0 && prev_coords.x != 0 && prev_coords.y != 0){
+        dummyPoints = getCorners(temp_heading, prev_coords);
     }
 
     int hullSize = convexHull(coords, NUM_POINTS, hull);
@@ -236,7 +251,7 @@ void loop(){
     if(heading >= 360) heading -= 360;
 
     float other_heading = heading + (heading<180 ? 180 : -180);
-    float diff1 = abs(imu_heading - heading), diff2 = abs(imu_heading - other_heading);
+    float diff1 = abs(temp_heading - heading), diff2 = abs(temp_heading - other_heading);
     if(diff1>180) diff1 = 360 - diff1;
     if(diff2>180) diff2 = 360 - diff2;
     float lidar_heading = heading;
@@ -246,6 +261,7 @@ void loop(){
         cur_coords.x = FIELD_WIDTH - cur_coords.x;
         cur_coords.y = FIELD_HEIGHT - cur_coords.y;
     }
+    LIM_ANGLE_180(lidar_heading);
 
     if(rect.area > FIELD_MAX_THRESH * FIELD_AREA){
         Serial.println("bad area obtained");
@@ -263,17 +279,17 @@ void loop(){
     Serial.print(abs(cur_coords.x));
     Serial.print(", ");
     Serial.print(abs(cur_coords.y));
-    Serial.println("}, ");
+    Serial.println("}");
     #endif
 
-    float weightedX = sinf(RAD(lidar_heading)) * LIDAR_ANGLE_WEIGHT + sinf(RAD(imu_heading)) * IMU_ANGLE_WEIGHT;
-    float weightedY = cosf(RAD(lidar_heading)) * LIDAR_ANGLE_WEIGHT + cosf(RAD(imu_heading)) * IMU_ANGLE_WEIGHT;
+    float weightedX = sinf(RAD(lidar_heading)) * LIDAR_ANGLE_WEIGHT + sinf(RAD(temp_heading)) * IMU_ANGLE_WEIGHT;
+    float weightedY = cosf(RAD(lidar_heading)) * LIDAR_ANGLE_WEIGHT + cosf(RAD(temp_heading)) * IMU_ANGLE_WEIGHT;
     float final_heading = DEG(atan2(weightedX, weightedY));
     LIM_ANGLE_180(final_heading);
 
     #ifdef PRINT_HEADING
-    Serial.print("IMU heading: ");
-    Serial.println(imu_heading);
+    Serial.print("temp heading: ");
+    Serial.println(temp_heading);
     Serial.print("final angle: ");
     Serial.print(final_heading);
     Serial.println();
@@ -281,11 +297,13 @@ void loop(){
 
     prev_coords = cur_coords;
     prev_heading = final_heading;
+    prev_imu0_heading = imu0_heading;
+    prev_imu1_heading = imu1_heading;
 
     int rounded_coord_x = floor(cur_coords.x * 128);
     int rounded_coord_y = floor(cur_coords.y * 128);
-    int uart_heading = floor(lidar_heading * 128);
-    int rounded_imu_heading = floor(abs(imu_heading) * 128);
+    int uart_heading = floor(final_heading * 128);
+    // int rounded_imu_heading = floor(abs(imu_heading) * 128);
 
     Serial1.write(1);
     Serial1.write(rounded_coord_x & 0xFF);
@@ -295,43 +313,30 @@ void loop(){
     Serial1.write(uart_heading & 0xFF);
     Serial1.write((uart_heading >> 8) & 0xFF);
 
-    if(copysign(1, imu_heading)==1) Serial1.write(1);
-    else Serial1.write((uint8_t)0);
-    Serial1.write(rounded_imu_heading & 0xFF);
-    Serial1.write((rounded_imu_heading >> 8) & 0xFF);
+    // if(copysign(1, imu_heading)==1) Serial1.write(1);
+    // else Serial1.write((uint8_t)0);
+    // Serial1.write(rounded_imu_heading & 0xFF);
+    // Serial1.write((rounded_imu_heading >> 8) & 0xFF);
 
     Serial.println();
 }
 
 void loop1(){
-    if(digitalRead(TARE_BUTTON)==HIGH){
-        imu0.tareAll();
-        imu1.tareAll();
-    }
+    // if(digitalRead(TARE_BUTTON)==HIGH){
+    //     imu0.tareAll();
+    //     imu1.tareAll();
+    // }
     imu0.updateAllData();
     imu1.updateAllData();
-    float angle0 = imu0.yaw;
-    float angle1 = imu1.yaw;
-    yaw = (angle0 + angle1) / 2;
-    if(abs(yaw-angle0)>90) yaw -= 180;
-    LIM_ANGLE_180(yaw);
 
     if (!is_spin_locked(imuLock)) {  
         uint32_t irq_state = spin_lock_blocking(imuLock);
-        shared_imu_heading = yaw;
+        shared_imu0 = imu0.yaw;
+        shared_imu1 = imu1.yaw;
         spin_unlock(imuLock, irq_state);
-        
-        #ifdef PRINT_IMU
-        Serial.print("IMU heading: ");
-        Serial.print(angle0);
-        Serial.print("\t");
-        Serial.print(angle1);
-        Serial.print("\t");
-        Serial.println(yaw);
-        #endif
     }
 
-    if(abs(imu0.roll)>=10 || abs(imu0.pitch)>=10){
+    if(abs(imu0.roll)>=10 || abs(imu0.pitch)>=10 || abs(imu1.roll)>=10 || abs(imu1.pitch)>=10){
         pico_led.setPixelColor(0, pico_led.Color(0, 15, 0));
         pico_led.show();
     }
