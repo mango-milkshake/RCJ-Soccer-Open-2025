@@ -5,7 +5,8 @@
 #include "../public/tofsense_f_iic.h"
 #include <CommonUtils.h>
 #include <RotatingCalipers.h>
-#define DIST_FROM_CENTRE 0.065
+#define DIST_FROM_CENTRE 0.065f
+#define MAX_LIDAR_DIST 3.2f
 
 class Lidar{
     public:
@@ -25,6 +26,7 @@ class Lidar{
             // coordinates relative to bot
             Point p;
             float dist = readRaw() + _calibration;
+            if(dist > MAX_LIDAR_DIST) dist = 0;
             p.x = cosf(RAD(_angle)) * dist;
             p.y = sinf(RAD(_angle)) * dist;
             return p;
