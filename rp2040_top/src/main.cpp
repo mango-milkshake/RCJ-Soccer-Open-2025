@@ -71,7 +71,6 @@ IMU imu1(MOSI1_PIN, MISO1_PIN, SCK1_PIN, CS1_PIN, SPI1);
 #define OFF_BUTTON 27
 
 spin_lock_t *imuLock;
-float imu0_heading = 0.0f, prev_imu0_heading, imu1_heading, prev_imu1_heading; // access only on core 0
 float shared_imu0 = 0.0f, shared_imu1 = 0.0f; // use mutex for accessing on both cores
 bool shared_tilt_state = false;
 
@@ -329,14 +328,16 @@ void loop(){
 
     int rounded_coord_x = floor(cur_coords.x * 128);
     int rounded_coord_y = floor(cur_coords.y * 128);
-    int uart_heading = floor(final_heading * 128);
-    // int rounded_imu_heading = floor(abs(imu_heading) * 128);
+    int uart_heading = floor(abs(final_heading) * 128);
 
-    Serial1.write(1);
+    Serial1.write(5);
     Serial1.write(rounded_coord_x & 0xFF);
     Serial1.write((rounded_coord_x >> 8) & 0xFF);
     Serial1.write(rounded_coord_y & 0xFF);
     Serial1.write((rounded_coord_y >> 8) & 0xFF);
+
+    if(copysign(1, final_heading)==1) Serial1.write(1);
+    else Serial1.write((uint8_t)0);
     Serial1.write(uart_heading & 0xFF);
     Serial1.write((uart_heading >> 8) & 0xFF);
 
