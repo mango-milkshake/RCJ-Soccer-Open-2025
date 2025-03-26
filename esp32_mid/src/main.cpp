@@ -162,9 +162,8 @@ void getTopPlateData(){
             if(uartBufferPico[5]==0) heading *= -1;
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
-            
 
-            if(xSemaphoreTake(coordMutex, portMAX_DELAY)){
+            if(xSemaphoreTake(coordMutex, 0)){ // here
                 cur_x = coord_x;
                 cur_y = coord_y;
                 cur_heading = heading;
@@ -232,7 +231,7 @@ void getTopCamData(){
             ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
             ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
 
-            if(xSemaphoreTake(ballMutex, portMAX_DELAY)){
+            if(xSemaphoreTake(ballMutex, 0)){ // here
                 if(no_ball){
                     cur_ball_x = 0;
                     cur_ball_y = 0;
@@ -252,7 +251,7 @@ void getTopCamData(){
 }
 
 void getBottomPlateData(){
-    if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){
+    if(xSemaphoreTake(i2cMutex, 0)){ // here
         byte num_bytes = Wire.requestFrom(I2C_RCV_PICO_ADDR, I2C_RCV_DATA_LEN);
         if(num_bytes != I2C_RCV_DATA_LEN){
             Serial.print("Received bad data: ");
@@ -320,7 +319,7 @@ void updateData(){
 }
 
 void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
-    if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){
+    if(xSemaphoreTake(i2cMutex, 0)){ // here
         Wire.beginTransmission(I2C_SEND_PICO_ADDR);
         Wire.write(buffer, I2C_SEND_DATA_LEN);
         Wire.endTransmission();
@@ -414,7 +413,7 @@ void core1Task(void *pvParameters){
         checkFault();
         getTopPlateData();
         getTopCamData();
-        getBottomPlateData();
+        // getBottomPlateData();
     }
 }
 
