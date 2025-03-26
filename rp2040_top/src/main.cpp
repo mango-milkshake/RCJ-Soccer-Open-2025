@@ -26,7 +26,7 @@ Adafruit_NeoPixel pico_led(1, PICO_LED, NEO_GRB + NEO_KHZ800);
 
 #define STRIP_LED 28
 #define STRIP_COUNT 24
-#define STRIP_BRIGHTNESS 3
+#define STRIP_BRIGHTNESS 100
 Adafruit_NeoPixel strip(STRIP_COUNT, STRIP_LED, NEO_GRB + NEO_KHZ800);
 
 #define NUM_LIDARS 24
@@ -151,7 +151,9 @@ void loop(){
     for (int i=0; i<NUM_LIDARS; i++){
         // distRaw[i] = lidar[i].readRaw();
         coords[i] = lidar[i].readCoords();
-        if(lidar[i].buffer.dis<=0.10) strip.setPixelColor(i, strip.Color(15, 0, 0));
+        if(lidar[i].buffer.dis > MAX_LIDAR_DIST) strip.setPixelColor(i, strip.Color(15, 0, 15));
+        else if(lidar[i].buffer.dis<=0.10) strip.setPixelColor(i, strip.Color(15, 0, 0));
+        else strip.setPixelColor(i, strip.Color(0, 15, 0));
 
         #ifdef PRINT_LIDARS
         Serial.print("{");
