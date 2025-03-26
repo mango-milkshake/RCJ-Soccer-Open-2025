@@ -45,8 +45,10 @@ float prev_heading = 0.0f, temp_heading = 0.0f;
 Point prev_coords = {0.0f, 0.0f};
 Corners dummyPoints;
 
-#define LIDAR_ANGLE_WEIGHT 0.03f
-#define IMU_ANGLE_WEIGHT 0.97f
+#define DEFAULT_LIDAR_ANGLE_WEIGHT 0.03
+#define DEFAULT_IMU_ANGLE_WEIGHT 0.97
+float lidar_angle_weight = DEFAULT_LIDAR_ANGLE_WEIGHT;
+float imu_angle_weight = DEFAULT_IMU_ANGLE_WEIGHT;
 // weights should add up to 1.0
 
 #define TX_PIN 0
@@ -66,9 +68,19 @@ Corners dummyPoints;
 IMU imu0(MOSI0_PIN, MISO0_PIN, SCK0_PIN, CS0_PIN, SPI);
 IMU imu1(MOSI1_PIN, MISO1_PIN, SCK1_PIN, CS1_PIN, SPI1);
 
+#define OFF_BUTTON 27
+
 spin_lock_t *imuLock;
 float imu0_heading = 0.0f, prev_imu0_heading, imu1_heading, prev_imu1_heading; // access only on core 0
 float shared_imu0 = 0.0f, shared_imu1 = 0.0f; // use mutex for accessing on both cores
+bool shared_tilt_state = false;
+
+// Core 0 variables
+float imu0_heading = 0.0f, prev_imu0_heading, imu1_heading, prev_imu1_heading;
+bool tilt_state = false;
+
+// Core 1 variables
+bool imu_tilt_state = false;
 
 void printPoint(Point p){
     Serial.print("{");
@@ -114,6 +126,7 @@ void setup(){
 
 void setup1(){
     pinMode(TARE_BUTTON, INPUT);
+    pinMode(OFF_BUTTON, INPUT);
     imu0.init();
     imu1.init();
 }
@@ -126,12 +139,14 @@ void loop(){
         prev_heading = 0.0f;
         temp_heading = 0.0f;
         prev_coords = {0.0f, 0.0f};
+        tilt_state = false;
     }
 
     if (!is_spin_locked(imuLock)) {  
         uint32_t irq_state = spin_lock_blocking(imuLock);
         imu0_heading = shared_imu0;
         imu1_heading = shared_imu1;
+        tilt_state = shared_tilt_state;
         spin_unlock(imuLock, irq_state);
 
         #ifdef PRINT_IMU
@@ -140,6 +155,15 @@ void loop(){
         Serial.print("\t");
         Serial.println(imu1_heading);
         #endif
+    }
+
+    if(tilt_state){
+        lidar_angle_weight = 0;
+        imu_angle_weight = 1;
+    }
+    else{
+        lidar_angle_weight = DEFAULT_LIDAR_ANGLE_WEIGHT;
+        imu_angle_weight = DEFAULT_IMU_ANGLE_WEIGHT;
     }
 
     float angle_diff = (imu0_heading - prev_imu0_heading + imu1_heading - prev_imu1_heading)/2;
@@ -285,8 +309,8 @@ void loop(){
     Serial.println("}");
     #endif
 
-    float weightedX = sinf(RAD(lidar_heading)) * LIDAR_ANGLE_WEIGHT + sinf(RAD(temp_heading)) * IMU_ANGLE_WEIGHT;
-    float weightedY = cosf(RAD(lidar_heading)) * LIDAR_ANGLE_WEIGHT + cosf(RAD(temp_heading)) * IMU_ANGLE_WEIGHT;
+    float weightedX = sinf(RAD(lidar_heading)) * lidar_angle_weight + sinf(RAD(temp_heading)) * imu_angle_weight;
+    float weightedY = cosf(RAD(lidar_heading)) * lidar_angle_weight + cosf(RAD(temp_heading)) * imu_angle_weight;
     float final_heading = DEG(atan2(weightedX, weightedY));
     LIM_ANGLE_180(final_heading);
 
@@ -316,10 +340,8 @@ void loop(){
     Serial1.write(uart_heading & 0xFF);
     Serial1.write((uart_heading >> 8) & 0xFF);
 
-    // if(copysign(1, imu_heading)==1) Serial1.write(1);
-    // else Serial1.write((uint8_t)0);
-    // Serial1.write(rounded_imu_heading & 0xFF);
-    // Serial1.write((rounded_imu_heading >> 8) & 0xFF);
+    if(tilt_state) Serial1.write(1);
+    else Serial1.write((uint8_t)0);
 
     Serial.println();
 }
@@ -332,15 +354,25 @@ void loop1(){
     imu0.updateAllData();
     imu1.updateAllData();
 
+    if(abs(imu0.roll)>=10 || abs(imu0.pitch)>=10 || abs(imu1.roll)>=10 || abs(imu1.pitch)>=10){
+        // imu_tilt_state = true;
+        // pico_led.setPixelColor(0, pico_led.Color(0, 15, 0));
+        // pico_led.show();
+    }
+    // else imu_tilt_state = false;
+
+    if(digitalRead(OFF_BUTTON)==HIGH){
+        imu_tilt_state = true;
+        pico_led.setPixelColor(0, pico_led.Color(0, 0, 15));
+        pico_led.show();
+    }
+    else imu_tilt_state = false;
+
     if (!is_spin_locked(imuLock)) {  
         uint32_t irq_state = spin_lock_blocking(imuLock);
         shared_imu0 = imu0.yaw;
         shared_imu1 = imu1.yaw;
+        shared_tilt_state = imu_tilt_state;
         spin_unlock(imuLock, irq_state);
-    }
-
-    if(abs(imu0.roll)>=10 || abs(imu0.pitch)>=10 || abs(imu1.roll)>=10 || abs(imu1.pitch)>=10){
-        pico_led.setPixelColor(0, pico_led.Color(0, 15, 0));
-        pico_led.show();
     }
 }
