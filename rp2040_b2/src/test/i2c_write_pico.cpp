@@ -3,7 +3,7 @@
 
 #define SDA_PIN 0
 #define SCL_PIN 1
-#define DATA_LEN 32
+#define DATA_LEN 16
 #define ADDR 0x08
 
 byte buffer[DATA_LEN];
