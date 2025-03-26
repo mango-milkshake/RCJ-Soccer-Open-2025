@@ -125,6 +125,7 @@ void loop(){
     if(digitalRead(TARE_BUTTON)==HIGH){
         prev_heading = 0.0f;
         temp_heading = 0.0f;
+        prev_coords = {0.0f, 0.0f};
     }
 
     if (!is_spin_locked(imuLock)) {  
