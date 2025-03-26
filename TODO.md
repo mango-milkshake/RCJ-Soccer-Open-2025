@@ -20,8 +20,6 @@
 - Proper ballcap condition
 - Aiming / Scoring with dribbler and kicker
 - IMU determine position using acceleration
-- Add second IMU data
-- Weighted average heading with 2 IMUs and heading obtained from lidar ring
 - Weighted average coordinates through different sources
 - Make use of line sensor data
 - GAME LOGIC
@@ -29,7 +27,7 @@
 ## I Fried It
 Fried RP2040-Zero Count: 4  
 Fried ESP32-S3-Pico Count: 1  
-Fried Motor Driver Count: ?  
+Fried Motor Driver Count: 5  
 Fried TOFSense Count: ?
 
 Last updated: 2025-03-24
