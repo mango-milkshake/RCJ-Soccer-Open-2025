@@ -392,6 +392,10 @@ void core0Task(void *pvParameters){
     for (int i=1; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
     while(1){
         // Serial.print("Core0");
+        float curTime = millis();
+        Serial.println("time: ");
+        Serial.println(curTime - lastTime);
+        lastTime = millis();
         if(digitalRead(TURN_OFF_SW)==HIGH) turnOff = true;
         else turnOff = false;
 
