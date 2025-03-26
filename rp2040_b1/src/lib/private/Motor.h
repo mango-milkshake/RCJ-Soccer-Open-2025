@@ -18,10 +18,15 @@ class Motor {
         void setSpeed(float speed) {
             _speed = speed * _multiplier;
             _speed = constrain(_speed, -1, 1);
-            if (_speed >= 0) {
+            if(speed == 0){
+                analogWrite(_pin1, 0);
+                analogWrite(_pin2, 0);
+            }
+            else if (_speed > 0) {
                 analogWrite(_pin2, 0);
                 analogWrite(_pin1, abs(_speed)*_maxspeed + 10);
-            } else {
+            } 
+            else {
                 analogWrite(_pin1, 0);
                 analogWrite(_pin2, abs(_speed)*_maxspeed + 10);
             }
