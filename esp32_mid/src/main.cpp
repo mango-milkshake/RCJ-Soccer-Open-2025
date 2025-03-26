@@ -145,6 +145,7 @@ void getTopPlateData(){
             Serial2.read();
         }
         int len = Serial2.readBytes(uartBufferPico, PICO_SERIAL_DATA_LEN);
+        while(Serial2.available()) Serial2.read();
         if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=5){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
@@ -186,7 +187,7 @@ void getTopCamData(){
             Serial1.read();
         }
         int len = Serial1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
-        Serial.println(len);
+        while(Serial1.available()) Serial1.read();
         if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
