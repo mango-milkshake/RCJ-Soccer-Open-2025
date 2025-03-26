@@ -48,7 +48,7 @@ byte zeroBuffer[I2C_SEND_DATA_LEN];
 // UART Comms with top plate
 #define PICO_TX_PIN 16
 #define PICO_RX_PIN 17
-#define PICO_SERIAL_DATA_LEN 10
+#define PICO_SERIAL_DATA_LEN 9
 byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 
 // UART Comms with camera
@@ -89,24 +89,25 @@ Kicker kicker(KICKER_PIN);
 SemaphoreHandle_t i2cMutex, coordMutex, ballMutex;
 
 // Variables - access from both cores
-float cur_x, cur_y, cur_lidar_heading, cur_imu_heading;
+float cur_x, cur_y, cur_heading;
 float cur_ball_x = 0, cur_ball_y = 0;
-bool curBallCap = false;
+bool curBallCap = false, curTilt = false;
 
 // Variables - core 0 only
-float self_x = 0, self_y = 0, self_lidar_heading = 0, self_imu_heading = 0;
+float self_x = 0, self_y = 0, self_heading = 0;
 float self_ball_x = 0, self_ball_y = 0, self_ball_angle = 0;
 float speed_xdir, speed_ydir, rotation;
-bool selfBallCap = false;
+bool selfBallCap = false, selfTilt = false;
+float lastTime = 0;
 
 // Variables - core 1 only
-float coord_x = 0, coord_y = 0, lidar_heading = 0, imu_heading = 0;
+float coord_x = 0, coord_y = 0, heading = 0;
 float ball_angle = 0, ball_dist = 0, ball_x = 0, ball_y = 0;
 bool no_ball = false, ballCap = false;
 float lastBallCap = 0;
 float cam_ball_x = 0, cam_ball_y = 0, lidar_ball_x = 0, lidar_ball_y = 0;
 float line_status[NUM_LINE_MUX];
-bool isOnLine = false;
+bool isOnLine = false, isTilted = false;
 
 //// ** FUNCTIONS ** ////
 
@@ -139,12 +140,12 @@ void checkFault(){
 
 void getTopPlateData(){
     if(Serial2.available()>=PICO_SERIAL_DATA_LEN){
-        while(Serial2.peek()!=1) {
-            Serial.println("Pico first byte not 1");
+        while(Serial2.available()>=PICO_SERIAL_DATA_LEN && Serial2.peek()!=5) {
+            Serial.println("Pico first byte not 5");
             Serial2.read();
         }
         int len = Serial2.readBytes(uartBufferPico, PICO_SERIAL_DATA_LEN);
-        if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=1){
+        if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=5){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
             Serial.print(", data: ");
@@ -156,28 +157,31 @@ void getTopPlateData(){
         else{
             coord_x = (float)(uartBufferPico[1] + (uartBufferPico[2]<<8)) / 128;
             coord_y = (float)(uartBufferPico[3] + (uartBufferPico[4]<<8)) / 128;
-            lidar_heading = (float)(uartBufferPico[5] + (uartBufferPico[6]<<8)) / 128;
-
-            imu_heading = (float)(uartBufferPico[8] + (uartBufferPico[9]<<8)) / 128;
-            if(uartBufferPico[7]==0) imu_heading *= -1;
+            heading = (float)(uartBufferPico[6] + (uartBufferPico[7]<<8)) / 128;
+            if(uartBufferPico[5]==0) heading *= -1;
+            if(uartBufferPico[8]==1) isTilted = true;
+            else isTilted = false;
+            
 
             if(xSemaphoreTake(coordMutex, portMAX_DELAY)){
                 cur_x = coord_x;
                 cur_y = coord_y;
-                cur_lidar_heading = lidar_heading;
-                cur_imu_heading = imu_heading;
+                cur_heading = heading;
+                curTilt = isTilted;
                 xSemaphoreGive(coordMutex);
                 // Serial.println("Coordinate data updated");
             }
-            setLED(1, 2, strip.Color(0, 15, 15));
+
+            // DEBUG(heading);
+            setLED(1, 2, strip.Color(15, 0, 15));
         }
     }
-    else setLED(1, 2, strip.Color(15, 0, 15));
+    else setLED(1, 2, strip.Color(0, 15, 15));
 }
 
 void getTopCamData(){
     if(Serial1.available()>=CAM_SERIAL_DATA_LEN){
-        while(Serial1.peek()!=1) {
+        while(Serial1.available()>=CAM_SERIAL_DATA_LEN && Serial1.peek()!=1) {
             Serial.println("Camera first byte not 1");
             Serial1.read();
         }
@@ -223,7 +227,7 @@ void getTopCamData(){
             else if(ball_dist<=40) dribbler.setSpeed(1.0);
             else dribbler.setSpeed(0.5);
 
-            float relative_angle = 90 - (ball_angle + imu_heading);
+            float relative_angle = 90 - (ball_angle + heading);
             ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
             ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
 
@@ -298,8 +302,8 @@ void updateData(){
     if(xSemaphoreTake(coordMutex, 0)){
         self_x = cur_x;
         self_y = cur_y;
-        self_lidar_heading = cur_lidar_heading;
-        self_imu_heading = cur_imu_heading;
+        self_heading = cur_heading;
+        selfTilt = curTilt;
         xSemaphoreGive(coordMutex);
         // Serial.println("Updated coordinates");
         // DEBUG(self_x);
@@ -328,7 +332,7 @@ void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
     target_y = constrain(target_y, 0.37, FIELD_HEIGHT - 0.37);
     float x_dist = target_x - self_x, y_dist = target_y - self_y;
-    float rotation_dist = self_imu_heading - target_rotation;
+    float rotation_dist = self_heading - target_rotation;
     while(rotation_dist > 180) rotation_dist -= 360;
     while(rotation_dist < -180) rotation_dist += 360;
     speed_xdir = constrain(pid_x.compute(0, x_dist), -1, 1);
@@ -354,7 +358,7 @@ void movement(float target_x, float target_y, float target_rotation){
     sendBuffer[5] = rotation_sign;
     sendBuffer[6] = rounded_rotation;
 
-    if(turnOff) sendI2C(zeroBuffer);
+    if(turnOff || selfTilt) sendI2C(zeroBuffer);
     else sendI2C(sendBuffer);
 }
 
@@ -377,7 +381,7 @@ void ballTrack(){
 void aim(){
     float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
     movement(0.91, 2.06, 90-DEG(angleToFace));
-    // if(selfBallCap && self_y > 1.63 && (self_imu_heading > -90 && self_imu_heading < 90)) kicker.kick();
+    // if(selfBallCap && self_y > 1.63 && (self_heading > -90 && self_heading < 90)) kicker.kick();
 }
 
 //// ** LOOPS ** ////
