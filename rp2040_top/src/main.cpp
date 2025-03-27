@@ -357,18 +357,18 @@ void loop1(){
     imu1.updateAllData();
 
     if(abs(imu0.roll)>=10 || abs(imu0.pitch)>=10 || abs(imu1.roll)>=10 || abs(imu1.pitch)>=10){
-        // imu_tilt_state = true;
-        // pico_led.setPixelColor(0, pico_led.Color(0, 15, 0));
-        // pico_led.show();
-    }
-    // else imu_tilt_state = false;
-
-    if(digitalRead(OFF_BUTTON)==HIGH){
         imu_tilt_state = true;
-        pico_led.setPixelColor(0, pico_led.Color(0, 0, 15));
+        pico_led.setPixelColor(0, pico_led.Color(0, 15, 0));
         pico_led.show();
     }
     else imu_tilt_state = false;
+
+    if(digitalRead(OFF_BUTTON)==HIGH){
+        // imu_tilt_state = true;
+        pico_led.setPixelColor(0, pico_led.Color(0, 0, 15));
+        pico_led.show();
+    }
+    // else imu_tilt_state = false;
 
     if (!is_spin_locked(imuLock)) {  
         uint32_t irq_state = spin_lock_blocking(imuLock);
