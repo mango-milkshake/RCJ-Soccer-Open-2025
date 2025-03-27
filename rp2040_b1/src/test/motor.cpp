@@ -10,6 +10,13 @@
 #define brightness 50
 Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 
+// #define CLOCKWISE
+#ifdef CLOCKWISE
+#define MOTOR_SPEED 1.0
+#else
+#define MOTOR_SPEED -1.0
+#endif
+
 // PINS
 #define CS_PIN 1
 #define NSLEEP_PIN 14
@@ -59,28 +66,28 @@ void loop()
   strip.setPixelColor(0, strip.Color(15, 15, 0));
   strip.show();
   
-  motorFL.setSpeed(1.0);
+  motorFL.setSpeed(MOTOR_SPEED);
   motorFR.setSpeed(0.0);
   motorBL.setSpeed(0.0);
   motorBR.setSpeed(0.0);
   delay(1000);
 
   motorFL.setSpeed(0.0);
-  motorFR.setSpeed(1.0);
+  motorFR.setSpeed(MOTOR_SPEED);
   motorBL.setSpeed(0.0);
   motorBR.setSpeed(0.0);
   delay(1000);
 
   motorFL.setSpeed(0.0);
   motorFR.setSpeed(0.0);
-  motorBL.setSpeed(1.0);
+  motorBL.setSpeed(MOTOR_SPEED);
   motorBR.setSpeed(0.0);
   delay(1000);
 
   motorFL.setSpeed(0.0);
   motorFR.setSpeed(0.0);
   motorBL.setSpeed(0.0);
-  motorBR.setSpeed(1.0);
+  motorBR.setSpeed(MOTOR_SPEED);
   delay(1000);
 
 }
