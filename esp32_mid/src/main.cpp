@@ -42,6 +42,12 @@ bool turnOff = false;
 #define I2C_SEND_DATA_LEN 7
 #define I2C_RCV_PICO_ADDR 0x08
 #define I2C_SEND_PICO_ADDR 0x09
+
+#define FRONT_CAM_DATA_POS 1
+#define BALLCAP_LIDAR_POS 6
+#define LIDAR_GATE_POS 11
+#define LINE_DATA_POS 12
+
 byte rcvBuffer[I2C_RCV_DATA_LEN+1], sendBuffer[I2C_SEND_DATA_LEN];
 byte zeroBuffer[I2C_SEND_DATA_LEN];
 
@@ -86,7 +92,7 @@ Kicker kicker(KICKER_PIN);
 #define NUM_LINE_MUX 4
 
 // Mutexes
-SemaphoreHandle_t i2cMutex, coordMutex, ballMutex;
+SemaphoreHandle_t i2cMutex, coordMutex, ballMutex, lineMutex;
 
 // Variables - access from both cores
 float cur_x, cur_y, cur_heading;
@@ -163,7 +169,7 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
 
-            if(xSemaphoreTake(coordMutex, 0)){ // here
+            if(xSemaphoreTake(coordMutex, portMAX_DELAY)){ // here
                 cur_x = coord_x;
                 cur_y = coord_y;
                 cur_heading = heading;
@@ -208,17 +214,17 @@ void getTopCamData(){
                 setLED(6, 8, strip.Color(0, 15, 0));
             }
             if(!no_ball && (ball_angle <= 20 || ball_angle >= 345) && ball_dist <= BALL_CAP_THRESH){
-                ballCap = true;
+                // ballCap = true;
                 lastBallCap = millis();
-                setLED(9, 11, strip.Color(15, 0, 15));
+                // setLED(9, 11, strip.Color(15, 0, 15));
             }
             else if(millis() - lastBallCap <= 3000 && !no_ball){
-                ballCap = true;
-                setLED(9, 11, strip.Color(0, 15, 15));
+                // ballCap = true;
+                // setLED(9, 11, strip.Color(0, 15, 15));
             }
             else {
-                ballCap = false;
-                setLED(9, 11, strip.Color(15, 15, 0));
+                // ballCap = false;
+                // setLED(9, 11, strip.Color(15, 15, 0));
             }
             // DEBUG(ball_angle);
             // DEBUG(ball_dist);
@@ -231,7 +237,7 @@ void getTopCamData(){
             ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
             ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
 
-            if(xSemaphoreTake(ballMutex, 0)){ // here
+            if(xSemaphoreTake(ballMutex, portMAX_DELAY)){ // here
                 if(no_ball){
                     cur_ball_x = 0;
                     cur_ball_y = 0;
@@ -240,7 +246,6 @@ void getTopCamData(){
                     cur_ball_x = ball_x;
                     cur_ball_y = ball_y;
                 }
-                curBallCap = ballCap;
                 xSemaphoreGive(ballMutex);
                 // DEBUG(ball_x);
                 // DEBUG(ball_y);
@@ -251,7 +256,7 @@ void getTopCamData(){
 }
 
 void getBottomPlateData(){
-    if(xSemaphoreTake(i2cMutex, 0)){ // here
+    if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){ // here
         byte num_bytes = Wire.requestFrom(I2C_RCV_PICO_ADDR, I2C_RCV_DATA_LEN);
         if(num_bytes != I2C_RCV_DATA_LEN){
             Serial.print("Received bad data: ");
@@ -280,21 +285,30 @@ void getBottomPlateData(){
         if(rcvBuffer[6]==0) lidar_ball_x *= -1;
         lidar_ball_y = (float)(rcvBuffer[9] + (rcvBuffer[10]<<8)) / 128;
 
-        DEBUG(cam_ball_x);
-        DEBUG(cam_ball_y);
-        DEBUG(lidar_ball_x);
-        DEBUG(lidar_ball_y);
+        // DEBUG(cam_ball_x);
+        // DEBUG(cam_ball_y);
+        // DEBUG(lidar_ball_x);
+        // DEBUG(lidar_ball_y);
 
-        // should add ball cap condition here
+        ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
+        if(ballCap){
+            setLED(9, 11, strip.Color(15, 0, 15));
+        }
+        else setLED(9, 11, strip.Color(15, 15, 0));
 
         isOnLine = false;
         for (uint8_t i=0; i<4; i++) {
-            line_status[i] = rcvBuffer[i+12];
+            line_status[i] = rcvBuffer[LINE_DATA_POS+i];
             if(line_status[i]>0) isOnLine = true;
             DEBUG(line_status[i]);
         }
         if(isOnLine) setLED(5, 5, strip.Color(15, 15, 15));
         else setLED(5, 5, strip.Color(0, 0, 0));
+
+        if(xSemaphoreTake(lineMutex, portMAX_DELAY)){
+            curBallCap = ballCap;
+            xSemaphoreGive(lineMutex);
+        }
     }
 }
 
@@ -313,13 +327,17 @@ void updateData(){
     if(xSemaphoreTake(ballMutex, 0)){
         self_ball_x = cur_ball_x;
         self_ball_y = cur_ball_y;
-        selfBallCap = curBallCap;
         xSemaphoreGive(ballMutex);
+    }
+
+    if(xSemaphoreTake(lineMutex, 0)){
+        selfBallCap = curBallCap;
+        xSemaphoreGive(lineMutex);
     }
 }
 
 void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
-    if(xSemaphoreTake(i2cMutex, 0)){ // here
+    if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){ // here
         Wire.beginTransmission(I2C_SEND_PICO_ADDR);
         Wire.write(buffer, I2C_SEND_DATA_LEN);
         Wire.endTransmission();
@@ -417,7 +435,7 @@ void core1Task(void *pvParameters){
         checkFault();
         getTopPlateData();
         getTopCamData();
-        // getBottomPlateData();
+        getBottomPlateData();
     }
 }
 
@@ -434,6 +452,7 @@ void setup(){
     i2cMutex = xSemaphoreCreateMutex(); 
     coordMutex = xSemaphoreCreateMutex();
     ballMutex = xSemaphoreCreateMutex();
+    lineMutex = xSemaphoreCreateMutex();
     Wire.begin(SDA_PIN, SCL_PIN, 100000);
 
     dribblerMD.init();
