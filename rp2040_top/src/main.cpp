@@ -33,6 +33,7 @@ Adafruit_NeoPixel strip(STRIP_COUNT, STRIP_LED, NEO_GRB + NEO_KHZ800);
 #define NUM_EACH_BUS 12
 #define BUS0_SW 27
 #define BUS1_SW 26
+#define LIDAR_DIST_FROM_CENTRE 0.065f
 float distRaw[NUM_LIDARS];
 std::vector<Lidar> lidar;
 uint8_t scl[2] = {9, 11}, sda[2] = {8, 10};
@@ -99,7 +100,7 @@ void setup(){
         uint8_t bus;
         if(i%2==0) bus = 0;
         else bus = 1;
-        lidar.emplace_back(scl[bus], sda[bus], i+1, angle[i], calib[i]+DIST_FROM_CENTRE);
+        lidar.emplace_back(scl[bus], sda[bus], i+1, angle[i], calib[i]+LIDAR_DIST_FROM_CENTRE);
     }
 
     for (int i=0; i<2; i++){
