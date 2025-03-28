@@ -467,7 +467,7 @@ void setup(){
     coordMutex = xSemaphoreCreateMutex();
     ballMutex = xSemaphoreCreateMutex();
     lineMutex = xSemaphoreCreateMutex();
-    Wire.begin(SDA_PIN, SCL_PIN, 100000);
+    Wire.begin(SDA_PIN, SCL_PIN, 50000);
 
     dribblerMD.init();
     dribblerMD.setMode();
