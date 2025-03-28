@@ -350,12 +350,26 @@ void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
     target_y = constrain(target_y, 0.37, FIELD_HEIGHT - 0.37);
     float x_dist = target_x - self_x, y_dist = target_y - self_y;
+    float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
+    float total_angle = atan2(y_dist, x_dist) + RAD(self_heading) - PI/4; // in radians
+
     float rotation_dist = self_heading - target_rotation;
     while(rotation_dist > 180) rotation_dist -= 360;
     while(rotation_dist < -180) rotation_dist += 360;
-    speed_xdir = constrain(pid_x.compute(0, x_dist), -1, 1);
-    speed_ydir = constrain(pid_y.compute(0, y_dist), -1, 1);
+
+    float shifted_x_dist = total_dist * sinf(total_angle);
+    float shifted_y_dist = total_dist * cosf(total_angle);
+
+    speed_xdir = pid_x.compute(0, shifted_x_dist);
+    speed_ydir = pid_y.compute(0, shifted_y_dist);
     rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), -1, 1);
+
+    float maxPID = max(abs(speed_xdir), abs(speed_ydir));
+    if(maxPID > 1){
+        float k = 1/maxPID;
+        speed_xdir *= k;
+        speed_ydir *= k;
+    }
 
     uint8_t rotation_sign, speed_x_sign, speed_y_sign;
     if(copysign(1, rotation)==1) rotation_sign = 1;

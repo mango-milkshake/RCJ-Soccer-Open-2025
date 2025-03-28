@@ -91,9 +91,10 @@ void receive(int num_bytes){
     // DEBUG(speed_xdir);
     // DEBUG(speed_ydir);
 
-    speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
-    speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
-    bot.setDrive(speedX, speedY, rotation);
+    // speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
+    // speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
+    // bot.setDrive(speedX, speedY, rotation);
+    bot.setDrive(speed_xdir, speed_ydir, rotation);
 }
 
 void setup(){
