@@ -139,6 +139,7 @@ void setup(){
     Wire1.setSCL(SCL_PIN);
     Wire1.setClock(400000);
     Wire1.begin(ADDR);
+    Wire1.onRequest(send);
 
     Analog_IIC_Init(LIDAR_GATE_SCL_PIN, LIDAR_GATE_SDA_PIN);
 
@@ -160,7 +161,5 @@ void loop(){
     getCamData();
     getBallCapData();
     sendBuffer[LIDAR_GATE_POS] = (uint8_t) getLidarGateData(); // not done
-    getAllLineData();
-    
-    Wire1.onRequest(send);
+    getAllLineData(); 
 }
