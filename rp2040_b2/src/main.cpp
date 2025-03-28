@@ -2,6 +2,7 @@
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
 #include <Line.h>
+#include <LidarGate.h>
 
 #define DEBUGGING
 
@@ -41,6 +42,11 @@ float cam_ball_x, cam_ball_y;
 #define LIDAR_DATA_LEN 6
 byte lidarBuffer[LIDAR_DATA_LEN];
 float lidar_ball_x, lidar_ball_y;
+
+#define LIDAR_GATE_SDA_PIN 8
+#define LIDAR_GATE_SCL_PIN 9
+#define LIDAR_GATE_ID 0
+LidarGate lidargate(LIDAR_GATE_SCL_PIN, LIDAR_GATE_SDA_PIN, LIDAR_GATE_ID);
 
 void getAllLineData(){
     sendBuffer[12] = lineMux1.readData();
@@ -95,6 +101,10 @@ void getBallCapData(){
     }
 }
 
+bool getLidarGateData(){
+    return lidargate.checkBallCap();
+}
+
 void send(){
     // sendBuffer[0] = 1;
     // getCamData();
@@ -128,6 +138,8 @@ void setup(){
     Wire1.setClock(400000);
     Wire1.begin(ADDR);
 
+    Analog_IIC_Init(LIDAR_GATE_SCL_PIN, LIDAR_GATE_SDA_PIN);
+
     strip.begin();
     strip.setBrightness(brightness);
     strip.setPixelColor(0, strip.Color(15, 15, 0));
@@ -141,7 +153,7 @@ void loop(){
     sendBuffer[0] = 1;
     getCamData();
     getBallCapData();
-    sendBuffer[11] = 0; // not done
+    sendBuffer[LIDAR_GATE_POS] = (uint8_t) getLidarGateData(); // not done
     getAllLineData();
     
     Wire1.onRequest(send);
