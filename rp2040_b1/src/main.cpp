@@ -25,8 +25,8 @@ Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 #define SCK_PIN 2
 MotorDriver motor_driver(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
-uint8_t IN1_pin[NUM_DRIVERS] = {7, 9, 11, 13};
-uint8_t IN2_pin[NUM_DRIVERS] = {6, 8, 10, 12};
+uint8_t IN1_pin[NUM_DRIVERS] = {6, 9, 11, 13};
+uint8_t IN2_pin[NUM_DRIVERS] = {7, 8, 10, 12};
 uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29};
 
 uint8_t maxspeed = 100;
