@@ -3,6 +3,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <Line.h>
 #include <LidarGate.h>
+#include <vector>
 
 #define DEBUGGING
 
@@ -26,10 +27,12 @@ byte sendBuffer[I2C_DATA_LEN];
 // 11: tofsense lidar gate
 // 12-15: line sensors
 
-Line lineMux1(0, 1, 2, 26);
-Line lineMux2(0, 1, 2, 27);
-Line lineMux3(0, 1, 2, 28);
-Line lineMux4(0, 1, 2, 29);
+#define NUM_MUX 4
+#define S0_PIN 0
+#define S1_PIN 1
+#define S2_PIN 2
+#define INPUT_PIN_POS 26
+std::vector<Line> lineMux;
 
 #define CAM_TX_PIN 12
 #define CAM_RX_PIN 13
@@ -49,10 +52,9 @@ float lidar_ball_x, lidar_ball_y;
 LidarGate lidargate(LIDAR_GATE_SCL_PIN, LIDAR_GATE_SDA_PIN, LIDAR_GATE_ID);
 
 void getAllLineData(){
-    sendBuffer[12] = lineMux1.readData();
-    sendBuffer[13] = lineMux2.readData();
-    sendBuffer[14] = lineMux3.readData();
-    sendBuffer[15] = lineMux4.readData();
+    for (int i=0; i<4; i++){
+        sendBuffer[LINE_DATA_POS+i] = lineMux[i].readData();
+    }
 }
 
 void getCamData(){
@@ -139,6 +141,10 @@ void setup(){
     Wire1.begin(ADDR);
 
     Analog_IIC_Init(LIDAR_GATE_SCL_PIN, LIDAR_GATE_SDA_PIN);
+
+    for (uint8_t i=0; i<NUM_MUX; i++){
+        lineMux.emplace_back(S0_PIN, S1_PIN, S2_PIN, INPUT_PIN_POS+i);
+    }
 
     strip.begin();
     strip.setBrightness(brightness);
