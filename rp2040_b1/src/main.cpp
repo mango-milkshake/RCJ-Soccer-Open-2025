@@ -14,7 +14,10 @@ byte buffer[DATA_LEN+1];
 #define led_pin 16
 #define led_count 1
 #define brightness 50
+#define BLINK_TIME 1000
 Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
+bool led_state = true;
+float lastLED = 0;
 
 #define CS_PIN 1
 #define NSLEEP_PIN 14
@@ -116,8 +119,20 @@ void setup(){
 }
 
 void loop(){
-    strip.setPixelColor(0, strip.Color(0, 0, 15));
-    strip.show();
+    // strip.setPixelColor(0, strip.Color(0, 0, 15));
+    // strip.show();
+    if(millis() - lastLED >= BLINK_TIME){
+        led_state = !led_state;
+        lastLED = millis();
+    }
+    if(led_state){
+        strip.setPixelColor(0, strip.Color(0, 0, 15));
+        strip.show();
+    }
+    else{
+        strip.setPixelColor(0, strip.Color(0, 0, 0));
+        strip.show();
+    }
     checkFault();
 }
 

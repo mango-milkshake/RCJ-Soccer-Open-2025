@@ -16,6 +16,14 @@
 
 //// ** DEFINITIONS ** ////
 
+// ESP NeoPixel LED
+#define ESP_LED 21
+#define ESP_BRIGHTNESS 50
+#define BLINK_TIME 1000
+Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
+bool esp_led_state = false;
+float lastLED = 0;
+
 // Debug LEDs
 #define LED_PIN 18
 #define LED_COUNT 12
@@ -445,6 +453,19 @@ void core0Task(void *pvParameters){
 void core1Task(void *pvParameters){
     while(1){
         // Serial.print("Core1");
+        if(millis() - lastLED >= BLINK_TIME){
+            esp_led_state = !esp_led_state;
+            lastLED = millis();
+        }
+        if(esp_led_state){
+            esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+            esp_led.show();
+        }
+        else{
+            esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
+            esp_led.show();
+        }
+
         readVoltage();
         checkFault();
         getTopPlateData();
@@ -475,6 +496,10 @@ void setup(){
     strip.begin();
     strip.setBrightness(LED_BRIGHTNESS);
     strip.show();
+
+    esp_led.begin();
+    esp_led.setBrightness(ESP_BRIGHTNESS);
+    esp_led.show();
 
     xTaskCreatePinnedToCore(core0Task, "Send Data", 16384, NULL, 1, NULL, 0);
     xTaskCreatePinnedToCore(core1Task, "Read Data", 16384, NULL, 1, NULL, 1);
