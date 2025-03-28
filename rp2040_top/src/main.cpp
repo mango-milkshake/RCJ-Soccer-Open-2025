@@ -166,7 +166,11 @@ void loop(){
         imu_angle_weight = DEFAULT_IMU_ANGLE_WEIGHT;
     }
 
-    float angle_diff = (imu0_heading - prev_imu0_heading + imu1_heading - prev_imu1_heading)/2;
+    float imu0_diff = imu0_heading - prev_imu0_heading;
+    float imu1_diff = imu1_heading - prev_imu1_heading;
+    LIM_ANGLE_180(imu0_diff);
+    LIM_ANGLE_180(imu1_diff);
+    float angle_diff = (imu0_diff + imu1_diff)/2;
     temp_heading = angle_diff + prev_heading;
 
     #ifdef PRINT_LIDARS
