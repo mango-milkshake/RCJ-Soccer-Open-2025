@@ -44,13 +44,12 @@ void loop(){
     strip.setPixelColor(0, strip.Color(15, 15, 0));
     strip.show();
 
-    if(counter==800) imu.tareYaw();
-    double res = imu.readYaw();
+    if(counter==800) imu.tareAll();
+    imu.updateAllData();
+    double res = imu.yaw;
 
-    // int16_t res = imu.readAccelX();
-    if(res==267) Serial.println("Error reading yaw data");
-    // else if(res==631) Serial.println("Waiting for data");
-    else if(res!=631) {
+    // if(res==631) Serial.println("Waiting for data");
+    if(res!=631) {
         curTime = millis();
         float duration = curTime - lastTime;
         Serial.print("Yaw: ");

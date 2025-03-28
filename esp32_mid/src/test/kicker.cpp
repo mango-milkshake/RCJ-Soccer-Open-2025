@@ -1,13 +1,13 @@
 #include <Arduino.h>
 #include <Kicker.h>
-#define KICKER_PIN 3
+#define KICKER_PIN 42
 
 Kicker kicker(KICKER_PIN);
 
 void setup() {
     Serial.begin(115200);
-    while(!Serial.available()) ;
-    while(Serial.available()) Serial.read();
+    // while(!Serial.available()) ;
+    // while(Serial.available()) Serial.read();
     Serial.println("started");
 }
 

@@ -27,16 +27,16 @@ byte buffer[DATA_LEN];
 
 MotorDriver motor_driver(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
-uint8_t IN1_pin[NUM_DRIVERS] = {6, 8, 11, 13};
-uint8_t IN2_pin[NUM_DRIVERS] = {7, 9, 10, 12};
-uint8_t IPROPI_pin[NUM_DRIVERS] = {26, 27, 28, 29}; // make sure pins can read analog
+uint8_t IN1_pin[NUM_DRIVERS] = {7, 9, 11, 13};
+uint8_t IN2_pin[NUM_DRIVERS] = {6, 8, 10, 12};
+uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29};
 
 uint8_t maxspeed = 50;
 
-Motor motorFL(IN1_pin[0], IN2_pin[0], maxspeed, 1.0);
-Motor motorFR(IN1_pin[3], IN2_pin[3], maxspeed, 1.0);
-Motor motorBL(IN1_pin[1], IN2_pin[1], maxspeed, 1.0);
-Motor motorBR(IN1_pin[2], IN2_pin[2], maxspeed, 1.0);
+Motor motorFL(IN1_pin[0], IN2_pin[0], NFAULT_pin[0], maxspeed, 1.0);
+Motor motorFR(IN1_pin[3], IN2_pin[3], NFAULT_pin[3], maxspeed, 1.0);
+Motor motorBL(IN1_pin[1], IN2_pin[1], NFAULT_pin[1], maxspeed, 1.0);
+Motor motorBR(IN1_pin[2], IN2_pin[2], NFAULT_pin[2], maxspeed, 1.0);
 
 Drive bot(motorFR, motorBR, motorBL, motorFL);
 float speed = 1.0;
@@ -47,7 +47,7 @@ int counter = 0;
 void setup()
 {
   Serial.begin(115200);
-  // Serial.println("started");
+  Serial.println("started");
   // while(!Serial.available()) continue;
   // while(Serial.available()) Serial.read();
 
@@ -62,7 +62,7 @@ void setup()
 
   strip.begin();
   strip.setBrightness(brightness);
-  strip.setPixelColor(0, strip.Color(15, 15, 0));
+  strip.setPixelColor(0, strip.Color(15, 0, 0));
   strip.show();
   delay(1000);
 }
@@ -70,7 +70,14 @@ void setup()
 void loop()
 {
   Serial.println("looping");
-  strip.setPixelColor(0, strip.Color(0, 15, 0));
+
+  // if(counter==0){
+  //   while(!Serial.available()) continue;
+  //   while(Serial.available()) Serial.read();
+  //   counter++;
+  // }
+
+  strip.setPixelColor(0, strip.Color(15, 15, 0));
   strip.show();
   // while(!Serial.available()) continue;
 
@@ -131,12 +138,12 @@ void loop()
   // }
 
 // move in circle
-  for (int i=0; i<365; i++){
-    bot.setDrive(speed, i, 0);
-    delay(5);
-  }
+  // for (int i=0; i<365; i++){
+  //   bot.setDriveOld(speed, i, 0);
+  //   delay(5);
+  // }
 
 // testing
-  // bot.setDrive(0, 0, 0);
+  bot.setDriveOld(1.0, 45, 0);
 
 }

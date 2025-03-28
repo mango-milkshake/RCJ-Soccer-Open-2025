@@ -22,11 +22,12 @@ led2 = pyb.LED(2)
 led2.on()
 #led3.on()
 
-centre_x = 163
-centre_y = 115
+centre_x = 177
+centre_y = 112
+mask_radius = 100
 
 # thresh_ball = (35, 77, 7, 50, 25, 65) # old
-thresh_ball = (55, 100, -2, 37, 18, 62)
+thresh_ball = (50, 89, -5, 14, 20, 72)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72) # old
 thresh_blue_goal = (46, 58, -27, -7, -34, -17) # old
 
@@ -59,7 +60,7 @@ while True:
     clock.tick()  # Update the FPS clock.
     led2.on()
     img = sensor.snapshot()  # Take a picture and return the image.
-    # img.draw_circle(centre_x, centre_y-10, 40, color=(0,0,0), fill=True)
+    img.mask_circle(centre_x, centre_y, mask_radius)
     ball = img.find_blobs([thresh_ball], pixel_threshold=0, area_threshold=0, merge=True)
     # if(use_goal=="yellow"):
     #     yellow_goal = img.find_blobs([thresh_yellow_goal], pixel_threshold=100, area_threshold=0, merge=True, margin=20)
@@ -80,9 +81,9 @@ while True:
             ball_angle += 360
         ball_dist = (ball_x ** 2 + ball_y ** 2) ** 0.5
         print("angle ", ball_angle, "dist ", ball_dist)
-        actual_dist = 1.0629+0.768114*ball_dist-0.0110443*ball_dist**2+0.0000695113*ball_dist**3
-        print("actual", actual_dist)
-
+        actual_dist = -0.01555685934798244 + 1.0757267483395805*(ball_dist) - 0.08145965425504297*(ball_dist)**2 + 0.003503279865447164*(ball_dist)**3 - 0.00005888942322071116*(ball_dist)**4 + 3.609987449379357e-7*(ball_dist)**5
+        print("actual dist: ")
+        print(actual_dist)
         angle_uart = round(ball_angle * 128)
         dist_uart = round(actual_dist * 128)
     else:

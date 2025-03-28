@@ -12,7 +12,7 @@ void setup()
 
   strip.begin();
   strip.setBrightness(brightness);
-  strip.setPixelColor(0, strip.Color(0, 0, 15));
+  strip.setPixelColor(0, strip.Color(15, 15, 0));
   strip.show();
   delay(1000);
 }
@@ -20,7 +20,7 @@ void setup()
 void loop()
 {
   Serial.println("looping");
-  strip.setPixelColor(0, strip.Color(15, 15, 0));
+  strip.setPixelColor(0, strip.Color(0, 15, 15));
   strip.show();
 
 }
