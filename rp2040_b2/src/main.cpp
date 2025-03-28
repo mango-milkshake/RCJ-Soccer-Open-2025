@@ -36,8 +36,8 @@ Line lineMux4(0, 1, 2, 29);
 byte camBuffer[CAM_DATA_LEN];
 float cam_ball_x, cam_ball_y;
 
-#define LIDAR_TX_PIN 8
-#define LIDAR_RX_PIN 9
+#define LIDAR_TX_PIN 4
+#define LIDAR_RX_PIN 5
 #define LIDAR_DATA_LEN 6
 byte lidarBuffer[LIDAR_DATA_LEN];
 float lidar_ball_x, lidar_ball_y;
