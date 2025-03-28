@@ -103,6 +103,7 @@ void setup(){
     Wire.setSCL(SCL_PIN);
     Wire.setClock(100000);
     Wire.begin(ADDR);
+    Wire.onReceive(receive);
     
     motor_driver.init();
     motor_driver.setMode();
@@ -117,6 +118,5 @@ void loop(){
     strip.setPixelColor(0, strip.Color(0, 0, 15));
     strip.show();
     checkFault();
-    Wire.onReceive(receive);
 }
 
