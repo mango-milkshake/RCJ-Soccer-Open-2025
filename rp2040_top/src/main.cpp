@@ -322,6 +322,13 @@ void loop(){
     Serial.println();
     #endif
 
+    float frontAngle = LIM_ANGLE_360(-final_heading);
+    int frontLED = frontAngle / 15;
+    uint32_t curColor = strip.getPixelColor(frontLED);
+    curColor += ((15<<16) + (15<<8) + 15);
+    strip.setPixelColor(frontLED, curColor);
+    strip.show();
+
     prev_coords = cur_coords;
     prev_heading = final_heading;
     prev_imu0_heading = imu0_heading;
