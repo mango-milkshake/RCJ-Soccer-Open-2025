@@ -15,8 +15,12 @@ Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 #define I2C_DATA_LEN 16
 #define ADDR 0x08
 byte sendBuffer[I2C_DATA_LEN];
+#define FRONT_CAM_DATA_POS 1
+#define BALLCAP_LIDAR_POS 6
+#define LIDAR_GATE_POS 11
+#define LINE_DATA_POS 12
 // 0: start byte = 1
-// 1-5: top cam
+// 1-5: front cam
 // 6-10: ballcap lidar
 // 11: tofsense lidar gate
 // 12-15: line sensors
@@ -63,7 +67,7 @@ void getCamData(){
             }
         }
         else{
-            for (int i=1; i<=5; i++) sendBuffer[i] = camBuffer[i];
+            for (int i=0; i<5; i++) sendBuffer[FRONT_CAM_DATA_POS+i] = camBuffer[i+1];
         }
     }
 }
@@ -86,7 +90,7 @@ void getBallCapData(){
             }
         }
         else{
-            for (int i=1; i<=5; i++) sendBuffer[i+5] = lidarBuffer[i];
+            for (int i=0; i<5; i++) sendBuffer[BALLCAP_LIDAR_POS+1] = lidarBuffer[i+1];
         }
     }
 }
