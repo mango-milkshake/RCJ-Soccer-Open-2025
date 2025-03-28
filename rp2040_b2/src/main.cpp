@@ -51,7 +51,7 @@ void getAllLineData(){
 
 void getCamData(){
     if(Serial1.available()>=CAM_DATA_LEN){
-        while(Serial1.peek()!=1) {
+        while(Serial1.available()>=CAM_DATA_LEN && Serial1.peek()!=1) {
             Serial.println("Camera first byte not 1");
             Serial1.read();
         }
@@ -74,7 +74,7 @@ void getCamData(){
 
 void getBallCapData(){
     if(Serial2.available()>=LIDAR_DATA_LEN){
-        while(Serial2.peek()!=1) {
+        while(Serial2.available()>=LIDAR_DATA_LEN && Serial2.peek()!=1) {
             Serial.println("Lidar first byte not 1");
             Serial2.read();
         }
