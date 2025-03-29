@@ -110,8 +110,8 @@ Kicker kicker(KICKER_PIN);
 #define ALIGN_THRESHOLD 3000
 #define BALLCAP_DISTANCE 0.13f
 #define BALLCAP_WIDTH 0.0335f
-#define CLEARANCE_X 0.20f // 0.20f
-#define CLEARANCE_Y 0.15f // 0.15f
+#define CLEARANCE_X 0.20f
+#define CLEARANCE_Y 0.15f
 #define FIELD_MARGIN 0.12f
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
@@ -365,8 +365,6 @@ void updateData(){
         self_ball_x = cur_ball_x;
         self_ball_y = cur_ball_y;
         xSemaphoreGive(ballMutex);
-        self_ball_x += self_x;
-        self_ball_y += self_y;
         DEBUG(self_ball_x);
         DEBUG(self_ball_y);
     }
@@ -459,6 +457,8 @@ void ballTrack(){
     initial_magnitude = 0.0;
 
     float new_x, new_y;
+    self_ball_x += self_x;
+    self_ball_y += self_y;
     if(self_y > self_ball_y) moving_back = true;
     if((moving_back || millis() - last_moving_back > MOVING_BACK_DURATION) && 
         (self_y > self_ball_y - BALLCAP_DISTANCE / 3.0 || 
@@ -491,6 +491,9 @@ void ballTrack(){
     DEBUG(new_x);
     DEBUG(new_y);
     movement(new_x, new_y, 0);
+    // change it back in case somewhere else needs relative ball pos idk
+    self_ball_x -= self_x;
+    self_ball_y -= self_y;
 }
 
 void aim(){
