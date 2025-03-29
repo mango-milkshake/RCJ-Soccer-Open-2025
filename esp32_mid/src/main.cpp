@@ -110,8 +110,8 @@ Kicker kicker(KICKER_PIN);
 #define ALIGN_THRESHOLD 3000
 #define BALLCAP_DISTANCE 0.13f
 #define BALLCAP_WIDTH 0.0335f
-#define CLEARANCE_X 0.0 // 0.20f
-#define CLEARANCE_Y 0.0f // 0.15f
+#define CLEARANCE_X 0.20f // 0.20f
+#define CLEARANCE_Y 0.15f // 0.15f
 #define FIELD_MARGIN 0.12f
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
