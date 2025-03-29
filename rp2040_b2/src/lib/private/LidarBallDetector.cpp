@@ -122,7 +122,7 @@ void LidarBallDetector::collectScanData(int &validCount) {
 
         // Convert to LiDAR coords
         double rad = (correctedAngle - 270.0) * M_PI / 180.0;
-        double xVal = distance * cos(rad);
+        double xVal = distance * -cos(rad);
         double yVal = distance * sin(rad);
 
         // optional check for duplicates
