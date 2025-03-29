@@ -73,9 +73,9 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
-PID pid_rotate(1, 0, 0, 1000);
-PID pid_x(4.5, 0, 0, 5000);
-PID pid_y(4.5, 0, 0, 5000);
+PID pid_rotate(0.2, 0, 0, 1000);
+PID pid_x(2, 0, 0, 5000);
+PID pid_y(2, 0, 0, 5000);
 
 // Dribbler
 #define MOSI_PIN 12
@@ -101,7 +101,20 @@ Kicker kicker(KICKER_PIN);
 #define NUM_LINE_MUX 4
 
 // Thresholds
-#define BALL_CAP_TIME_THRESH 3000
+#define BALLCAP_DURATION 3000
+#define ALIGNED_THRESHOLD 0.015f
+#define MOVING_BACK_DURATION 200
+#define INITIAL_CHANGE 35.0f
+#define GRADUAL_CHANGE 250.0f
+#define ALIGN_DURATION 2000
+#define ALIGN_THRESHOLD 3000
+#define BALLCAP_DISTANCE 0.07f
+#define BALLCAP_WIDTH 0.0335f
+#define CLEARANCE_X 0.0 // 0.20f
+#define CLEARANCE_Y 0.0f // 0.15f
+#define FIELD_MARGIN 0.12f
+#define FIELD_MARGIN_X 0.51f
+#define FIELD_MARGIN_Y 0.37f
 
 // Mutexes
 SemaphoreHandle_t i2cMutex, coordMutex, ballMutex, lineMutex;
@@ -116,7 +129,13 @@ float self_x = 0, self_y = 0, self_heading = 0;
 float self_ball_x = 0, self_ball_y = 0, self_ball_angle = 0;
 float speed_xdir, speed_ydir, rotation;
 bool selfBallCap = false, selfTilt = false;
-float lastTime = 0;
+float lastLoopTime = 0;
+
+bool moving_back = false;
+unsigned long last_moving_back = 0;
+bool aligned = false;
+float initial_change = 0.0f, initial_magnitude = 0.0f;
+unsigned long last_aligning = 0;
 
 // Variables - core 1 only
 float coord_x = 0, coord_y = 0, heading = 0;
@@ -308,7 +327,7 @@ void getBottomPlateData(){
             setLED(9, 11, strip.Color(15, 0, 15));
             lastBallCap = millis();
         }
-        else if(millis() - lastBallCap <= BALL_CAP_TIME_THRESH && !no_ball){
+        else if(millis() - lastBallCap <= BALLCAP_DURATION && !no_ball){
             ballCap = true;
             setLED(9, 11, strip.Color(0, 15, 15));
         }
@@ -346,6 +365,10 @@ void updateData(){
         self_ball_x = cur_ball_x;
         self_ball_y = cur_ball_y;
         xSemaphoreGive(ballMutex);
+        self_ball_x += self_x;
+        self_ball_y += self_y;
+        DEBUG(self_ball_x);
+        DEBUG(self_ball_y);
     }
 
     if(xSemaphoreTake(lineMutex, 0)){
@@ -412,22 +435,60 @@ void movement(float target_x, float target_y, float target_rotation){
     else sendI2C(sendBuffer);
 }
 
+// void ballTrack(){
+//     float absBallAngle = atan2(self_ball_y - self_y, self_ball_x - self_x);
+//     float goalToBallAngle = atan2(2.384 - self_ball_y, 0.91 - self_ball_x);
+//     float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
+//     if(absBallAngle <= 60 || absBallAngle >= 300){
+//         // movement(self_x + self_ball_x, self_y + self_ball_y - 0.06, 90-DEG(angleToFace));
+//         movement(self_x + self_ball_x, self_y + self_ball_y - 0.04, 0);
+//     }
+//     else{
+//         float new_x = self_x + self_ball_x + 0.40 * cosf(goalToBallAngle);
+//         float new_y = self_y + self_ball_y + 0.40 * sinf(goalToBallAngle);
+//         movement(new_x, new_y, 90-DEG(angleToFace));
+//         // movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 90-DEG(angleToFace));
+//         // movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 0);
+//     }
+//     // movement(self_x + self_ball_x, self_y + self_ball_y - 0.12, 90-DEG(angleToFace));
+// }
+
 void ballTrack(){
-    float absBallAngle = atan2(self_ball_y - self_y, self_ball_x - self_x);
-    float goalToBallAngle = atan2(2.384 - self_ball_y, 0.91 - self_ball_x);
-    float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
-    if(absBallAngle <= 60 || absBallAngle >= 300){
-        // movement(self_x + self_ball_x, self_y + self_ball_y - 0.06, 90-DEG(angleToFace));
-        movement(self_x + self_ball_x, self_y + self_ball_y - 0.04, 0);
+    aligned = false;
+    initial_change = 0.0;
+    initial_magnitude = 0.0;
+
+    float new_x, new_y;
+    if(self_y > self_ball_y) moving_back = true;
+    if((moving_back || millis() - last_moving_back > MOVING_BACK_DURATION) && 
+        (self_y > self_ball_y - BALLCAP_DISTANCE / 3.0 || 
+        (abs(self_x - self_ball_x) > BALLCAP_WIDTH / 2.0 + 0.05f && 
+        abs(self_x - self_ball_x) < CLEARANCE_X / 2.0 && 
+        self_y > self_ball_y - CLEARANCE_Y / 2.0))){
+            Serial.println("case1");
+            if(self_ball_x < FIELD_MARGIN + CLEARANCE_X + 0.10f) new_x = self_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
+            else if(self_ball_x > FIELD_WIDTH - FIELD_MARGIN - CLEARANCE_X - 0.10f) new_x = self_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
+            else if (self_x > self_ball_x) new_x = self_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
+            else new_x = self_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
+            new_y = (abs(self_x - self_ball_x) > CLEARANCE_X / 2.0 + 0.03f) ? self_ball_y - CLEARANCE_Y / 2.0 - 0.10f : self_y;
+            moving_back = true;
     }
     else{
-        float new_x = self_x + self_ball_x + 0.40 * cosf(goalToBallAngle);
-        float new_y = self_y + self_ball_y + 0.40 * sinf(goalToBallAngle);
-        movement(new_x, new_y, 90-DEG(angleToFace));
-        // movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 90-DEG(angleToFace));
-        // movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 0);
+        Serial.println("case2");
+        if(moving_back) moving_back = false;
+        last_moving_back = millis();
+        unsigned long aligning = millis() - last_aligning;
+        new_x = self_ball_x;
+        if((aligning > ALIGN_DURATION && aligning < ALIGN_THRESHOLD) || abs(self_x - self_ball_x) < BALLCAP_WIDTH / 2.0) 
+            new_y = fmax(self_ball_y - BALLCAP_DISTANCE, self_y + 0.03f) ;
+        else{
+            if (aligning > ALIGN_THRESHOLD) last_aligning = millis(); 
+            new_y = self_ball_y - BALLCAP_DISTANCE - 0.03f;
+        }
     }
-    // movement(self_x + self_ball_x, self_y + self_ball_y - 0.12, 90-DEG(angleToFace));
+    DEBUG(new_x);
+    DEBUG(new_y);
+    movement(new_x, new_y, 0);
 }
 
 void aim(){
@@ -445,18 +506,18 @@ void core0Task(void *pvParameters){
     while(1){
         // Serial.print("Core0");
         float curTime = millis();
-        Serial.println("time: ");
-        Serial.println(curTime - lastTime);
-        lastTime = millis();
+        // Serial.println("time: ");
+        // Serial.println(curTime - lastLoopTime);
+        lastLoopTime = millis();
         if(digitalRead(TURN_OFF_SW)==HIGH) turnOff = true;
         else turnOff = false;
 
         updateData();
 
         if(self_ball_x==0 && self_ball_y==0){
-            movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+            movement(FIELD_WIDTH/2, 1.62, 0);
         }
-        else if(selfBallCap) aim();
+        // else if(selfBallCap) aim();
         else ballTrack();
     }
 }
@@ -482,7 +543,7 @@ void core1Task(void *pvParameters){
         checkFault();
         getTopPlateData();
         getTopCamData();
-        getBottomPlateData();
+        // getBottomPlateData();
     }
 }
 
