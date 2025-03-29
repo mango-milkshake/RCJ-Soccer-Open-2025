@@ -73,9 +73,9 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
-PID pid_rotate(1, 0, 0, 1000);
-PID pid_x(4.5, 0, 0, 5000);
-PID pid_y(4.5, 0, 0, 5000);
+PID pid_rotate(0.2, 0, 0, 1000);
+PID pid_x(2, 0, 0, 5000);
+PID pid_y(2, 0, 0, 5000);
 
 // Dribbler
 #define MOSI_PIN 12
