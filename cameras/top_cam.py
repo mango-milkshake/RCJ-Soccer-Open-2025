@@ -22,12 +22,12 @@ led2 = pyb.LED(2)
 led2.on()
 #led3.on()
 
-centre_x = 177
-centre_y = 112
+centre_x = 169
+centre_y = 125
 mask_radius = 100
 
 # thresh_ball = (35, 77, 7, 50, 25, 65) # old
-thresh_ball = (50, 89, -5, 14, 20, 72)
+thresh_ball = (46, 77, 9, 37, 4, 44)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72) # old
 thresh_blue_goal = (46, 58, -27, -7, -34, -17) # old
 
@@ -81,7 +81,7 @@ while True:
             ball_angle += 360
         ball_dist = (ball_x ** 2 + ball_y ** 2) ** 0.5
         print("angle ", ball_angle, "dist ", ball_dist)
-        actual_dist = -0.01555685934798244 + 1.0757267483395805*(ball_dist) - 0.08145965425504297*(ball_dist)**2 + 0.003503279865447164*(ball_dist)**3 - 0.00005888942322071116*(ball_dist)**4 + 3.609987449379357e-7*(ball_dist)**5
+        actual_dist = 0.727104914847282 + 0.5147081989789882*(ball_dist) + 0.016366529704736815*(ball_dist)**2 - 0.00026196059702118856*(ball_dist)**3 + 1.4312212575440405e-6*(ball_dist)**4
         print("actual dist: ")
         print(actual_dist)
         angle_uart = round(ball_angle * 128)

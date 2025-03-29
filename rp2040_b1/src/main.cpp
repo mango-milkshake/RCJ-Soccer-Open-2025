@@ -105,7 +105,6 @@ void setup(){
 
     Wire.setSDA(SDA_PIN);
     Wire.setSCL(SCL_PIN);
-    Wire.setClock(100000);
     Wire.begin(ADDR);
     Wire.onReceive(receive);
     

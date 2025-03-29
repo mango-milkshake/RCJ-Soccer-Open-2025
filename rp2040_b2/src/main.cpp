@@ -137,7 +137,6 @@ void setup(){
 
     Wire1.setSDA(SDA_PIN);
     Wire1.setSCL(SCL_PIN);
-    Wire1.setClock(400000);
     Wire1.begin(ADDR);
     Wire1.onRequest(send);
 
