@@ -36,10 +36,10 @@ class Drive {
                 speedBL *= k;
             }
 
-            speedFR = 0.6 * speedFR - 0.4 * rotationRate;
-            speedFL = 0.6 * speedFL - 0.4 * rotationRate;
-            speedBL = 0.6 * speedBL - 0.4 * rotationRate;
-            speedBR = 0.6 * speedBR - 0.4 * rotationRate;
+            speedFR = 0.8 * speedFR - 0.2 * rotationRate;
+            speedFL = 0.8 * speedFL - 0.2 * rotationRate;
+            speedBL = 0.8 * speedBL - 0.2 * rotationRate;
+            speedBR = 0.8 * speedBR - 0.2 * rotationRate;
 
             _motorFL.setSpeed(speedFL);
             _motorFR.setSpeed(speedFR);
