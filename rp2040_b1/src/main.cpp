@@ -32,7 +32,7 @@ uint8_t IN1_pin[NUM_DRIVERS] = {6, 9, 11, 13};
 uint8_t IN2_pin[NUM_DRIVERS] = {7, 8, 10, 12};
 uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29};
 
-uint8_t maxspeed = 100;
+uint8_t maxspeed = 140;
 
 Motor motorFL(IN1_pin[0], IN2_pin[0], NFAULT_pin[0], maxspeed, 1.0);
 Motor motorFR(IN1_pin[3], IN2_pin[3], NFAULT_pin[3], maxspeed, 1.0);
