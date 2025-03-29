@@ -475,8 +475,10 @@ void ballTrack(){
     }
     else{
         Serial.println("case2");
-        if(moving_back) moving_back = false;
-        last_moving_back = millis();
+        if(moving_back) {
+            moving_back = false;
+            last_moving_back = millis();
+        }
         unsigned long aligning = millis() - last_aligning;
         new_x = self_ball_x;
         if((aligning > ALIGN_DURATION && aligning < ALIGN_THRESHOLD) || abs(self_x - self_ball_x) < BALLCAP_WIDTH / 2.0) 
