@@ -497,9 +497,32 @@ void ballTrack(){
 }
 
 void aim(){
-    float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
-    movement(0.91, 2.06, 90-DEG(angleToFace));
-    if(selfBallCap && self_y > 1.83 && (self_heading > -90 && self_heading < 90)) kicker.kick();
+    self_ball_x += self_x;
+    self_ball_y += self_y;
+    if(!aligned){
+        if(abs(self_x - self_ball_x) < ALIGNED_THRESHOLD) aligned = true;
+        movement(self_ball_x, self_y, 0);
+    }
+    else{
+        float xToGoal = 0.91 - self_x, yToGoal = 2.384 - self_y;
+        float distToGoal = sqrt(xToGoal * xToGoal + yToGoal * yToGoal);
+        float angleToGoal = atan2(yToGoal, xToGoal);
+        if(initial_change == 0){
+            initial_magnitude = distToGoal;
+            initial_change = max(0.0f, cosf(angleToGoal)) * INITIAL_CHANGE;
+        }
+        float change = initial_change + max(0.0f, initial_magnitude - distToGoal) / initial_magnitude * GRADUAL_CHANGE;
+        change = min(change, max(0.0f, (self_y - FIELD_MARGIN_Y)/cosf(angleToGoal)));
+        float new_x = self_x + change * sinf(angleToGoal);
+        float new_y = self_y + change * cosf(angleToGoal);
+        movement(new_x, new_y, 90-DEG(angleToGoal));
+    }
+    // float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
+    // movement(0.91, 2.06, 90-DEG(angleToFace));
+    if(selfBallCap && self_y > 1.83 && (self_heading > -75 && self_heading < 75)) kicker.kick();
+    // change it back in case somewhere else needs relative ball pos idk
+    self_ball_x -= self_x;
+    self_ball_y -= self_y;
 }
 
 //// ** LOOPS ** ////
@@ -548,7 +571,7 @@ void core1Task(void *pvParameters){
         checkFault();
         getTopPlateData();
         getTopCamData();
-        // getBottomPlateData();
+        getBottomPlateData();
     }
 }
 
