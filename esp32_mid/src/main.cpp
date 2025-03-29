@@ -42,6 +42,7 @@ bool turnOff = false;
 #define FIELD_WIDTH 1.82 // 0.91
 #define FIELD_HEIGHT 2.43 // 1.21
 #define BALL_CAP_THRESH 15 // in cm
+#define BOT_RADIUS 8.5 // in cm
 
 // I2C Comms with bottom plate
 #define SDA_PIN 8
@@ -98,6 +99,9 @@ Kicker kicker(KICKER_PIN);
 
 // Line Sensors
 #define NUM_LINE_MUX 4
+
+// Thresholds
+#define BALL_CAP_TIME_THRESH 3000
 
 // Mutexes
 SemaphoreHandle_t i2cMutex, coordMutex, ballMutex, lineMutex;
@@ -221,19 +225,19 @@ void getTopCamData(){
                 no_ball = false;
                 setLED(6, 8, strip.Color(0, 15, 0));
             }
-            if(!no_ball && (ball_angle <= 20 || ball_angle >= 345) && ball_dist <= BALL_CAP_THRESH){
+            // if(!no_ball && (ball_angle <= 20 || ball_angle >= 345) && ball_dist <= BALL_CAP_THRESH){
                 // ballCap = true;
-                lastBallCap = millis();
+                // lastBallCap = millis();
                 // setLED(9, 11, strip.Color(15, 0, 15));
-            }
-            else if(millis() - lastBallCap <= 3000 && !no_ball){
+            // }
+            // else if(millis() - lastBallCap <= 3000 && !no_ball){
                 // ballCap = true;
                 // setLED(9, 11, strip.Color(0, 15, 15));
-            }
-            else {
+            // }
+            // else {
                 // ballCap = false;
                 // setLED(9, 11, strip.Color(15, 15, 0));
-            }
+            // }
             // DEBUG(ball_angle);
             // DEBUG(ball_dist);
 
@@ -242,6 +246,7 @@ void getTopCamData(){
             else dribbler.setSpeed(0.5);
 
             float relative_angle = 90 - (ball_angle + heading);
+            ball_dist += BOT_RADIUS;
             ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
             ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
 
@@ -301,6 +306,11 @@ void getBottomPlateData(){
         ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
         if(ballCap){
             setLED(9, 11, strip.Color(15, 0, 15));
+            lastBallCap = millis();
+        }
+        else if(millis() - lastBallCap <= BALL_CAP_TIME_THRESH && !no_ball){
+            ballCap = true;
+            setLED(9, 11, strip.Color(0, 15, 15));
         }
         else setLED(9, 11, strip.Color(15, 15, 0));
 
@@ -406,22 +416,24 @@ void ballTrack(){
     float absBallAngle = atan2(self_ball_y - self_y, self_ball_x - self_x);
     float goalToBallAngle = atan2(2.384 - self_ball_y, 0.91 - self_ball_x);
     float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
-    // if(absBallAngle <= 30 || absBallAngle >= 330){
-    //     movement(self_x + self_ball_x, self_y + self_ball_y - 0.12, 90-DEG(angleToFace));
-    // }
-    // else{
-    //     float new_x = self_x + self_ball_x + 0.40 * cosf(goalToBallAngle);
-    //     float new_y = self_y + self_ball_y + 0.40 * sinf(goalToBallAngle);
-    //     // movement(new_x, new_y, 90-DEG(angleToFace));
-    //     movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 90-DEG(angleToFace));
-    // }
-    movement(self_x + self_ball_x, self_y + self_ball_y - 0.12, 90-DEG(angleToFace));
+    if(absBallAngle <= 60 || absBallAngle >= 300){
+        // movement(self_x + self_ball_x, self_y + self_ball_y - 0.06, 90-DEG(angleToFace));
+        movement(self_x + self_ball_x, self_y + self_ball_y - 0.04, 0);
+    }
+    else{
+        float new_x = self_x + self_ball_x + 0.40 * cosf(goalToBallAngle);
+        float new_y = self_y + self_ball_y + 0.40 * sinf(goalToBallAngle);
+        movement(new_x, new_y, 90-DEG(angleToFace));
+        // movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 90-DEG(angleToFace));
+        // movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 0);
+    }
+    // movement(self_x + self_ball_x, self_y + self_ball_y - 0.12, 90-DEG(angleToFace));
 }
 
 void aim(){
     float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
     movement(0.91, 2.06, 90-DEG(angleToFace));
-    // if(selfBallCap && self_y > 1.63 && (self_heading > -90 && self_heading < 90)) kicker.kick();
+    if(selfBallCap && self_y > 1.83 && (self_heading > -90 && self_heading < 90)) kicker.kick();
 }
 
 //// ** LOOPS ** ////
@@ -442,7 +454,7 @@ void core0Task(void *pvParameters){
         updateData();
 
         if(self_ball_x==0 && self_ball_y==0){
-            movement(FIELD_WIDTH/2, 1.62, 0);
+            movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
         }
         else if(selfBallCap) aim();
         else ballTrack();
@@ -466,7 +478,7 @@ void core1Task(void *pvParameters){
             esp_led.show();
         }
 
-        readVoltage();
+        // readVoltage();
         checkFault();
         getTopPlateData();
         getTopCamData();
