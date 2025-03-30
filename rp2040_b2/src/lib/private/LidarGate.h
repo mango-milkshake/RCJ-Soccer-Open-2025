@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include "../public/analog_iic.h"
 #include "../public/tofsense_f_iic.h"
-#define LIDAR_BALLCAP_THRESH 0.07f
+#define LIDAR_BALLCAP_THRESH 0.045f
 
 class LidarGate{
     public:
