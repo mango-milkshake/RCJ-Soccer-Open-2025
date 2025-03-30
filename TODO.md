@@ -12,7 +12,6 @@
       - IMU: change in yaw between current and previous reading + previous calculated (fused) heading
       - rotating calipers algorithm (angle of rotation of fitted rectangle)
   - ballcap temporarily use lidar gate only
-  - recheck moving to target coordinate
   - make sure bot can aim and score
   - if possible try involving kicker
 - Test front camera UART comms
