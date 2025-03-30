@@ -26,6 +26,7 @@ byte sendBuffer[I2C_DATA_LEN];
 // 6-10: ballcap lidar
 // 11: tofsense lidar gate
 // 12-15: line sensors
+spin_lock_t *i2cLock;
 
 #define NUM_MUX 4
 #define S0_PIN 0
@@ -113,15 +114,18 @@ void send(){
     // getBallCapData();
     // sendBuffer[11] = 0; // not done
     // getAllLineData();
+    if(!is_spin_locked(i2cLock)){
+        uint32_t irq_state = spin_lock_blocking(i2cLock);
+        #ifdef DEBUGGING
+        for (auto i : sendBuffer){
+            Serial.print(String(i) + " ");
+        }
+        Serial.println();
+        #endif
 
-    #ifdef DEBUGGING
-    for (auto i : sendBuffer){
-        Serial.print(String(i) + " ");
+        Wire1.write(sendBuffer, I2C_DATA_LEN);
+        spin_unlock(i2cLock, irq_state);
     }
-    Serial.println();
-    #endif
-
-    Wire1.write(sendBuffer, I2C_DATA_LEN);
 }
 
 void setup(){
@@ -140,6 +144,8 @@ void setup(){
     Wire1.begin(ADDR);
     Wire1.onRequest(send);
 
+    i2cLock = spin_lock_instance(0);
+
     Analog_IIC_Init(LIDAR_GATE_SCL_PIN, LIDAR_GATE_SDA_PIN);
 
     for (uint8_t i=0; i<NUM_MUX; i++){
@@ -156,9 +162,14 @@ void loop(){
     strip.setPixelColor(0, strip.Color(0, 15, 15));
     strip.show();
 
-    sendBuffer[0] = 1;
-    getCamData();
-    getBallCapData();
-    sendBuffer[LIDAR_GATE_POS] = (uint8_t) getLidarGateData(); // not done
-    getAllLineData(); 
+    if (!is_spin_locked(i2cLock)) {  
+        Serial.println("updating data");
+        uint32_t irq_state = spin_lock_blocking(i2cLock);
+        sendBuffer[0] = 1;
+        getCamData();
+        getBallCapData();
+        sendBuffer[LIDAR_GATE_POS] = (uint8_t) getLidarGateData();
+        getAllLineData(); 
+        spin_unlock(i2cLock, irq_state);
+    }
 }
