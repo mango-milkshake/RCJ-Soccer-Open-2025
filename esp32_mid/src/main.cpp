@@ -227,7 +227,7 @@ void getTopCamData(){
             else dribbler.setSpeed(0.5);
 
             float relative_angle = 90 - (ball_angle + self_heading);
-            ball_dist += BOT_RADIUS;
+            // ball_dist += BOT_RADIUS;
             relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
             relative_ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
             absolute_ball_x = relative_ball_x + self_x;
@@ -285,8 +285,8 @@ void ballCapStatus(){
         setLED(9, 11, strip.Color(15, 0, 15));
         lastBallCap = millis();
     }
-    else if(!(relative_ball_x == 0 && relative_ball_y == 0) 
-        && relative_ball_y > BALLCAP_DISTANCE && abs(relative_ball_x) < BALLCAP_WIDTH / 2.0){
+    else if(!noBall && self_y < absolute_ball_y && self_y > absolute_ball_y - BALLCAP_DISTANCE 
+        && abs(relative_ball_x) < BALLCAP_WIDTH / 2.0){
             ballCap = true;
             lastBallCap = millis();
             setLED(9, 11, strip.Color(0, 15, 15));
