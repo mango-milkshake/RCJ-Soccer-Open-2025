@@ -278,6 +278,8 @@ void getBottomPlateData(){
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
     DEBUG(ballCap);
+    if(ballCap) pid_rotate.setConfig(0.2, 0, 0);
+    else pid_rotate.setConfig(0.5, 0, 0);
 
     isOnLine = false;
     for (uint8_t i=0; i<4; i++) {
