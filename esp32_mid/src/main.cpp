@@ -19,7 +19,7 @@
 // ESP NeoPixel LED
 #define ESP_LED 21
 #define ESP_BRIGHTNESS 50
-#define BLINK_TIME 10
+#define BLINK_TIME 100
 Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 // to check if code is running
 bool esp_led_state = true;
@@ -42,8 +42,8 @@ bool turnOff = false;
 // Dimensions
 #define FIELD_WIDTH 1.82
 #define FIELD_HEIGHT 2.43
-#define BALL_CAP_THRESH 15 // in cm
-#define BOT_RADIUS 8.5 // in cm
+#define BOT_RADIUS_CM 8.5 // in cm
+#define BOT_RADIUS_M 0.085 // in metres
 
 // I2C Comms with bottom plate
 #define SDA_PIN 8
@@ -74,7 +74,7 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
-PID pid_rotate(0.2, 0, 0, 1000);
+PID pid_rotate(0.5, 0, 0, 1000);
 PID pid_x(2, 0, 0, 5000);
 PID pid_y(2, 0, 0, 5000);
 
@@ -90,7 +90,7 @@ PID pid_y(2, 0, 0, 5000);
 #define DRVOFF_PIN 37
 MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
-uint8_t dribbler_maxspeed = 80;
+uint8_t dribbler_maxspeed = 120;
 Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
 float lastFault = 0;
 
@@ -109,24 +109,27 @@ Kicker kicker(KICKER_PIN);
 #define GRADUAL_CHANGE 250.0f
 #define ALIGN_DURATION 2000
 #define ALIGN_THRESHOLD 3000
-#define BALLCAP_DISTANCE 0.02f
+#define BALLCAP_DISTANCE 0.05f
 #define BALLCAP_WIDTH 0.0335f
 #define CLEARANCE_X 0.20f
 #define CLEARANCE_Y 0.15f
 #define FIELD_MARGIN 0.12f
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
+#define LAST_SEEN_BALL_TIME 1000
 
 // Variables
 float self_x = 0, self_y = 0, self_heading = 0;
 float ball_angle = 0, ball_dist = 0;
 float relative_ball_x = 0, relative_ball_y = 0;
 float absolute_ball_x = 0, absolute_ball_y = 0;
+float last_ball_x = 0, last_ball_y = 0;
 float cam_ball_x = 0, cam_ball_y = 0;
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
-float lastLoopTime = 0, lastBallCap = 0;
+float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
 float speed_xdir, speed_ydir, rotation;
+float lastDribblerRev = 0;
 
 bool moving_back = false;
 unsigned long last_moving_back = 0;
@@ -170,7 +173,7 @@ void getTopPlateData(){
             Serial2.read();
         }
         int len = Serial2.readBytes(uartBufferPico, PICO_SERIAL_DATA_LEN);
-        while(Serial2.available()) Serial2.read();
+        // while(Serial2.available()) Serial2.read();
         if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=5){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
@@ -203,7 +206,7 @@ void getTopCamData(){
             Serial1.read();
         }
         int len = Serial1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
-        while(Serial1.available()) Serial1.read();
+        // while(Serial1.available()) Serial1.read();
         if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
@@ -223,14 +226,10 @@ void getTopCamData(){
             else {
                 noBall = false;
                 setLED(6, 8, strip.Color(0, 15, 0));
+                lastSeenBall = millis();
             }
 
-            if(noBall) dribbler.setSpeed(0);
-            else if(ball_dist<=40) dribbler.setSpeed(1.0);
-            else dribbler.setSpeed(0.5);
-
             float relative_angle = 90 - (ball_angle + self_heading);
-            // ball_dist += BOT_RADIUS;
             relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
             relative_ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
             absolute_ball_x = relative_ball_x + self_x;
@@ -278,6 +277,7 @@ void getBottomPlateData(){
     // DEBUG(lidar_ball_y);
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
+    DEBUG(ballCap);
 
     isOnLine = false;
     for (uint8_t i=0; i<4; i++) {
@@ -303,7 +303,10 @@ void ballCapStatus(){
         ballCap = true;
         setLED(9, 11, strip.Color(15, 15, 15));
     }
-    else setLED(9, 11, strip.Color(15, 15, 0));
+    else {
+        lastNoBallCap = millis();
+        setLED(9, 11, strip.Color(15, 15, 0));
+    }
 }
 
 void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
@@ -418,6 +421,19 @@ void ballTrack(){
     movement(new_x, new_y, 0);
 }
 
+void dribblerBallTrack(){
+    float xToBall = absolute_ball_x - self_x, yToBall = absolute_ball_y - self_y;
+    float distToBall = sqrt(xToBall * xToBall + yToBall * yToBall);
+    float new_x = self_x + xToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
+    float new_y = self_y + yToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
+
+    float absBallAngle = atan2(yToBall, xToBall);
+    LIM_ANGLE_180(absBallAngle);
+    DEBUG(absBallAngle);
+
+    movement(new_x, new_y, 90-DEG(absBallAngle));
+}
+
 void aim(){
     if(!aligned){
         // Serial.println("aim align");
@@ -446,7 +462,19 @@ void aim(){
     }
     // float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
     // movement(0.91, 2.06, 90-DEG(angleToFace));
-    if(ballCap && self_y > 1.83 && (self_heading > -75 && self_heading < 75)) kicker.kick();
+    if(ballCap && self_y > 1.83 && (self_heading > -75 && self_heading < 75)) {
+        kicker.kick();
+    }
+}
+
+void dribblerAim(){
+    float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
+    movement(0.91, 2.06, 90-DEG(angleToFace));
+    if(ballCap && self_y > 1.88 && (self_heading > -75 && self_heading < 75)) {
+        // kicker.kick();
+        dribbler.setSpeed(-1.0);
+        lastDribblerRev = millis();
+    }
 }
 
 //// ** LOOPS ** ////
@@ -503,7 +531,25 @@ void loop(){
     getBottomPlateData();
     ballCapStatus();
 
-    if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    else if(ballCap) aim();
-    else ballTrack();
+    if(millis() - lastDribblerRev < 1000) ;
+    else if(ballCap || (ball_dist>0 && ball_dist<=60)) dribbler.setSpeed(1.0);
+    else if(noBall) dribbler.setSpeed(0);
+    else dribbler.setSpeed(0.5);
+
+    if(millis() - lastNoBallCap >= 1000 && ballCap) dribblerAim();
+    else if(ballCap) sendI2C(zeroBuffer);
+    else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
+        absolute_ball_x = last_ball_x;
+        absolute_ball_y = last_ball_y;
+        dribblerBallTrack();
+    }
+    else if(!noBall){
+        dribblerBallTrack();
+    }
+    else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+
+    if(!noBall) {
+        last_ball_x = absolute_ball_x;
+        last_ball_y = absolute_ball_y;
+    }
 }
