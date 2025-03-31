@@ -188,6 +188,9 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
             setLED(1, 2, strip.Color(15, 0, 15));
+            DEBUG(self_x);
+            DEBUG(self_y);
+            DEBUG(self_heading);
         }
     }
     else setLED(1, 2, strip.Color(0, 15, 15));
@@ -232,6 +235,11 @@ void getTopCamData(){
             relative_ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
             absolute_ball_x = relative_ball_x + self_x;
             absolute_ball_y = relative_ball_y + self_y;
+
+            DEBUG(relative_ball_x);
+            DEBUG(relative_ball_y);
+            DEBUG(absolute_ball_x);
+            DEBUG(absolute_ball_y);
         }
     }
 }
