@@ -10,7 +10,7 @@ sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
 
 sensor.skip_frames(time=500)
-sensor.set_auto_exposure(False, exposure_us=12000)
+sensor.set_auto_exposure(False, exposure_us=20000)
 sensor.set_auto_gain(False, gain_db = 4)
 sensor.set_auto_whitebal(False)
 
@@ -27,7 +27,7 @@ centre_y = 125
 mask_radius = 100
 
 # thresh_ball = (35, 77, 7, 50, 25, 65) # old
-thresh_ball = (46, 77, 9, 37, 4, 44)
+thresh_ball = (47, 71, -38, 49, 20, 54)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72) # old
 thresh_blue_goal = (46, 58, -27, -7, -34, -17) # old
 

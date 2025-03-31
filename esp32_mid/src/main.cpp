@@ -21,7 +21,8 @@
 #define ESP_BRIGHTNESS 50
 #define BLINK_TIME 10
 Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
-bool esp_led_state = false;
+// to check if code is running
+bool esp_led_state = true;
 float lastLED = 0;
 
 // Debug LEDs
@@ -39,8 +40,8 @@ bool turnOff = false;
 #define VOLTAGE_ANALOG_THRESH 3300
 
 // Dimensions
-#define FIELD_WIDTH 1.82 // 0.91
-#define FIELD_HEIGHT 2.43 // 1.21
+#define FIELD_WIDTH 1.82
+#define FIELD_HEIGHT 2.43
 #define BALL_CAP_THRESH 15 // in cm
 #define BOT_RADIUS 8.5 // in cm
 
@@ -101,14 +102,14 @@ Kicker kicker(KICKER_PIN);
 #define NUM_LINE_MUX 4
 
 // Thresholds
-#define BALLCAP_DURATION 3000
+#define BALLCAP_DURATION 250
 #define ALIGNED_THRESHOLD 0.015f
 #define MOVING_BACK_DURATION 200
 #define INITIAL_CHANGE 35.0f
 #define GRADUAL_CHANGE 250.0f
 #define ALIGN_DURATION 2000
 #define ALIGN_THRESHOLD 3000
-#define BALLCAP_DISTANCE 0.13f
+#define BALLCAP_DISTANCE 0.02f
 #define BALLCAP_WIDTH 0.0335f
 #define CLEARANCE_X 0.20f
 #define CLEARANCE_Y 0.15f
@@ -116,35 +117,22 @@ Kicker kicker(KICKER_PIN);
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
 
-// Mutexes
-SemaphoreHandle_t i2cMutex, coordMutex, ballMutex, lineMutex;
-
-// Variables - access from both cores
-float cur_x, cur_y, cur_heading;
-float cur_ball_x = 0, cur_ball_y = 0;
-bool curBallCap = false, curTilt = false;
-
-// Variables - core 0 only
+// Variables
 float self_x = 0, self_y = 0, self_heading = 0;
-float self_ball_x = 0, self_ball_y = 0, self_ball_angle = 0;
+float ball_angle = 0, ball_dist = 0;
+float relative_ball_x = 0, relative_ball_y = 0;
+float absolute_ball_x = 0, absolute_ball_y = 0;
+float cam_ball_x = 0, cam_ball_y = 0;
+float line_status[NUM_LINE_MUX];
+bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
+float lastLoopTime = 0, lastBallCap = 0;
 float speed_xdir, speed_ydir, rotation;
-bool selfBallCap = false, selfTilt = false;
-float lastLoopTime = 0;
 
 bool moving_back = false;
 unsigned long last_moving_back = 0;
 bool aligned = false;
 float initial_change = 0.0f, initial_magnitude = 0.0f;
 unsigned long last_aligning = 0;
-
-// Variables - core 1 only
-float coord_x = 0, coord_y = 0, heading = 0;
-float ball_angle = 0, ball_dist = 0, ball_x = 0, ball_y = 0;
-bool no_ball = false, ballCap = false;
-float lastBallCap = 0;
-float cam_ball_x = 0, cam_ball_y = 0, lidar_ball_x = 0, lidar_ball_y = 0;
-float line_status[NUM_LINE_MUX];
-bool isOnLine = false, isTilted = false;
 
 //// ** FUNCTIONS ** ////
 
@@ -193,23 +181,12 @@ void getTopPlateData(){
             }
         }
         else{
-            coord_x = (float)(uartBufferPico[1] + (uartBufferPico[2]<<8)) / 128;
-            coord_y = (float)(uartBufferPico[3] + (uartBufferPico[4]<<8)) / 128;
-            heading = (float)(uartBufferPico[6] + (uartBufferPico[7]<<8)) / 128;
-            if(uartBufferPico[5]==0) heading *= -1;
+            self_x = (float)(uartBufferPico[1] + (uartBufferPico[2]<<8)) / 128;
+            self_y = (float)(uartBufferPico[3] + (uartBufferPico[4]<<8)) / 128;
+            self_heading = (float)(uartBufferPico[6] + (uartBufferPico[7]<<8)) / 128;
+            if(uartBufferPico[5]==0) self_heading *= -1;
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
-
-            if(xSemaphoreTake(coordMutex, portMAX_DELAY)){ // here
-                cur_x = coord_x;
-                cur_y = coord_y;
-                cur_heading = heading;
-                curTilt = isTilted;
-                xSemaphoreGive(coordMutex);
-                // Serial.println("Coordinate data updated");
-            }
-
-            // DEBUG(heading);
             setLED(1, 2, strip.Color(15, 0, 15));
         }
     }
@@ -237,152 +214,94 @@ void getTopCamData(){
             ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
             ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
             if(ball_angle==0 && ball_dist==0) {
-                no_ball = true;
+                noBall = true;
                 setLED(6, 8, strip.Color(0, 0, 15));
             }
             else {
-                no_ball = false;
+                noBall = false;
                 setLED(6, 8, strip.Color(0, 15, 0));
             }
-            // if(!no_ball && (ball_angle <= 20 || ball_angle >= 345) && ball_dist <= BALL_CAP_THRESH){
-                // ballCap = true;
-                // lastBallCap = millis();
-                // setLED(9, 11, strip.Color(15, 0, 15));
-            // }
-            // else if(millis() - lastBallCap <= 3000 && !no_ball){
-                // ballCap = true;
-                // setLED(9, 11, strip.Color(0, 15, 15));
-            // }
-            // else {
-                // ballCap = false;
-                // setLED(9, 11, strip.Color(15, 15, 0));
-            // }
-            // DEBUG(ball_angle);
-            // DEBUG(ball_dist);
 
-            if(no_ball) dribbler.setSpeed(0);
+            if(noBall) dribbler.setSpeed(0);
             else if(ball_dist<=40) dribbler.setSpeed(1.0);
             else dribbler.setSpeed(0.5);
 
-            float relative_angle = 90 - (ball_angle + heading);
+            float relative_angle = 90 - (ball_angle + self_heading);
             ball_dist += BOT_RADIUS;
-            ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
-            ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
-
-            if(xSemaphoreTake(ballMutex, portMAX_DELAY)){ // here
-                if(no_ball){
-                    cur_ball_x = 0;
-                    cur_ball_y = 0;
-                }
-                else{
-                    cur_ball_x = ball_x;
-                    cur_ball_y = ball_y;
-                }
-                xSemaphoreGive(ballMutex);
-                // DEBUG(ball_x);
-                // DEBUG(ball_y);
-                // Serial.println("Ball data updated");
-            }
+            relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
+            relative_ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
+            absolute_ball_x = relative_ball_x + self_x;
+            absolute_ball_y = relative_ball_y + self_y;
         }
     }
 }
 
 void getBottomPlateData(){
-    if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){ // here
-        byte num_bytes = Wire.requestFrom(I2C_RCV_PICO_ADDR, I2C_RCV_DATA_LEN);
-        if(num_bytes != I2C_RCV_DATA_LEN){
-            Serial.print("Received bad data: ");
-            setLED(3, 4, strip.Color(15, 15, 0));
-        }
-        else Serial.print("Received: ");
-        for (int i=0; i<I2C_RCV_DATA_LEN; i++) {
-            if (Wire.available()) {
-                rcvBuffer[i] = Wire.read();
-            }
-        }
-        rcvBuffer[I2C_RCV_DATA_LEN] = '\0';
-        xSemaphoreGive(i2cMutex);
-        
-        if(rcvBuffer[0]!=1) {
-            Serial.println("Bad data received");
-            setLED(3, 4, strip.Color(15, 15, 0));
-        }
-        else setLED(3, 4, strip.Color(0, 15, 0));
-
-        cam_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
-        if(rcvBuffer[1]==0) cam_ball_x *= -1;
-        cam_ball_y = (float)(rcvBuffer[4] + (rcvBuffer[5]<<8)) / 128;
-
-        lidar_ball_x = (float)(rcvBuffer[7] + (rcvBuffer[8]<<8)) / 128;
-        if(rcvBuffer[6]==0) lidar_ball_x *= -1;
-        lidar_ball_y = (float)(rcvBuffer[9] + (rcvBuffer[10]<<8)) / 128;
-
-        // DEBUG(cam_ball_x);
-        // DEBUG(cam_ball_y);
-        // DEBUG(lidar_ball_x);
-        // DEBUG(lidar_ball_y);
-
-        ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
-        if(ballCap){
-            setLED(9, 11, strip.Color(15, 0, 15));
-            lastBallCap = millis();
-        }
-        else if(millis() - lastBallCap <= BALLCAP_DURATION && !no_ball){
-            ballCap = true;
-            setLED(9, 11, strip.Color(0, 15, 15));
-        }
-        else setLED(9, 11, strip.Color(15, 15, 0));
-
-        isOnLine = false;
-        for (uint8_t i=0; i<4; i++) {
-            line_status[i] = rcvBuffer[LINE_DATA_POS+i];
-            if(line_status[i]>0) isOnLine = true;
-            DEBUG(line_status[i]);
-        }
-        if(isOnLine) setLED(5, 5, strip.Color(15, 15, 15));
-        else setLED(5, 5, strip.Color(0, 0, 0));
-
-        if(xSemaphoreTake(lineMutex, portMAX_DELAY)){
-            curBallCap = ballCap;
-            xSemaphoreGive(lineMutex);
+    byte num_bytes = Wire.requestFrom(I2C_RCV_PICO_ADDR, I2C_RCV_DATA_LEN);
+    if(num_bytes != I2C_RCV_DATA_LEN){
+        Serial.print("Received bad data: ");
+        setLED(3, 4, strip.Color(15, 15, 0));
+    }
+    else Serial.print("Received: ");
+    for (int i=0; i<I2C_RCV_DATA_LEN; i++) {
+        if (Wire.available()) {
+            rcvBuffer[i] = Wire.read();
         }
     }
+    rcvBuffer[I2C_RCV_DATA_LEN] = '\0';
+        
+    if(rcvBuffer[0]!=1) {
+        Serial.println("Bad data received");
+        setLED(3, 4, strip.Color(15, 15, 0));
+    }
+    else setLED(3, 4, strip.Color(0, 15, 0));
+
+    cam_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
+    if(rcvBuffer[1]==0) cam_ball_x *= -1;
+    cam_ball_y = (float)(rcvBuffer[4] + (rcvBuffer[5]<<8)) / 128;
+
+    // lidar_ball_x = (float)(rcvBuffer[7] + (rcvBuffer[8]<<8)) / 128;
+    // if(rcvBuffer[6]==0) lidar_ball_x *= -1;
+    // lidar_ball_y = (float)(rcvBuffer[9] + (rcvBuffer[10]<<8)) / 128;
+
+    // DEBUG(cam_ball_x);
+    // DEBUG(cam_ball_y);
+    // DEBUG(lidar_ball_x);
+    // DEBUG(lidar_ball_y);
+
+    ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
+
+    isOnLine = false;
+    for (uint8_t i=0; i<4; i++) {
+        line_status[i] = rcvBuffer[LINE_DATA_POS+i];
+        if(line_status[i]>0) isOnLine = true;
+    }
+    if(isOnLine) setLED(5, 5, strip.Color(15, 15, 15));
+    else setLED(5, 5, strip.Color(0, 0, 0));
 }
 
-void updateData(){
-    if(xSemaphoreTake(coordMutex, 0)){
-        self_x = cur_x;
-        self_y = cur_y;
-        self_heading = cur_heading;
-        selfTilt = curTilt;
-        xSemaphoreGive(coordMutex);
-        // Serial.println("Updated coordinates");
-        // DEBUG(self_x);
-        // DEBUG(self_y);
+void ballCapStatus(){
+    if(ballCap){
+        setLED(9, 11, strip.Color(15, 0, 15));
+        lastBallCap = millis();
     }
-
-    if(xSemaphoreTake(ballMutex, 0)){
-        self_ball_x = cur_ball_x;
-        self_ball_y = cur_ball_y;
-        xSemaphoreGive(ballMutex);
-        DEBUG(self_ball_x);
-        DEBUG(self_ball_y);
+    else if(!(relative_ball_x == 0 && relative_ball_y == 0) 
+        && relative_ball_y > BALLCAP_DISTANCE && abs(relative_ball_x) < BALLCAP_WIDTH / 2.0){
+            ballCap = true;
+            lastBallCap = millis();
+            setLED(9, 11, strip.Color(0, 15, 15));
     }
-
-    if(xSemaphoreTake(lineMutex, 0)){
-        selfBallCap = curBallCap;
-        xSemaphoreGive(lineMutex);
+    else if(millis() - lastBallCap < BALLCAP_DURATION){
+        ballCap = true;
+        setLED(9, 11, strip.Color(15, 15, 15));
     }
+    else setLED(9, 11, strip.Color(15, 15, 0));
 }
 
 void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
-    if(xSemaphoreTake(i2cMutex, portMAX_DELAY)){ // here
-        Wire.beginTransmission(I2C_SEND_PICO_ADDR);
-        Wire.write(buffer, I2C_SEND_DATA_LEN);
-        Wire.endTransmission();
-        xSemaphoreGive(i2cMutex);
-        // Serial.println("Data sent");
-    }
+    Wire.beginTransmission(I2C_SEND_PICO_ADDR);
+    Wire.write(buffer, I2C_SEND_DATA_LEN);
+    Wire.endTransmission();
 }
 
 void movement(float target_x, float target_y, float target_rotation){
@@ -429,26 +348,26 @@ void movement(float target_x, float target_y, float target_rotation){
     sendBuffer[5] = rotation_sign;
     sendBuffer[6] = rounded_rotation;
 
-    if(turnOff || selfTilt) sendI2C(zeroBuffer);
+    if(turnOff || isTilted) sendI2C(zeroBuffer);
     else sendI2C(sendBuffer);
 }
 
 // void ballTrack(){
-//     float absBallAngle = atan2(self_ball_y - self_y, self_ball_x - self_x);
-//     float goalToBallAngle = atan2(2.384 - self_ball_y, 0.91 - self_ball_x);
+//     float absBallAngle = atan2(relative_ball_y - self_y, relative_ball_x - self_x);
+//     float goalToBallAngle = atan2(2.384 - relative_ball_y, 0.91 - relative_ball_x);
 //     float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
 //     if(absBallAngle <= 60 || absBallAngle >= 300){
-//         // movement(self_x + self_ball_x, self_y + self_ball_y - 0.06, 90-DEG(angleToFace));
-//         movement(self_x + self_ball_x, self_y + self_ball_y - 0.04, 0);
+//         // movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.06, 90-DEG(angleToFace));
+//         movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.04, 0);
 //     }
 //     else{
-//         float new_x = self_x + self_ball_x + 0.40 * cosf(goalToBallAngle);
-//         float new_y = self_y + self_ball_y + 0.40 * sinf(goalToBallAngle);
+//         float new_x = self_x + relative_ball_x + 0.40 * cosf(goalToBallAngle);
+//         float new_y = self_y + relative_ball_y + 0.40 * sinf(goalToBallAngle);
 //         movement(new_x, new_y, 90-DEG(angleToFace));
-//         // movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 90-DEG(angleToFace));
-//         // movement(self_x + self_ball_x, self_y + self_ball_y - 0.40, 0);
+//         // movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.40, 90-DEG(angleToFace));
+//         // movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.40, 0);
 //     }
-//     // movement(self_x + self_ball_x, self_y + self_ball_y - 0.12, 90-DEG(angleToFace));
+//     // movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.12, 90-DEG(angleToFace));
 // }
 
 void ballTrack(){
@@ -457,123 +376,72 @@ void ballTrack(){
     initial_magnitude = 0.0;
 
     float new_x, new_y;
-    self_ball_x += self_x;
-    self_ball_y += self_y;
-    if(self_y > self_ball_y) moving_back = true;
+    if(self_y > absolute_ball_y) moving_back = true;
     if((moving_back || millis() - last_moving_back > MOVING_BACK_DURATION) && 
-        (self_y > self_ball_y - BALLCAP_DISTANCE / 3.0 || 
-        (abs(self_x - self_ball_x) > BALLCAP_WIDTH / 2.0 + 0.05f && 
-        abs(self_x - self_ball_x) < CLEARANCE_X / 2.0 && 
-        self_y > self_ball_y - CLEARANCE_Y / 2.0))){
-            Serial.println("case1");
-            if(self_ball_x < FIELD_MARGIN + CLEARANCE_X + 0.10f) new_x = self_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
-            else if(self_ball_x > FIELD_WIDTH - FIELD_MARGIN - CLEARANCE_X - 0.10f) new_x = self_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
-            else if (self_x > self_ball_x) new_x = self_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
-            else new_x = self_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
-            new_y = (abs(self_x - self_ball_x) > CLEARANCE_X / 2.0 + 0.03f) ? self_ball_y - CLEARANCE_Y / 2.0 - 0.10f : self_y;
+        (self_y > absolute_ball_y - BALLCAP_DISTANCE / 3.0 || 
+        (abs(self_x - absolute_ball_x) > BALLCAP_WIDTH / 2.0 + 0.05f && 
+        abs(self_x - absolute_ball_x) < CLEARANCE_X / 2.0 && 
+        self_y > absolute_ball_y - CLEARANCE_Y / 2.0))){
+            // Serial.println("case1");
+            if(absolute_ball_x < FIELD_MARGIN + CLEARANCE_X + 0.10f) new_x = absolute_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
+            else if(absolute_ball_x > FIELD_WIDTH - FIELD_MARGIN - CLEARANCE_X - 0.10f) new_x = absolute_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
+            else if (self_x > absolute_ball_x) new_x = absolute_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
+            else new_x = absolute_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
+            new_y = (abs(self_x - absolute_ball_x) > CLEARANCE_X / 2.0 + 0.03f) ? absolute_ball_y - CLEARANCE_Y / 2.0 - 0.10f : self_y;
             moving_back = true;
     }
     else{
-        Serial.println("case2");
+        // Serial.println("case2");
         if(moving_back) {
             moving_back = false;
             last_moving_back = millis();
         }
         unsigned long aligning = millis() - last_aligning;
-        new_x = self_ball_x;
-        if((aligning > ALIGN_DURATION && aligning < ALIGN_THRESHOLD) || abs(self_x - self_ball_x) < BALLCAP_WIDTH / 2.0) 
-            new_y = fmax(self_ball_y - BALLCAP_DISTANCE, self_y + 0.03f) ;
+        new_x = absolute_ball_x;
+        if((aligning > ALIGN_DURATION && aligning < ALIGN_THRESHOLD) || abs(self_x - absolute_ball_x) < BALLCAP_WIDTH / 2.0) 
+            new_y = fmax(absolute_ball_y - BALLCAP_DISTANCE, self_y + 0.03f) ;
         else{
             if (aligning > ALIGN_THRESHOLD) last_aligning = millis(); 
-            new_y = self_ball_y - BALLCAP_DISTANCE - 0.03f;
+            new_y = absolute_ball_y - BALLCAP_DISTANCE;
         }
     }
     DEBUG(new_x);
     DEBUG(new_y);
     movement(new_x, new_y, 0);
-    // change it back in case somewhere else needs relative ball pos idk
-    self_ball_x -= self_x;
-    self_ball_y -= self_y;
 }
 
 void aim(){
-    self_ball_x += self_x;
-    self_ball_y += self_y;
     if(!aligned){
-        if(abs(self_x - self_ball_x) < ALIGNED_THRESHOLD) aligned = true;
-        movement(self_ball_x, self_y, 0);
+        // Serial.println("aim align");
+        if(abs(self_x - absolute_ball_x) < ALIGNED_THRESHOLD) aligned = true;
+        DEBUG(self_x);
+        DEBUG(absolute_ball_x);
+        movement(absolute_ball_x, self_y, 0);
     }
     else{
+        // Serial.println("aim accel");
         float xToGoal = 0.91 - self_x, yToGoal = 2.384 - self_y;
         float distToGoal = sqrt(xToGoal * xToGoal + yToGoal * yToGoal);
-        float angleToGoal = atan2(yToGoal, xToGoal);
+        float angleToGoal = PI/2 - atan2(yToGoal, xToGoal);
         if(initial_change == 0){
             initial_magnitude = distToGoal;
             initial_change = max(0.0f, cosf(angleToGoal)) * INITIAL_CHANGE;
         }
         float change = initial_change + max(0.0f, initial_magnitude - distToGoal) / initial_magnitude * GRADUAL_CHANGE;
-        change = min(change, max(0.0f, (self_y - FIELD_MARGIN_Y)/cosf(angleToGoal)));
-        float new_x = self_x + change * sinf(angleToGoal);
-        float new_y = self_y + change * cosf(angleToGoal);
-        movement(new_x, new_y, 90-DEG(angleToGoal));
+        change = min(change, max(0.0f, (self_y + FIELD_MARGIN_Y)*100/cosf(angleToGoal)));
+        float new_x = self_x + change * sinf(angleToGoal) / 100;
+        float new_y = self_y + change * cosf(angleToGoal) / 100;
+        DEBUG(change);
+        DEBUG(new_x);
+        DEBUG(new_y);
+        movement(new_x, new_y, DEG(angleToGoal));
     }
     // float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
     // movement(0.91, 2.06, 90-DEG(angleToFace));
-    if(selfBallCap && self_y > 1.83 && (self_heading > -75 && self_heading < 75)) kicker.kick();
-    // change it back in case somewhere else needs relative ball pos idk
-    self_ball_x -= self_x;
-    self_ball_y -= self_y;
+    if(ballCap && self_y > 1.83 && (self_heading > -75 && self_heading < 75)) kicker.kick();
 }
 
 //// ** LOOPS ** ////
-
-// core 0 handles main game logic and writing motor control info to rp2040
-void core0Task(void *pvParameters){
-    zeroBuffer[0] = 0;
-    for (int i=1; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
-    while(1){
-        // Serial.print("Core0");
-        float curTime = millis();
-        // Serial.println("time: ");
-        // Serial.println(curTime - lastLoopTime);
-        lastLoopTime = millis();
-        if(digitalRead(TURN_OFF_SW)==HIGH) turnOff = true;
-        else turnOff = false;
-
-        updateData();
-
-        if(self_ball_x==0 && self_ball_y==0){
-            movement(FIELD_WIDTH/2, 1.62, 0);
-        }
-        // else if(selfBallCap) aim();
-        else ballTrack();
-    }
-}
-
-// core 1 handles receiving data and processing to get final self and ball coordinates
-void core1Task(void *pvParameters){
-    while(1){
-        // Serial.print("Core1");
-        if(millis() - lastLED >= BLINK_TIME){
-            esp_led_state = !esp_led_state;
-            lastLED = millis();
-        }
-        if(esp_led_state){
-            esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
-            esp_led.show();
-        }
-        else{
-            esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
-            esp_led.show();
-        }
-
-        // readVoltage();
-        checkFault();
-        getTopPlateData();
-        getTopCamData();
-        getBottomPlateData();
-    }
-}
 
 void setup(){
     Serial.begin(115200);
@@ -585,11 +453,9 @@ void setup(){
     pinMode(VOLTAGE_PIN, INPUT);
     analogSetAttenuation(ADC_11db);
 
-    i2cMutex = xSemaphoreCreateMutex(); 
-    coordMutex = xSemaphoreCreateMutex();
-    ballMutex = xSemaphoreCreateMutex();
-    lineMutex = xSemaphoreCreateMutex();
     Wire.begin(SDA_PIN, SCL_PIN, 50000);
+
+    for (int i=0; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
 
     dribblerMD.init();
     dribblerMD.setMode();
@@ -602,10 +468,34 @@ void setup(){
     esp_led.setBrightness(ESP_BRIGHTNESS);
     esp_led.show();
 
-    xTaskCreatePinnedToCore(core0Task, "Send Data", 16384, NULL, 1, NULL, 0);
-    xTaskCreatePinnedToCore(core1Task, "Read Data", 16384, NULL, 1, NULL, 1);
 }
 
 void loop(){
-    
+    Serial.println("running main code");
+    float curTime = millis();
+    Serial.print("time: ");
+    Serial.println(curTime - lastLoopTime);
+    lastLoopTime = millis();
+
+    if(millis() - lastLED >= BLINK_TIME){
+        esp_led_state = !esp_led_state;
+        lastLED = millis();
+    }
+    if(esp_led_state) esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+    else esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
+    esp_led.show();
+
+    if(digitalRead(TURN_OFF_SW)==HIGH) turnOff = true;
+    else turnOff = false;
+
+    // readVoltage();
+    checkFault();
+    getTopPlateData();
+    getTopCamData();
+    getBottomPlateData();
+    ballCapStatus();
+
+    if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    else if(ballCap) aim();
+    else ballTrack();
 }
