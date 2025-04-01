@@ -37,8 +37,6 @@ class PID {
                     _lastError = error;
                 };
 
-                output = constrain(output, -1, 1);
-
                 _lastOutput = output;
                 return output; // constrain(output, -1, 1)
 

@@ -74,9 +74,13 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
-PID pid_rotate(0.5, 0, 0, 1000);
-PID pid_x(2, 0, 0, 5000);
-PID pid_y(2, 0, 0, 5000);
+float pid_rotate_default[3] = {0.5, 0, 0};
+float pid_x_default[3] = {2, 0, 0};
+float pid_y_default[3] = {2, 0, 0};
+PID pid_rotate(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2], 1000);
+PID pid_x(pid_x_default[0], pid_x_default[1], pid_x_default[2], 1000);
+PID pid_y(pid_y_default[0], pid_y_default[1], pid_y_default[2], 1000);
+float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 
 // Dribbler
 #define MOSI_PIN 12
@@ -109,14 +113,15 @@ Kicker kicker(KICKER_PIN);
 #define GRADUAL_CHANGE 250.0f
 #define ALIGN_DURATION 2000
 #define ALIGN_THRESHOLD 3000
-#define BALLCAP_DISTANCE 0.05f
+#define BALLCAP_DISTANCE 0.035f
 #define BALLCAP_WIDTH 0.0335f
 #define CLEARANCE_X 0.20f
 #define CLEARANCE_Y 0.15f
 #define FIELD_MARGIN 0.12f
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
-#define LAST_SEEN_BALL_TIME 1000
+#define LAST_SEEN_BALL_TIME 500
+#define SCORING_WAIT_TIME 200
 
 // Variables
 float self_x = 0, self_y = 0, self_heading = 0;
@@ -278,8 +283,16 @@ void getBottomPlateData(){
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
     DEBUG(ballCap);
-    if(ballCap) pid_rotate.setConfig(0.2, 0, 0);
-    else pid_rotate.setConfig(0.5, 0, 0);
+    // if(ballCap) {
+    //     pid_rotate.setConfig(0.05, 0, 0);
+    //     pid_x.setConfig(1, 0, 0);
+    //     pid_y.setConfig(1, 0, 0);
+    // }
+    // else {
+    //     pid_rotate.setConfig(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2]);
+    //     pid_x.setConfig(pid_x_default[0], pid_x_default[1], pid_x_default[2]);
+    //     pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
+    // }
 
     isOnLine = false;
     for (uint8_t i=0; i<4; i++) {
@@ -331,13 +344,22 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_x_dist = total_dist * sinf(total_angle);
     float shifted_y_dist = total_dist * cosf(total_angle);
 
+    if(ballCap){
+        max_translation_pid_value = 0.7;
+        max_rotation_pid_value = 0.7;
+    }
+    else {
+        max_translation_pid_value = 1;
+        max_rotation_pid_value = 1;
+    }
+
     speed_xdir = pid_x.compute(0, shifted_x_dist);
     speed_ydir = pid_y.compute(0, shifted_y_dist);
-    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), -1, 1);
+    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), -max_rotation_pid_value, max_rotation_pid_value);
 
     float maxPID = max(abs(speed_xdir), abs(speed_ydir));
-    if(maxPID > 1){
-        float k = 1/maxPID;
+    if(maxPID > max_translation_pid_value){
+        float k = max_translation_pid_value/maxPID;
         speed_xdir *= k;
         speed_ydir *= k;
     }
@@ -538,7 +560,7 @@ void loop(){
     else if(noBall) dribbler.setSpeed(0);
     else dribbler.setSpeed(0.5);
 
-    if(millis() - lastNoBallCap >= 1000 && ballCap) dribblerAim();
+    if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
     else if(ballCap) sendI2C(zeroBuffer);
     else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
         absolute_ball_x = last_ball_x;
