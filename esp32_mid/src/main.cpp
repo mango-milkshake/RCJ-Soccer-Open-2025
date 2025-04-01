@@ -83,9 +83,15 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
+#ifdef SECOND_BOT
+float pid_rotate_default[3] = {0.7, 0, 0};
+float pid_x_default[3] = {3, 0, 0};
+float pid_y_default[3] = {3, 0, 0};
+#else
 float pid_rotate_default[3] = {0.5, 0, 0};
 float pid_x_default[3] = {2, 0, 0};
 float pid_y_default[3] = {2, 0, 0};
+#endif
 PID pid_rotate(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2], 1000);
 PID pid_x(pid_x_default[0], pid_x_default[1], pid_x_default[2], 1000);
 PID pid_y(pid_y_default[0], pid_y_default[1], pid_y_default[2], 1000);
@@ -305,6 +311,8 @@ void getBottomPlateData(){
     //     pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
     // }
 
+
+
     isOnLine = false;
     for (uint8_t i=0; i<4; i++) {
         line_status[i] = rcvBuffer[LINE_DATA_POS+i];
@@ -343,7 +351,7 @@ void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
 
 void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
-    if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.37, FIELD_WIDTH - 0.37);
+    if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.28, FIELD_WIDTH - 0.28);
     else target_y = constrain(target_y, 0.12, FIELD_HEIGHT - 0.12);
     float x_dist = target_x - self_x, y_dist = target_y - self_y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
@@ -597,8 +605,41 @@ void loop(){
     else dribbler.setSpeed(0.5);
 
     #ifdef SECOND_BOT
-    if(noBall) movement(0.91, 0.60, 0);
-    else defend();
+
+    // 1) If no ball and it's been too long, just stay put
+    if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
+        movement(0.91f, 0.60f, 0);
+    }
+    // 2) Else if the ball is within the no-chase region near the goal
+    else if (absolute_ball_x > 0.62f && absolute_ball_x < 1.20f &&
+             absolute_ball_y < 0.25f)
+    {
+        movement(0.91f, 0.60f, 0);
+    }
+    // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
+    else if (absolute_ball_y <  0.60f) {
+        pid_rotate.setConfig(0.5, 0, 0);
+        pid_x.setConfig(2.2, 0, 0);
+        pid_y.setConfig(2.2, 0, 0);
+        if (noBall) {
+            absolute_ball_x = last_ball_x;
+            absolute_ball_y = last_ball_y;
+            dribblerBallTrack();
+        }
+        // 3b) If we DO see the ball => track it with the dribbler
+        else {
+            dribblerBallTrack();
+        }
+        pid_rotate.setConfig(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2]);
+        pid_x.setConfig(pid_x_default[0], pid_x_default[1], pid_x_default[2]);
+        pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
+    }
+    // 4) Otherwise => geometry-based blocking
+    else {
+        
+        defend();
+
+    }
     #else
     if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
     else if(ballCap) sendI2C(zeroBuffer);
@@ -612,6 +653,24 @@ void loop(){
     }
     else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     #endif
+
+
+    // #ifdef SECOND_BOT
+    // if(noBall) movement(0.91, 0.60, 0);
+    // else defend();
+    // #else
+    // if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
+    // else if(ballCap) sendI2C(zeroBuffer);
+    // else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
+    //     absolute_ball_x = last_ball_x;
+    //     absolute_ball_y = last_ball_y;
+    //     dribblerBallTrack();
+    // }
+    // else if(!noBall){
+    //     dribblerBallTrack();
+    // }
+    // else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    // #endif
 
     if(!noBall) {
         last_ball_x = absolute_ball_x;
