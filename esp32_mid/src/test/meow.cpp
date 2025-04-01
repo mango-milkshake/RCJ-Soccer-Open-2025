@@ -137,11 +137,15 @@ float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0;
 float speed_xdir, speed_ydir, rotation;
+float other_x = 0, other_y = 0;
+bool isDefender = true;
+
 uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
 typedef struct struct_message {
-    int a;
-    int b;
-    int c;
+    bool def;
+    float xpos; 
+    float ypos;
+    bool hasBall; 
 } struct_message;
 struct_message espnowData;
 
@@ -235,9 +239,10 @@ void set_up_esp_now(){
 
 void sendData(){ //send data here
     //Define what values to send
-    espnowData.a = 1;
-    espnowData.b = 2;
-    espnowData.c = 3;
+    espnowData.def = isDefender ? true : false;
+    espnowData.xpos = self_x;
+    espnowData.ypos = self_y;
+    espnowData.hasBall = ballCap ? true : false;
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &espnowData, sizeof(espnowData));        
     if (result == ESP_OK) {
@@ -676,7 +681,10 @@ void loop(){
     getBottomPlateData();
     ballCapStatus();
 
+    sendData();
+
     if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     else if(ballCap) aim();
+    else if (ball_vx > 10 || ball_vy > 10) lookAhead();
     else ballTrack();
 }
