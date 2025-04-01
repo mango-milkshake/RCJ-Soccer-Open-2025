@@ -6,6 +6,11 @@
 #include <Dribbler.h>
 #include <Motor.h>
 #include <Kicker.h>
+#include <cmath>
+#include <algorithm>
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include <esp_now.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -70,7 +75,7 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 // UART Comms with camera
 #define CAM_TX_PIN 10
 #define CAM_RX_PIN 11
-#define CAM_SERIAL_DATA_LEN 5
+#define CAM_SERIAL_DATA_LEN 9
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
@@ -120,13 +125,25 @@ Kicker kicker(KICKER_PIN);
 // Variables
 float self_x = 0, self_y = 0, self_heading = 0;
 float ball_angle = 0, ball_dist = 0;
+float ball_vx = 0, ball_vy = 0;
+float ball_x_topcam = 0, ball_y_topcam = 0;
+float ball_vx_topcam = 0, ball_vy_topcam = 0;
 float relative_ball_x = 0, relative_ball_y = 0;
 float absolute_ball_x = 0, absolute_ball_y = 0;
-float cam_ball_x = 0, cam_ball_y = 0;
+float abs_bx_front = 0, abs_by_front = 0;
+float ball_vx_front = 0, ball_vy_front = 0;
+float ball_x_frontcam = 0, ball_y_frontcam = 0;
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0;
 float speed_xdir, speed_ydir, rotation;
+uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
+typedef struct struct_message {
+    int a;
+    int b;
+    int c;
+} struct_message;
+struct_message espnowData;
 
 bool moving_back = false;
 unsigned long last_moving_back = 0;
@@ -162,6 +179,75 @@ void checkFault(){
     } 
     else setLED(0, 0, strip.Color(0, 0, 0));
 }
+
+void readMacAddress(){ //read own mac address and set broadcast address to other bot
+    uint8_t own_mac_address[6];
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
+    if (ret == ESP_OK) {
+    Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+                  own_mac_address[0], own_mac_address[1], own_mac_address[2],
+                  own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    } 
+    else{
+        Serial.println("Failed to read MAC address");
+    }
+    if(memcmp(own_mac_address, (uint8_t[]){0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}, 6) == 0) {
+        memcpy(broadcastAddress, (uint8_t[]){0x34, 0x85, 0x18, 0xbc, 0xe0, 0x40}, 6);
+   }
+    else{
+        memcpy(broadcastAddress, (uint8_t[]){0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}, 6);
+    } 
+}
+
+void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
+    //Serial.print("\r\nLast Packet Send Status:\t");
+    //Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
+void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
+    memcpy(&espnowData, incomingData, sizeof(espnowData));
+
+}
+
+void set_up_esp_now(){
+    esp_now_peer_info_t peerInfo = {};
+    WiFi.mode(WIFI_STA);
+    if (esp_now_init() != ESP_OK) {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+
+    //callback functions for sending and receiving
+    esp_now_register_send_cb(onDataSent);
+    esp_now_register_recv_cb(onDataRecv);
+    
+    // Register peer
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = 0;  
+    peerInfo.encrypt = false;
+    
+    // Add peer        
+    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+        Serial.println("Failed to add peer");
+        return;
+    }
+}
+
+void sendData(){ //send data here
+    //Define what values to send
+    espnowData.a = 1;
+    espnowData.b = 2;
+    espnowData.c = 3;
+
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &espnowData, sizeof(espnowData));        
+    if (result == ESP_OK) {
+        //Serial.println("Sent with success");
+    }
+    else {
+        //Serial.println("Error sending the data");
+    }
+}
+
 
 void getTopPlateData(){
     if(Serial2.available()>=PICO_SERIAL_DATA_LEN){
@@ -213,26 +299,34 @@ void getTopCamData(){
                 Serial.print(" ");
             }
         }
-        else{
-            ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
-            ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
-            if(ball_angle==0 && ball_dist==0) {
+        else{ 
+            ball_x_topcam = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
+            ball_y_topcam = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
+            ball_vx_topcam = (float)(uartBufferCam[5] + (uartBufferCam[6]<<8)) / 128;
+            ball_vy_topcam = (float)(uartBufferCam[7] + (uartBufferCam[8]<<8)) / 128;
+            if(ball_x_topcam==0 && ball_y_topcam==0) {
                 noBall = true;
                 setLED(6, 8, strip.Color(0, 0, 15));
             }
-            else {
+            else {  
                 noBall = false;
-                setLED(6, 8, strip.Color(0, 15, 0));
+                setLED(6, 8, strip.Color(0, 15, 0)); //green
             }
 
             if(noBall) dribbler.setSpeed(0);
             else if(ball_dist<=40) dribbler.setSpeed(1.0);
             else dribbler.setSpeed(0.5);
 
-            float relative_angle = 90 - (ball_angle + self_heading);
+            relative_ball_x = ball_y_topcam; //rotate -90
+            relative_ball_y = ball_x_topcam;
+            ball_vx = ball_vy_topcam;
+            ball_vy = ball_vx_topcam;
+
+
+            //float relative_angle = 90 - (ball_angle + self_heading);
             // ball_dist += BOT_RADIUS;
-            relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
-            relative_ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
+            //relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
+            //relative_ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
             absolute_ball_x = relative_ball_x + self_x;
             absolute_ball_y = relative_ball_y + self_y;
 
@@ -264,9 +358,14 @@ void getBottomPlateData(){
     }
     else setLED(3, 4, strip.Color(0, 15, 0));
 
-    cam_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
-    if(rcvBuffer[1]==0) cam_ball_x *= -1;
-    cam_ball_y = (float)(rcvBuffer[4] + (rcvBuffer[5]<<8)) / 128;
+    ball_x_frontcam = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
+    if(rcvBuffer[1]==0) ball_x_frontcam *= -1;
+    ball_y_frontcam = (float)(rcvBuffer[4] + (rcvBuffer[5]<<8)) / 128;
+    ball_vx_front = (float)(rcvBuffer[6] + (rcvBuffer[7]<<8)) / 128;
+    ball_vy_front = (float)(rcvBuffer[8] + (rcvBuffer[9]<<8)) / 128;
+
+    abs_bx_front = ball_x_frontcam + self_x;
+    abs_by_front = ball_y_frontcam + self_y;
 
     // lidar_ball_x = (float)(rcvBuffer[7] + (rcvBuffer[8]<<8)) / 128;
     // if(rcvBuffer[6]==0) lidar_ball_x *= -1;
@@ -449,6 +548,78 @@ void aim(){
     if(ballCap && self_y > 1.83 && (self_heading > -75 && self_heading < 75)) kicker.kick();
 }
 
+void frontCamTrack(){ //turns bot to ball based on top cam, use if a more accurate front cam measurement is needed
+    float approx_future_x = absolute_ball_x + ball_vx * 0.2;
+    float approx_future_y = absolute_ball_y + ball_vy * 0.2;
+    movement(self_x, self_y, atan2(approx_future_x, approx_future_y));
+}
+
+void lookAhead(){
+    float v = 0.5;
+    float latency = 0.1;
+    bool validt = false;
+    bool useFrontCam = false;
+    float t;
+    float LAball_x, LAball_y, LAball_vx, LAball_vy;
+    
+    if (useFrontCam){
+        frontCamTrack();
+        LAball_x = abs_bx_front + ball_vx * latency;
+        LAball_y = abs_by_front + ball_vy * latency;
+        LAball_vx = ball_vx_front;
+        LAball_vy = ball_vy_front;
+    }
+    else{
+        LAball_x = absolute_ball_x + ball_vx * latency;
+        LAball_y = absolute_ball_y + ball_vy * latency;
+        LAball_vx = ball_vx;
+        LAball_vy = ball_vy;
+    }
+
+    while(!validt){
+
+        float C = LAball_x*LAball_x + LAball_y*LAball_y;
+        float B =  2*(LAball_x*ball_vx + LAball_y*LAball_vy);
+        float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
+
+        if (abs(A) > pow(10, -8 )){ //we get two solutions for time, so we want to find the minimum time that is not negative
+            float t1 = pow(-1*B - (B*B - 4*A*C), 0.5)/(2*A); 
+            float t2 = pow(-1*B + (B*B - 4*A*C), 0.5)/(2*A); 
+
+            if (t1 >= 0 && t2 >= 0){
+                t = min(t1, t2);
+                validt = true;
+            }
+            else if (t1 >= 0){
+                t = t1;
+                validt = true;
+            }
+            else if (t2 >= 0){
+                t = t2;
+                validt = true;
+            }  
+        }
+
+        if(!validt){ //if ball is too fast, reduce ball's velocity and calculate that position instead
+            float theta;
+            if ((LAball_x + LAball_vx*t) > pow(10, -8)){ 
+                theta = atan(LAball_vx/LAball_vy);}
+            else{theta = 3.1415/2;}
+            LAball_vx = 0.9*v*cos(theta); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
+            LAball_vx = 0.9*v*sin(theta);
+        }  
+    }
+    //assume front is facing towards positive y
+    float targetballposx = LAball_x + LAball_vx*t;
+    float targetballposy = LAball_y + LAball_vy*t;
+    float targetheadinglookahead = atan2(targetballposx,targetballposy) * (180/3.1415) + 90; 
+    targetballposx = targetballposx + self_x;
+    targetballposy = targetballposx + self_y;
+
+    movement(targetballposx, targetballposy, targetheadinglookahead);
+}
+
+
 //// ** LOOPS ** ////
 
 void setup(){
@@ -476,6 +647,8 @@ void setup(){
     esp_led.setBrightness(ESP_BRIGHTNESS);
     esp_led.show();
 
+    set_up_esp_now();
+    readMacAddress();
 }
 
 void loop(){
