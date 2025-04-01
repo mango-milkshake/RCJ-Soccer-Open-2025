@@ -31,6 +31,15 @@ def Homography (H, x, y):
     y2 = (H[3]*x + H[4]*y + H[5]) / n
     return x2, y2
 
+def sendVar(var):
+    if (var < 0):
+        uart.writechar(0)
+    else:
+        uart.writechar(1)
+    var = abs(var)
+    uart.writechar(var & 0xFF)
+    uart.writechar((var >> 8) & 0xFF)
+
 prevCoords = [0,0]
 prevTime = 0
 v = 0
@@ -101,34 +110,22 @@ while True:
         x4, y4 = Homography(H_inv, x3, y3)
         img.draw_line(int(x),int(y),int(x4),int(y4),color=(255,0,255))
 
-        next_ball_x = round(x3 * 128)
-        next_ball_y = round(y3 * 128)
+        uart_x = round(x3 * 128)
+        uart_y = round(y3 * 128)
+        uart_vx = round(vx * 128)
+        uart_vy = round(vy * 128)
+
     else:
         no_ball = True
 
     uart.writechar(1)
     if(no_ball==False):
-#        if cur_ball_x < 0:
-#            uart.writechar(0)
-#            cur_ball_x = -cur_ball_x
-#        else:
-#            uart.writechar(1)
-#        uart.writechar(cur_ball_x & 0xFF)
-#        uart.writechar((cur_ball_x >> 8) & 0xFF)
-#        uart.writechar(cur_ball_y & 0xFF)
-#        uart.writechar((cur_ball_y >> 8) & 0xFF)
-
-        if next_ball_x < 0:
-            uart.writechar(0)
-            next_ball_x = -next_ball_x
-        else:
-            uart.writechar(1)
-        uart.writechar(next_ball_x & 0xFF)
-        uart.writechar((next_ball_x >> 8) & 0xFF)
-        uart.writechar(next_ball_y & 0xFF)
-        uart.writechar((next_ball_y >> 8) & 0xFF)
+        sendVar(uart_x)
+        sendVar(uart_y)
+        sendVar(uart_vx)
+        sendVar(uart_vy)
     else:
-        for i in range(5):
+        for _ in range(12):
             uart.writechar(0)
     uart.sendbreak()
 
