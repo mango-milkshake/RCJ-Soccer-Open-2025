@@ -490,12 +490,13 @@ void lookAhead(){
         LAball_vx = ball_vx_front;
         LAball_vy = ball_vy_front;
     }
-    else
+    else{
         LAball_x = absolute_ball_x + ball_vx * latency;
         LAball_y = absolute_ball_y + ball_vy * latency;
         LAball_vx = ball_vx;
         LAball_vy = ball_vy;
-
+    }
+    
     while(!validt){
 
         float C = LAball_x*LAball_x + LAball_y*LAball_y;
