@@ -83,9 +83,15 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
+#ifdef SECOND_BOT
+float pid_rotate_default[3] = {0.7, 0, 0};
+float pid_x_default[3] = {3, 0, 0};
+float pid_y_default[3] = {3, 0, 0};
+#else
 float pid_rotate_default[3] = {0.5, 0, 0};
 float pid_x_default[3] = {2, 0, 0};
 float pid_y_default[3] = {2, 0, 0};
+#endif
 PID pid_rotate(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2], 1000);
 PID pid_x(pid_x_default[0], pid_x_default[1], pid_x_default[2], 1000);
 PID pid_y(pid_y_default[0], pid_y_default[1], pid_y_default[2], 1000);
@@ -205,9 +211,9 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
             setLED(1, 2, strip.Color(15, 0, 15));
-            DEBUG(self_x);
-            DEBUG(self_y);
-            DEBUG(self_heading);
+            // DEBUG(self_x);
+            // DEBUG(self_y);
+            // DEBUG(self_heading);
         }
     }
     else setLED(1, 2, strip.Color(0, 15, 15));
@@ -216,19 +222,19 @@ void getTopPlateData(){
 void getTopCamData(){
     if(Serial1.available()>=CAM_SERIAL_DATA_LEN){
         while(Serial1.available()>=CAM_SERIAL_DATA_LEN && Serial1.peek()!=1) {
-            Serial.println("Camera first byte not 1");
+            // Serial.println("Camera first byte not 1");
             Serial1.read();
         }
         int len = Serial1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
         // while(Serial1.available()) Serial1.read();
         if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
-            Serial.print("Received bad data: length: ");
-            Serial.print(len);
-            Serial.print(", data: ");
-            for (auto i : uartBufferCam) {
-                Serial.print(i);
-                Serial.print(" ");
-            }
+            // Serial.print("Received bad data: length: ");
+            // Serial.print(len);
+            // Serial.print(", data: ");
+            // for (auto i : uartBufferCam) {
+            //     Serial.print(i);
+            //     Serial.print(" ");
+            // }
         }
         else{
             ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
@@ -249,10 +255,10 @@ void getTopCamData(){
             absolute_ball_x = relative_ball_x + self_x;
             absolute_ball_y = relative_ball_y + self_y;
 
-            DEBUG(relative_ball_x);
-            DEBUG(relative_ball_y);
-            DEBUG(absolute_ball_x);
-            DEBUG(absolute_ball_y);
+            // DEBUG(relative_ball_x);
+            // DEBUG(relative_ball_y);
+            // DEBUG(absolute_ball_x);
+            // DEBUG(absolute_ball_y);
         }
     }
 }
@@ -285,13 +291,15 @@ void getBottomPlateData(){
     // if(rcvBuffer[6]==0) lidar_ball_x *= -1;
     // lidar_ball_y = (float)(rcvBuffer[9] + (rcvBuffer[10]<<8)) / 128;
 
-    // DEBUG(cam_ball_x);
-    // DEBUG(cam_ball_y);
+    if(cam_ball_x!=0 || cam_ball_y!=0){
+        DEBUG(cam_ball_x);
+        DEBUG(cam_ball_y);
+    }
     // DEBUG(lidar_ball_x);
     // DEBUG(lidar_ball_y);
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
-    DEBUG(ballCap);
+    // DEBUG(ballCap);
     // if(ballCap) {
     //     pid_rotate.setConfig(0.05, 0, 0);
     //     pid_x.setConfig(1, 0, 0);
@@ -302,6 +310,8 @@ void getBottomPlateData(){
     //     pid_x.setConfig(pid_x_default[0], pid_x_default[1], pid_x_default[2]);
     //     pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
     // }
+
+
 
     isOnLine = false;
     for (uint8_t i=0; i<4; i++) {
@@ -341,7 +351,7 @@ void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
 
 void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
-    if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.37, FIELD_WIDTH - 0.37);
+    if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.28, FIELD_WIDTH - 0.28);
     else target_y = constrain(target_y, 0.12, FIELD_HEIGHT - 0.12);
     float x_dist = target_x - self_x, y_dist = target_y - self_y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
@@ -450,8 +460,8 @@ void ballTrack(){
             new_y = absolute_ball_y - BALLCAP_DISTANCE;
         }
     }
-    DEBUG(new_x);
-    DEBUG(new_y);
+    // DEBUG(new_x);
+    // DEBUG(new_y);
     movement(new_x, new_y, 0);
 }
 
@@ -463,7 +473,7 @@ void dribblerBallTrack(){
 
     float absBallAngle = atan2(yToBall, xToBall);
     LIM_ANGLE_180(absBallAngle);
-    DEBUG(absBallAngle);
+    // DEBUG(absBallAngle);
 
     movement(new_x, new_y, 90-DEG(absBallAngle));
 }
@@ -472,8 +482,8 @@ void aim(){
     if(!aligned){
         // Serial.println("aim align");
         if(abs(self_x - absolute_ball_x) < ALIGNED_THRESHOLD) aligned = true;
-        DEBUG(self_x);
-        DEBUG(absolute_ball_x);
+        // DEBUG(self_x);
+        // DEBUG(absolute_ball_x);
         movement(absolute_ball_x, self_y, 0);
     }
     else{
@@ -489,9 +499,9 @@ void aim(){
         change = min(change, max(0.0f, (self_y + FIELD_MARGIN_Y)*100/cosf(angleToGoal)));
         float new_x = self_x + change * sinf(angleToGoal) / 100;
         float new_y = self_y + change * cosf(angleToGoal) / 100;
-        DEBUG(change);
-        DEBUG(new_x);
-        DEBUG(new_y);
+        // DEBUG(change);
+        // DEBUG(new_x);
+        // DEBUG(new_y);
         movement(new_x, new_y, DEG(angleToGoal));
     }
     // float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
@@ -530,8 +540,8 @@ void defend(){
     newDistToBall = BOT_RADIUS_M / sinHalfAngle;
     new_x = absolute_ball_x + newDistToBall * cosf(midAngle);
     new_y = absolute_ball_y + newDistToBall * sinf(midAngle);
-    DEBUG(new_x);
-    DEBUG(new_y);
+    // DEBUG(new_x);
+    // DEBUG(new_y);
     movement(new_x, new_y, 0);
 }
 
@@ -565,7 +575,7 @@ void setup(){
 }
 
 void loop(){
-    Serial.println("running main code");
+    // Serial.println("running main code");
     float curTime = millis();
     Serial.print("time: ");
     Serial.println(curTime - lastLoopTime);
@@ -595,8 +605,41 @@ void loop(){
     else dribbler.setSpeed(0.5);
 
     #ifdef SECOND_BOT
-    if(noBall) movement(0.91, 0.60, 0);
-    else defend();
+
+    // 1) If no ball and it's been too long, just stay put
+    if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
+        movement(0.91f, 0.60f, 0);
+    }
+    // 2) Else if the ball is within the no-chase region near the goal
+    else if (absolute_ball_x > 0.62f && absolute_ball_x < 1.20f &&
+             absolute_ball_y < 0.25f)
+    {
+        movement(0.91f, 0.60f, 0);
+    }
+    // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
+    else if (absolute_ball_y <  0.60f) {
+        pid_rotate.setConfig(0.5, 0, 0);
+        pid_x.setConfig(2.2, 0, 0);
+        pid_y.setConfig(2.2, 0, 0);
+        if (noBall) {
+            absolute_ball_x = last_ball_x;
+            absolute_ball_y = last_ball_y;
+            dribblerBallTrack();
+        }
+        // 3b) If we DO see the ball => track it with the dribbler
+        else {
+            dribblerBallTrack();
+        }
+        pid_rotate.setConfig(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2]);
+        pid_x.setConfig(pid_x_default[0], pid_x_default[1], pid_x_default[2]);
+        pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
+    }
+    // 4) Otherwise => geometry-based blocking
+    else {
+        
+        defend();
+
+    }
     #else
     if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
     else if(ballCap) sendI2C(zeroBuffer);
@@ -610,6 +653,24 @@ void loop(){
     }
     else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     #endif
+
+
+    // #ifdef SECOND_BOT
+    // if(noBall) movement(0.91, 0.60, 0);
+    // else defend();
+    // #else
+    // if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
+    // else if(ballCap) sendI2C(zeroBuffer);
+    // else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
+    //     absolute_ball_x = last_ball_x;
+    //     absolute_ball_y = last_ball_y;
+    //     dribblerBallTrack();
+    // }
+    // else if(!noBall){
+    //     dribblerBallTrack();
+    // }
+    // else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    // #endif
 
     if(!noBall) {
         last_ball_x = absolute_ball_x;
