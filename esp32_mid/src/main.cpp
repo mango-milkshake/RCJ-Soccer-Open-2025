@@ -14,6 +14,8 @@
 #define DEBUG(x) 123;
 #endif
 
+#define SECOND_BOT
+
 //// ** DEFINITIONS ** ////
 
 // ESP NeoPixel LED
@@ -42,6 +44,13 @@ bool turnOff = false;
 // Dimensions
 #define FIELD_WIDTH 1.82
 #define FIELD_HEIGHT 2.43
+#define SELF_GOAL_LEFT_X 0.61
+#define SELF_GOAL_RIGHT_X 1.21
+#define SELF_GOAL_Y 0.12
+#define OPP_GOAL_CENTRE_X 0.91
+#define OPP_GOAL_CENTRE_Y 2.384
+#define OPP_GOAL_MIDDLE_X 0.91
+#define OPP_GOAL_MIDDLE_Y 2.06
 #define BOT_RADIUS_CM 8.5 // in cm
 #define BOT_RADIUS_M 0.085 // in metres
 
@@ -94,7 +103,7 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define DRVOFF_PIN 37
 MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
-uint8_t dribbler_maxspeed = 120;
+uint8_t dribbler_maxspeed = 80;
 Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
 float lastFault = 0;
 
@@ -113,7 +122,7 @@ Kicker kicker(KICKER_PIN);
 #define GRADUAL_CHANGE 250.0f
 #define ALIGN_DURATION 2000
 #define ALIGN_THRESHOLD 3000
-#define BALLCAP_DISTANCE 0.035f
+#define BALLCAP_DISTANCE 0.0f
 #define BALLCAP_WIDTH 0.0335f
 #define CLEARANCE_X 0.20f
 #define CLEARANCE_Y 0.15f
@@ -332,7 +341,8 @@ void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
 
 void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
-    target_y = constrain(target_y, 0.37, FIELD_HEIGHT - 0.37);
+    if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.37, FIELD_WIDTH - 0.37);
+    else target_y = constrain(target_y, 0.12, FIELD_HEIGHT - 0.12);
     float x_dist = target_x - self_x, y_dist = target_y - self_y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
     float total_angle = atan2(y_dist, x_dist) + RAD(self_heading) - PI/4; // in radians
@@ -345,8 +355,8 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_y_dist = total_dist * cosf(total_angle);
 
     if(ballCap){
-        max_translation_pid_value = 0.7;
-        max_rotation_pid_value = 0.7;
+        max_translation_pid_value = 0.3;
+        max_rotation_pid_value = 0.3;
     }
     else {
         max_translation_pid_value = 1;
@@ -468,7 +478,7 @@ void aim(){
     }
     else{
         // Serial.println("aim accel");
-        float xToGoal = 0.91 - self_x, yToGoal = 2.384 - self_y;
+        float xToGoal = OPP_GOAL_CENTRE_X - self_x, yToGoal = OPP_GOAL_CENTRE_Y - self_y;
         float distToGoal = sqrt(xToGoal * xToGoal + yToGoal * yToGoal);
         float angleToGoal = PI/2 - atan2(yToGoal, xToGoal);
         if(initial_change == 0){
@@ -492,13 +502,37 @@ void aim(){
 }
 
 void dribblerAim(){
-    float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
-    movement(0.91, 2.06, 90-DEG(angleToFace));
+    float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self_y, OPP_GOAL_CENTRE_X - self_x);
+    movement(OPP_GOAL_MIDDLE_X, OPP_GOAL_MIDDLE_Y, 90-DEG(angleToFace));
     if(ballCap && self_y > 1.88 && (self_heading > -75 && self_heading < 75)) {
         // kicker.kick();
         dribbler.setSpeed(-1.0);
         lastDribblerRev = millis();
     }
+}
+
+void defend(){
+    float leftAngle = atan2(SELF_GOAL_Y - absolute_ball_y, SELF_GOAL_LEFT_X - absolute_ball_x);
+    float rightAngle = atan2(SELF_GOAL_Y - absolute_ball_y, SELF_GOAL_RIGHT_X - absolute_ball_x);
+    float angleDiff = rightAngle - leftAngle;
+    LIM_ANGLE_180(angleDiff);
+    if(angleDiff < 0){
+        float tempAngle = leftAngle;
+        leftAngle = rightAngle;
+        rightAngle = tempAngle;
+        angleDiff = -angleDiff;
+    }
+    float midAngle = leftAngle + (angleDiff / 2);
+    float sinHalfAngle = sinf(angleDiff/2);
+    float new_x, new_y, newDistToBall;
+    // if(fabs(sinHalfAngle) , 1e-6f) newDistToBall = 9999.0f;
+    // else newDistToBall = BOT_RADIUS_M / sinHalfAngle;
+    newDistToBall = BOT_RADIUS_M / sinHalfAngle;
+    new_x = absolute_ball_x + newDistToBall * cosf(midAngle);
+    new_y = absolute_ball_y + newDistToBall * sinf(midAngle);
+    DEBUG(new_x);
+    DEBUG(new_y);
+    movement(new_x, new_y, 0);
 }
 
 //// ** LOOPS ** ////
@@ -560,6 +594,10 @@ void loop(){
     else if(noBall) dribbler.setSpeed(0);
     else dribbler.setSpeed(0.5);
 
+    #ifdef SECOND_BOT
+    if(noBall) movement(0.91, 0.60, 0);
+    else defend();
+    #else
     if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
     else if(ballCap) sendI2C(zeroBuffer);
     else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
@@ -571,6 +609,7 @@ void loop(){
         dribblerBallTrack();
     }
     else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    #endif
 
     if(!noBall) {
         last_ball_x = absolute_ball_x;
