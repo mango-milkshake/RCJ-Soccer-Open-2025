@@ -205,9 +205,9 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
             setLED(1, 2, strip.Color(15, 0, 15));
-            DEBUG(self_x);
-            DEBUG(self_y);
-            DEBUG(self_heading);
+            // DEBUG(self_x);
+            // DEBUG(self_y);
+            // DEBUG(self_heading);
         }
     }
     else setLED(1, 2, strip.Color(0, 15, 15));
@@ -216,19 +216,19 @@ void getTopPlateData(){
 void getTopCamData(){
     if(Serial1.available()>=CAM_SERIAL_DATA_LEN){
         while(Serial1.available()>=CAM_SERIAL_DATA_LEN && Serial1.peek()!=1) {
-            Serial.println("Camera first byte not 1");
+            // Serial.println("Camera first byte not 1");
             Serial1.read();
         }
         int len = Serial1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
         // while(Serial1.available()) Serial1.read();
         if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
-            Serial.print("Received bad data: length: ");
-            Serial.print(len);
-            Serial.print(", data: ");
-            for (auto i : uartBufferCam) {
-                Serial.print(i);
-                Serial.print(" ");
-            }
+            // Serial.print("Received bad data: length: ");
+            // Serial.print(len);
+            // Serial.print(", data: ");
+            // for (auto i : uartBufferCam) {
+            //     Serial.print(i);
+            //     Serial.print(" ");
+            // }
         }
         else{
             ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
@@ -249,10 +249,10 @@ void getTopCamData(){
             absolute_ball_x = relative_ball_x + self_x;
             absolute_ball_y = relative_ball_y + self_y;
 
-            DEBUG(relative_ball_x);
-            DEBUG(relative_ball_y);
-            DEBUG(absolute_ball_x);
-            DEBUG(absolute_ball_y);
+            // DEBUG(relative_ball_x);
+            // DEBUG(relative_ball_y);
+            // DEBUG(absolute_ball_x);
+            // DEBUG(absolute_ball_y);
         }
     }
 }
@@ -285,13 +285,15 @@ void getBottomPlateData(){
     // if(rcvBuffer[6]==0) lidar_ball_x *= -1;
     // lidar_ball_y = (float)(rcvBuffer[9] + (rcvBuffer[10]<<8)) / 128;
 
-    // DEBUG(cam_ball_x);
-    // DEBUG(cam_ball_y);
+    if(cam_ball_x!=0 || cam_ball_y!=0){
+        DEBUG(cam_ball_x);
+        DEBUG(cam_ball_y);
+    }
     // DEBUG(lidar_ball_x);
     // DEBUG(lidar_ball_y);
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
-    DEBUG(ballCap);
+    // DEBUG(ballCap);
     // if(ballCap) {
     //     pid_rotate.setConfig(0.05, 0, 0);
     //     pid_x.setConfig(1, 0, 0);
@@ -450,8 +452,8 @@ void ballTrack(){
             new_y = absolute_ball_y - BALLCAP_DISTANCE;
         }
     }
-    DEBUG(new_x);
-    DEBUG(new_y);
+    // DEBUG(new_x);
+    // DEBUG(new_y);
     movement(new_x, new_y, 0);
 }
 
@@ -463,7 +465,7 @@ void dribblerBallTrack(){
 
     float absBallAngle = atan2(yToBall, xToBall);
     LIM_ANGLE_180(absBallAngle);
-    DEBUG(absBallAngle);
+    // DEBUG(absBallAngle);
 
     movement(new_x, new_y, 90-DEG(absBallAngle));
 }
@@ -472,8 +474,8 @@ void aim(){
     if(!aligned){
         // Serial.println("aim align");
         if(abs(self_x - absolute_ball_x) < ALIGNED_THRESHOLD) aligned = true;
-        DEBUG(self_x);
-        DEBUG(absolute_ball_x);
+        // DEBUG(self_x);
+        // DEBUG(absolute_ball_x);
         movement(absolute_ball_x, self_y, 0);
     }
     else{
@@ -489,9 +491,9 @@ void aim(){
         change = min(change, max(0.0f, (self_y + FIELD_MARGIN_Y)*100/cosf(angleToGoal)));
         float new_x = self_x + change * sinf(angleToGoal) / 100;
         float new_y = self_y + change * cosf(angleToGoal) / 100;
-        DEBUG(change);
-        DEBUG(new_x);
-        DEBUG(new_y);
+        // DEBUG(change);
+        // DEBUG(new_x);
+        // DEBUG(new_y);
         movement(new_x, new_y, DEG(angleToGoal));
     }
     // float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
@@ -530,8 +532,8 @@ void defend(){
     newDistToBall = BOT_RADIUS_M / sinHalfAngle;
     new_x = absolute_ball_x + newDistToBall * cosf(midAngle);
     new_y = absolute_ball_y + newDistToBall * sinf(midAngle);
-    DEBUG(new_x);
-    DEBUG(new_y);
+    // DEBUG(new_x);
+    // DEBUG(new_y);
     movement(new_x, new_y, 0);
 }
 
@@ -565,7 +567,7 @@ void setup(){
 }
 
 void loop(){
-    Serial.println("running main code");
+    // Serial.println("running main code");
     float curTime = millis();
     Serial.print("time: ");
     Serial.println(curTime - lastLoopTime);
