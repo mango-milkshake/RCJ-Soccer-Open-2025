@@ -15,7 +15,7 @@ sensor.set_auto_gain(False)  # must be turned off for color tracking
 sensor.set_auto_whitebal(False)
 sensor.set_auto_exposure(False, exposure_us=5000)  # Disable auto exposure
 
-uart = UART(3, 115200)
+uart = UART(1, 115200)
 uart.init(115200, bits=8, parity=None, stop=1, timeout_char=1000)
 
 H =   [-1.859358520295239 ,  -0.2475423844694668 ,  341.95168802449524 ,

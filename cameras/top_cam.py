@@ -6,13 +6,11 @@ sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QVGA)
 
 sensor.set_gainceiling(128)
-sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
 
 sensor.skip_frames(time=500)
-sensor.set_auto_exposure(False, exposure_us=20000)
-sensor.set_auto_gain(False, gain_db = 4)
-sensor.set_auto_whitebal(False)
+sensor.set_auto_exposure(False, exposure_us=2000)
+sensor.set_auto_gain(False, gain_db = 8)
 
 clock = time.clock()  # Create a clock object to track the FPS.
 #led1 = pyb.LED(1)
@@ -22,12 +20,13 @@ led2 = pyb.LED(2)
 led2.on()
 #led3.on()
 
-centre_x = 169
-centre_y = 125
+centre_x = 156
+centre_y = 130
 mask_radius = 100
+roi_width=280
 
 # thresh_ball = (35, 77, 7, 50, 25, 65) # old
-thresh_ball = (47, 71, -38, 49, 20, 54)
+thresh_ball = (28, 63, 38, 80, 19, 69)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72) # old
 thresh_blue_goal = (46, 58, -27, -7, -34, -17) # old
 
@@ -60,8 +59,8 @@ while True:
     clock.tick()  # Update the FPS clock.
     led2.on()
     img = sensor.snapshot()  # Take a picture and return the image.
-    img.mask_circle(centre_x, centre_y, mask_radius)
-    ball = img.find_blobs([thresh_ball], pixel_threshold=0, area_threshold=0, merge=True)
+    # img.mask_circle(centre_x, centre_y, mask_radius)
+    ball = img.find_blobs([thresh_ball], roi=(centre_x-int(0.5*roi_width), centre_y-int(0.5*roi_width), roi_width, roi_width), pixel_threshold=0, area_threshold=0, merge=True)
     # if(use_goal=="yellow"):
     #     yellow_goal = img.find_blobs([thresh_yellow_goal], pixel_threshold=100, area_threshold=0, merge=True, margin=20)
     # else:
@@ -128,6 +127,7 @@ while True:
     #     dist_ygoal_uart = round(ygoal_dist * 128)
     # else:
     #     no_goal = True
+
 
     uart.writechar(1)
     if(no_ball==False):
