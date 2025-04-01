@@ -8,6 +8,9 @@
 #include <Kicker.h>
 #include <cmath>
 #include <algorithm>
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include <esp_now.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -134,6 +137,13 @@ float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0;
 float speed_xdir, speed_ydir, rotation;
+uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
+typedef struct struct_message {
+    int a;
+    int b;
+    int c;
+} struct_message;
+struct_message espnowData;
 
 bool moving_back = false;
 unsigned long last_moving_back = 0;
@@ -169,6 +179,75 @@ void checkFault(){
     } 
     else setLED(0, 0, strip.Color(0, 0, 0));
 }
+
+void readMacAddress(){ //read own mac address and set broadcast address to other bot
+    uint8_t own_mac_address[6];
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
+    if (ret == ESP_OK) {
+    Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+                  own_mac_address[0], own_mac_address[1], own_mac_address[2],
+                  own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    } 
+    else{
+        Serial.println("Failed to read MAC address");
+    }
+    if(memcmp(own_mac_address, (uint8_t[]){0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}, 6) == 0) {
+        memcpy(broadcastAddress, (uint8_t[]){0x34, 0x85, 0x18, 0xbc, 0xe0, 0x40}, 6);
+   }
+    else{
+        memcpy(broadcastAddress, (uint8_t[]){0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}, 6);
+    } 
+}
+
+void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
+    //Serial.print("\r\nLast Packet Send Status:\t");
+    //Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
+void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
+    memcpy(&espnowData, incomingData, sizeof(espnowData));
+
+}
+
+void set_up_esp_now(){
+    esp_now_peer_info_t peerInfo = {};
+    WiFi.mode(WIFI_STA);
+    if (esp_now_init() != ESP_OK) {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+
+    //callback functions for sending and receiving
+    esp_now_register_send_cb(onDataSent);
+    esp_now_register_recv_cb(onDataRecv);
+    
+    // Register peer
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = 0;  
+    peerInfo.encrypt = false;
+    
+    // Add peer        
+    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+        Serial.println("Failed to add peer");
+        return;
+    }
+}
+
+void sendData(){ //send data here
+    //Define what values to send
+    espnowData.a = 1;
+    espnowData.b = 2;
+    espnowData.c = 3;
+
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &espnowData, sizeof(espnowData));        
+    if (result == ESP_OK) {
+        //Serial.println("Sent with success");
+    }
+    else {
+        //Serial.println("Error sending the data");
+    }
+}
+
 
 void getTopPlateData(){
     if(Serial2.available()>=PICO_SERIAL_DATA_LEN){
@@ -496,7 +575,7 @@ void lookAhead(){
         LAball_vx = ball_vx;
         LAball_vy = ball_vy;
     }
-    
+
     while(!validt){
 
         float C = LAball_x*LAball_x + LAball_y*LAball_y;
@@ -568,6 +647,8 @@ void setup(){
     esp_led.setBrightness(ESP_BRIGHTNESS);
     esp_led.show();
 
+    set_up_esp_now();
+    readMacAddress();
 }
 
 void loop(){
