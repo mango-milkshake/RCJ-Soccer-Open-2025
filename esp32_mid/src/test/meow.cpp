@@ -75,7 +75,7 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 // UART Comms with camera
 #define CAM_TX_PIN 10
 #define CAM_RX_PIN 11
-#define CAM_SERIAL_DATA_LEN 9
+#define CAM_SERIAL_DATA_LEN 13
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
@@ -195,12 +195,7 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     else{
         Serial.println("Failed to read MAC address");
     }
-    if(memcmp(own_mac_address, (uint8_t[]){0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}, 6) == 0) {
-        memcpy(broadcastAddress, (uint8_t[]){0x34, 0x85, 0x18, 0xbc, 0xe0, 0x40}, 6);
-   }
-    else{
-        memcpy(broadcastAddress, (uint8_t[]){0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}, 6);
-    } 
+
 }
 
 void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
@@ -304,11 +299,15 @@ void getTopCamData(){
                 Serial.print(" ");
             }
         }
-        else{ 
-            ball_x_topcam = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
-            ball_y_topcam = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
-            ball_vx_topcam = (float)(uartBufferCam[5] + (uartBufferCam[6]<<8)) / 128;
-            ball_vy_topcam = (float)(uartBufferCam[7] + (uartBufferCam[8]<<8)) / 128;
+        else{
+            ball_x_topcam = (float)(uartBufferCam[2] + (uartBufferCam[3]<<8)) / 128;
+            if(uartBufferCam[1] == 0){ball_x_topcam *= -1;}
+            ball_y_topcam = (float)(uartBufferCam[5] + (uartBufferCam[6]<<8)) / 128;
+            if(uartBufferCam[4] == 0){ball_y_topcam *= -1;}
+            ball_vx_topcam = (float)(uartBufferCam[8] + (uartBufferCam[9]<<8)) / 128;
+            if(uartBufferCam[7] == 0){ball_vx_topcam *= -1;}
+            ball_vy_topcam = (float)(uartBufferCam[11] + (uartBufferCam[12]<<8)) / 128;
+            if(uartBufferCam[10] == 0){ball_vy_topcam *= -1;}
             if(ball_x_topcam==0 && ball_y_topcam==0) {
                 noBall = true;
                 setLED(6, 8, strip.Color(0, 0, 15));
@@ -335,6 +334,8 @@ void getTopCamData(){
             absolute_ball_x = relative_ball_x + self_x;
             absolute_ball_y = relative_ball_y + self_y;
 
+            DEBUG(ball_vx);
+            DEBUG(ball_vy);
             DEBUG(relative_ball_x);
             DEBUG(relative_ball_y);
             DEBUG(absolute_ball_x);
@@ -349,7 +350,7 @@ void getBottomPlateData(){
         Serial.print("Received bad data: ");
         setLED(3, 4, strip.Color(15, 15, 0));
     }
-    else Serial.print("Received: ");
+    //else Serial.print("Received: ");
     for (int i=0; i<I2C_RCV_DATA_LEN; i++) {
         if (Wire.available()) {
             rcvBuffer[i] = Wire.read();
@@ -561,7 +562,7 @@ void frontCamTrack(){ //turns bot to ball based on top cam, use if a more accura
 
 void lookAhead(){
     float v = 0.5;
-    float latency = 0.1;
+    float latency = 0;
     bool validt = false;
     bool useFrontCam = false;
     float t;
@@ -584,10 +585,10 @@ void lookAhead(){
     while(!validt){
 
         float C = LAball_x*LAball_x + LAball_y*LAball_y;
-        float B =  2*(LAball_x*ball_vx + LAball_y*LAball_vy);
+        float B = 2*(LAball_x*ball_vx + LAball_y*LAball_vy);
         float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
 
-        if (abs(A) > pow(10, -8 )){ //we get two solutions for time, so we want to find the minimum time that is not negative
+        if (abs(A) > pow(10, -8)){ //we get two solutions for time, so we want to find the minimum time that is not negative
             float t1 = pow(-1*B - (B*B - 4*A*C), 0.5)/(2*A); 
             float t2 = pow(-1*B + (B*B - 4*A*C), 0.5)/(2*A); 
 
@@ -606,22 +607,30 @@ void lookAhead(){
         }
 
         if(!validt){ //if ball is too fast, reduce ball's velocity and calculate that position instead
-            float theta;
-            if ((LAball_x + LAball_vx*t) > pow(10, -8)){ 
-                theta = atan(LAball_vx/LAball_vy);}
-            else{theta = 3.1415/2;}
-            LAball_vx = 0.9*v*cos(theta); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
-            LAball_vx = 0.9*v*sin(theta);
+            float theta_invalid_t;
+            if ((LAball_vx) > pow(10, -8)){ 
+                theta_invalid_t = atan(LAball_vy/LAball_vx);}
+            else{theta_invalid_t = 3.1415/2;}
+            LAball_vx = 0.9*v*cos(theta_invalid_t); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
+            LAball_vx = 0.9*v*sin(theta_invalid_t);
         }  
     }
     //assume front is facing towards positive y
     float targetballposx = LAball_x + LAball_vx*t;
     float targetballposy = LAball_y + LAball_vy*t;
-    float targetheadinglookahead = atan2(targetballposx,targetballposy) * (180/3.1415) + 90; 
-    targetballposx = targetballposx + self_x;
-    targetballposy = targetballposx + self_y;
+    //float targetheadinglookahead = atan2(targetballposx,targetballposy) * (180/3.1415) + 90; 
+    targetballposx = (targetballposx + self_x)/100;
+    targetballposy = (targetballposx + self_y)/100;
+    DEBUG(self_x);
+    DEBUG(self_y);
+    DEBUG(LAball_x);
+    DEBUG(LAball_y);
+    DEBUG(LAball_vx);
+    DEBUG(LAball_vy);
+    DEBUG(targetballposy);
+    DEBUG(targetballposx);
 
-    movement(targetballposx, targetballposy, targetheadinglookahead);
+    //movement(targetballposx, targetballposy, 0);
 }
 
 
@@ -657,10 +666,10 @@ void setup(){
 }
 
 void loop(){
-    Serial.println("running main code");
+    //Serial.println("running main code");
     float curTime = millis();
-    Serial.print("time: ");
-    Serial.println(curTime - lastLoopTime);
+    // Serial.print("time: ");
+    // Serial.println(curTime - lastLoopTime);
     lastLoopTime = millis();
 
     if(millis() - lastLED >= BLINK_TIME){
@@ -685,6 +694,9 @@ void loop(){
 
     if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     else if(ballCap) aim();
-    else if (ball_vx > 10 || ball_vy > 10) lookAhead();
-    else ballTrack();
+    else if (ball_vx > 0.10 || ball_vy > 0.10){ 
+        delay(100);
+        lookAhead();
+    }
+    //else ballTrack();
 }
