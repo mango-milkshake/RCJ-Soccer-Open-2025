@@ -142,12 +142,15 @@ bool isDefender = true;
 
 uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
 typedef struct struct_message {
+    int isPresent;
     bool def;
     float xpos; 
     float ypos;
     bool hasBall; 
+    bool inField;
 } struct_message;
 struct_message espnowData;
+struct_message espnowDataRecv;
 
 bool moving_back = false;
 unsigned long last_moving_back = 0;
@@ -204,7 +207,7 @@ void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){
 }
 
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
-    memcpy(&espnowData, incomingData, sizeof(espnowData));
+    memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
 
 }
 
@@ -234,6 +237,7 @@ void set_up_esp_now(){
 
 void sendData(){ //send data here
     //Define what values to send
+    espnowData.isPresent = 2;
     espnowData.def = isDefender ? true : false;
     espnowData.xpos = self_x;
     espnowData.ypos = self_y;
@@ -248,6 +252,21 @@ void sendData(){ //send data here
     }
 }
 
+void assignDef(){
+    // from lowest to highest priority
+    if(espnowDataRecv.def == true){  //check if other bot is defending
+        isDefender = false;
+    }
+    else if (espnowDataRecv.def == false){
+        isDefender = true;
+    }    
+    if(isDefender && ballCap){ //check if the bot has the ball 
+        isDefender = false;
+    }
+    if(espnowDataRecv.inField == false){ //check if the other bot is in the field
+        isDefender = true;
+    }
+}
 
 void getTopPlateData(){
     if(Serial2.available()>=PICO_SERIAL_DATA_LEN){
@@ -663,6 +682,8 @@ void setup(){
 
     set_up_esp_now();
     readMacAddress();
+    if (espnowDataRecv.isPresent == 2){isDefender = false;}
+    else{isDefender = true;}
 }
 
 void loop(){
