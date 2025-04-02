@@ -39,6 +39,7 @@ def sendVar(var):
     var = round(abs(var) * 128)
     uart.writechar(var & 0xFF)
     uart.writechar((var >> 8) & 0xFF)
+    # print(var & 0xFF, " ", (var >> 8) & 0xFF, " ")
 
 prevCoords = [0,0]
 prevTime = 0
@@ -134,4 +135,5 @@ while True:
             uart.writechar(0)
     uart.sendbreak()
 
+    print("fps: ", clock.fps())
 

@@ -13,10 +13,6 @@ def real_to_pix(r_cm):
     output = 1.5974054819124033 + 0.3508026709534986*r_cm + 0.02301638290817975*(r_cm**2) - 0.0003494973335512324*(r_cm**3) + 1.7850794050003496e-6*(r_cm**4)
     # output += -0.9 * r_cm + 17.4
     return output
-def uartwrite(var):
-    var = round(var*128)
-    uart.writechar(var & 0xFF)
-    uart.writechar((var >> 8) & 0xFF)
 
 # ========== Camera Setup ==========
 sensor.reset()
@@ -39,10 +35,11 @@ led2 = pyb.LED(2)
 led2.on()
 
 ballExists = True
-centre_x = 153
-centre_y = 132
+centre_x = 156
+centre_y = 127
 mask_radius = 120
-thresh_ball = (0, 100, 30, 65, 12, 46)
+thresh_ball = (28, 63, 38, 80, 19, 69)
+actual_data_len = 10
 
 uart = UART(3, 115200)
 uart.init(115200, bits=8, parity=None, stop=1, timeout_char=1000)
@@ -58,12 +55,17 @@ prev_t_ms = time.ticks_ms()
 
 TIME_FUTURE = 0.4
 
-def sendVar(var):
+def uartwrite(var): # for confirm positive variables
+    var = round(var*128)
+    uart.writechar(var & 0xFF)
+    uart.writechar((var >> 8) & 0xFF)
+
+def sendVar(var): # for possibly negative variables
     if (var < 0):
         uart.writechar(0)
     else:
         uart.writechar(1)
-    var = abs(var)
+    var = round(abs(var) * 128)
     uart.writechar(var & 0xFF)
     uart.writechar((var >> 8) & 0xFF)
 
@@ -84,11 +86,22 @@ while True:
     if not blobs:
         print("No ball")
         ballExists = False
+        uart.writechar(1)
+        for _ in range (actual_data_len):
+            uart.writechar(0)
+        uart.sendbreak()
         continue
 
     b = max(blobs, key=lambda x: x.pixels())
     img.draw_rectangle(b.rect(), (0,255,0))
     img.draw_cross(b.cx(), b.cy(), (0,255,0))
+
+    ball_x = b.cx() - centre_x
+    ball_y = b.cy() - centre_y
+    ball_angle = math.atan2(ball_x, ball_y) * 180 / math.pi
+    ball_angle -= 90
+    if ball_angle<0:
+        ball_angle += 360
 
     # pixel coords (relative to centre if you want)
     px = b.cx() - centre_x
@@ -105,8 +118,6 @@ while True:
     yr = dist_real * math.sin(angle)
     _xr = xr/100
     _yr = yr/100
-    uart_xr = round(_xr * 128)
-    uart_yr = round(_yr * 128)
 
     # 3) Compute velocity in real coords
     if prev_xr is not None:
@@ -125,8 +136,6 @@ while True:
         vy = 0
     vx = vx / 100
     vy = vy / 100
-    uart_vx = round(vx * 128)
-    uart_vy = round(vy * 128)
 
     prev_xr, prev_yr = xr, yr
 
@@ -137,12 +146,14 @@ while True:
     # 4.5) send to esp
     uart.writechar(1)
     if(ballExists):
-        sendVar(uart_xr)
-        sendVar(uart_yr)
-        sendVar(uart_vx)
-        sendVar(uart_vy)
+        uartwrite(ball_angle)
+        uartwrite(dist_real)
+        # sendVar(_xr)
+        # sendVar(_yr)
+        sendVar(vx)
+        sendVar(vy)
     else:
-        for _ in range(8):
+        for _ in range(actual_data_len):
             uart.writechar(0)
 
     uart.sendbreak()
