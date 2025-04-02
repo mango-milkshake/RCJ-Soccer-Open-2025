@@ -21,7 +21,7 @@ led2.on()
 #led3.on()
 
 centre_x = 156
-centre_y = 130
+centre_y = 127
 mask_radius = 100
 roi_width=280
 
