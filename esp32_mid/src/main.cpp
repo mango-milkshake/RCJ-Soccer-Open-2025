@@ -57,15 +57,14 @@ bool turnOff = false;
 // I2C Comms with bottom plate
 #define SDA_PIN 8
 #define SCL_PIN 9
-#define I2C_RCV_DATA_LEN 16
+#define I2C_RCV_DATA_LEN 18
 #define I2C_SEND_DATA_LEN 7
 #define I2C_RCV_PICO_ADDR 0x08
 #define I2C_SEND_PICO_ADDR 0x09
 
 #define FRONT_CAM_DATA_POS 1
-#define BALLCAP_LIDAR_POS 6
-#define LIDAR_GATE_POS 11
-#define LINE_DATA_POS 12
+#define LIDAR_GATE_POS 13
+#define LINE_DATA_POS 14
 
 byte rcvBuffer[I2C_RCV_DATA_LEN+1], sendBuffer[I2C_SEND_DATA_LEN];
 byte zeroBuffer[I2C_SEND_DATA_LEN];
@@ -144,7 +143,7 @@ float ball_angle = 0, ball_dist = 0;
 float relative_ball_x = 0, relative_ball_y = 0;
 float absolute_ball_x = 0, absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
-float cam_ball_x = 0, cam_ball_y = 0;
+float front_cam_ball_x = 0, front_cam_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
@@ -283,20 +282,17 @@ void getBottomPlateData(){
     }
     else setLED(3, 4, strip.Color(0, 15, 0));
 
-    cam_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
-    if(rcvBuffer[1]==0) cam_ball_x *= -1;
-    cam_ball_y = (float)(rcvBuffer[4] + (rcvBuffer[5]<<8)) / 128;
+    front_cam_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
+    if(rcvBuffer[1]==0) front_cam_ball_x *= -1;
+    front_cam_ball_y = (float)(rcvBuffer[5] + (rcvBuffer[6]<<8)) / 128;
+    if(rcvBuffer[4]==0) front_cam_ball_y *= -1;
+    front_ball_vx = (float)(rcvBuffer[8] + (rcvBuffer[9]<<8)) / 128;
+    if(rcvBuffer[7]==0) front_ball_vx *= -1;
+    front_ball_vy = (float)(rcvBuffer[11] + (rcvBuffer[12]<<8)) / 128;
+    if(rcvBuffer[10]==0) front_ball_vy *= -1;
 
-    // lidar_ball_x = (float)(rcvBuffer[7] + (rcvBuffer[8]<<8)) / 128;
-    // if(rcvBuffer[6]==0) lidar_ball_x *= -1;
-    // lidar_ball_y = (float)(rcvBuffer[9] + (rcvBuffer[10]<<8)) / 128;
-
-    if(cam_ball_x!=0 || cam_ball_y!=0){
-        DEBUG(cam_ball_x);
-        DEBUG(cam_ball_y);
-    }
-    // DEBUG(lidar_ball_x);
-    // DEBUG(lidar_ball_y);
+    DEBUG(front_cam_ball_x);
+    DEBUG(front_cam_ball_y);
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
     // DEBUG(ballCap);
@@ -310,8 +306,6 @@ void getBottomPlateData(){
     //     pid_x.setConfig(pid_x_default[0], pid_x_default[1], pid_x_default[2]);
     //     pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
     // }
-
-
 
     isOnLine = false;
     for (uint8_t i=0; i<4; i++) {
