@@ -28,11 +28,18 @@ float lastLED = 0;
 #define SCK_PIN 2
 MotorDriver motor_driver(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
+// #define SECOND_BOT
+#ifdef SECOND_BOT
 uint8_t IN1_pin[NUM_DRIVERS] = {6, 9, 11, 13};
 uint8_t IN2_pin[NUM_DRIVERS] = {7, 8, 10, 12};
 uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29};
+#else
+uint8_t IN1_pin[NUM_DRIVERS] = {7, 9, 11, 13};
+uint8_t IN2_pin[NUM_DRIVERS] = {6, 8, 10, 12};
+uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29};
+#endif
 
-uint8_t maxspeed = 140;
+uint8_t maxspeed = 100;
 
 Motor motorFL(IN1_pin[0], IN2_pin[0], NFAULT_pin[0], maxspeed, 1.0);
 Motor motorFR(IN1_pin[3], IN2_pin[3], NFAULT_pin[3], maxspeed, 1.0);
