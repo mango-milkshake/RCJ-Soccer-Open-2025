@@ -21,7 +21,7 @@
 // ESP NeoPixel LED
 #define ESP_LED 21
 #define ESP_BRIGHTNESS 50
-#define BLINK_TIME 100
+#define BLINK_TIME 50
 Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 // to check if code is running
 bool esp_led_state = true;
@@ -88,8 +88,8 @@ float pid_x_default[3] = {3, 0, 0};
 float pid_y_default[3] = {3, 0, 0};
 #else
 float pid_rotate_default[3] = {0.5, 0, 0};
-float pid_x_default[3] = {2, 0, 0};
-float pid_y_default[3] = {2, 0, 0};
+float pid_x_default[3] = {2.2, 0, 0};
+float pid_y_default[3] = {2.2, 0, 0};
 #endif
 PID pid_rotate(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2], 1000);
 PID pid_x(pid_x_default[0], pid_x_default[1], pid_x_default[2], 1000);
@@ -267,6 +267,7 @@ void getBottomPlateData(){
     if(num_bytes != I2C_RCV_DATA_LEN){
         Serial.print("Received bad data: ");
         setLED(3, 4, strip.Color(15, 15, 0));
+        return;
     }
     else Serial.print("Received: ");
     for (int i=0; i<I2C_RCV_DATA_LEN; i++) {
@@ -291,8 +292,10 @@ void getBottomPlateData(){
     front_ball_vy = (float)(rcvBuffer[11] + (rcvBuffer[12]<<8)) / 128;
     if(rcvBuffer[10]==0) front_ball_vy *= -1;
 
-    DEBUG(front_cam_ball_x);
-    DEBUG(front_cam_ball_y);
+    // DEBUG(front_cam_ball_x);
+    // DEBUG(front_cam_ball_y);
+    // DEBUG(front_ball_vx);
+    // DEBUG(front_ball_vy);
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
     // DEBUG(ballCap);
@@ -551,7 +554,7 @@ void setup(){
     pinMode(VOLTAGE_PIN, INPUT);
     analogSetAttenuation(ADC_11db);
 
-    Wire.begin(SDA_PIN, SCL_PIN, 50000);
+    Wire.begin(SDA_PIN, SCL_PIN, 650000);
 
     for (int i=0; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
 
