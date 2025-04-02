@@ -114,8 +114,8 @@ void send(){
     // getBallCapData();
     // sendBuffer[11] = 0; // not done
     // getAllLineData();
-    if(!is_spin_locked(i2cLock)){
-        uint32_t irq_state = spin_lock_blocking(i2cLock);
+    // if(!is_spin_locked(i2cLock)){
+    //     uint32_t irq_state = spin_lock_blocking(i2cLock);
         #ifdef DEBUGGING
         for (auto i : sendBuffer){
             Serial.print(String(i) + " ");
@@ -124,8 +124,8 @@ void send(){
         #endif
 
         Wire1.write(sendBuffer, I2C_DATA_LEN);
-        spin_unlock(i2cLock, irq_state);
-    }
+        // spin_unlock(i2cLock, irq_state);
+    // }
 }
 
 void setup(){
@@ -162,14 +162,14 @@ void loop(){
     strip.setPixelColor(0, strip.Color(0, 15, 15));
     strip.show();
 
-    if (!is_spin_locked(i2cLock)) {  
-        Serial.println("updating data");
-        uint32_t irq_state = spin_lock_blocking(i2cLock);
+    // if (!is_spin_locked(i2cLock)) {  
+    //     Serial.println("updating data");
+    //     uint32_t irq_state = spin_lock_blocking(i2cLock);
         sendBuffer[0] = 1;
         getCamData();
         getBallCapData();
         sendBuffer[LIDAR_GATE_POS] = (uint8_t) getLidarGateData();
         getAllLineData(); 
-        spin_unlock(i2cLock, irq_state);
-    }
+    //     spin_unlock(i2cLock, irq_state);
+    // }
 }
