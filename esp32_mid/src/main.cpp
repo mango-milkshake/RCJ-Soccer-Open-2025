@@ -14,7 +14,7 @@
 #define DEBUG(x) 123;
 #endif
 
-#define SECOND_BOT
+// #define SECOND_BOT
 
 //// ** DEFINITIONS ** ////
 
@@ -57,15 +57,14 @@ bool turnOff = false;
 // I2C Comms with bottom plate
 #define SDA_PIN 8
 #define SCL_PIN 9
-#define I2C_RCV_DATA_LEN 16
+#define I2C_RCV_DATA_LEN 18
 #define I2C_SEND_DATA_LEN 7
 #define I2C_RCV_PICO_ADDR 0x08
 #define I2C_SEND_PICO_ADDR 0x09
 
 #define FRONT_CAM_DATA_POS 1
-#define BALLCAP_LIDAR_POS 6
-#define LIDAR_GATE_POS 11
-#define LINE_DATA_POS 12
+#define LIDAR_GATE_POS 13
+#define LINE_DATA_POS 14
 
 byte rcvBuffer[I2C_RCV_DATA_LEN+1], sendBuffer[I2C_SEND_DATA_LEN];
 byte zeroBuffer[I2C_SEND_DATA_LEN];
@@ -144,7 +143,7 @@ float ball_angle = 0, ball_dist = 0;
 float relative_ball_x = 0, relative_ball_y = 0;
 float absolute_ball_x = 0, absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
-float cam_ball_x = 0, cam_ball_y = 0;
+float front_cam_ball_x = 0, front_cam_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
@@ -211,9 +210,9 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
             setLED(1, 2, strip.Color(15, 0, 15));
-            // DEBUG(self_x);
-            // DEBUG(self_y);
-            // DEBUG(self_heading);
+            DEBUG(self_x);
+            DEBUG(self_y);
+            DEBUG(self_heading);
         }
     }
     else setLED(1, 2, strip.Color(0, 15, 15));
@@ -283,20 +282,17 @@ void getBottomPlateData(){
     }
     else setLED(3, 4, strip.Color(0, 15, 0));
 
-    cam_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
-    if(rcvBuffer[1]==0) cam_ball_x *= -1;
-    cam_ball_y = (float)(rcvBuffer[4] + (rcvBuffer[5]<<8)) / 128;
+    front_cam_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
+    if(rcvBuffer[1]==0) front_cam_ball_x *= -1;
+    front_cam_ball_y = (float)(rcvBuffer[5] + (rcvBuffer[6]<<8)) / 128;
+    if(rcvBuffer[4]==0) front_cam_ball_y *= -1;
+    front_ball_vx = (float)(rcvBuffer[8] + (rcvBuffer[9]<<8)) / 128;
+    if(rcvBuffer[7]==0) front_ball_vx *= -1;
+    front_ball_vy = (float)(rcvBuffer[11] + (rcvBuffer[12]<<8)) / 128;
+    if(rcvBuffer[10]==0) front_ball_vy *= -1;
 
-    // lidar_ball_x = (float)(rcvBuffer[7] + (rcvBuffer[8]<<8)) / 128;
-    // if(rcvBuffer[6]==0) lidar_ball_x *= -1;
-    // lidar_ball_y = (float)(rcvBuffer[9] + (rcvBuffer[10]<<8)) / 128;
-
-    if(cam_ball_x!=0 || cam_ball_y!=0){
-        DEBUG(cam_ball_x);
-        DEBUG(cam_ball_y);
-    }
-    // DEBUG(lidar_ball_x);
-    // DEBUG(lidar_ball_y);
+    DEBUG(front_cam_ball_x);
+    DEBUG(front_cam_ball_y);
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
     // DEBUG(ballCap);
@@ -310,8 +306,6 @@ void getBottomPlateData(){
     //     pid_x.setConfig(pid_x_default[0], pid_x_default[1], pid_x_default[2]);
     //     pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
     // }
-
-
 
     isOnLine = false;
     for (uint8_t i=0; i<4; i++) {
@@ -365,7 +359,7 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_y_dist = total_dist * cosf(total_angle);
 
     if(ballCap){
-        max_translation_pid_value = 0.3;
+        max_translation_pid_value = 0.5;
         max_rotation_pid_value = 0.3;
     }
     else {
@@ -514,8 +508,8 @@ void aim(){
 void dribblerAim(){
     float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self_y, OPP_GOAL_CENTRE_X - self_x);
     movement(OPP_GOAL_MIDDLE_X, OPP_GOAL_MIDDLE_Y, 90-DEG(angleToFace));
-    if(ballCap && self_y > 1.88 && (self_heading > -75 && self_heading < 75)) {
-        // kicker.kick();
+    if(ballCap && self_y > 1.62 && (self_heading > -75 && self_heading < 75)) {
+        kicker.kick();
         dribbler.setSpeed(-1.0);
         lastDribblerRev = millis();
     }
@@ -653,24 +647,6 @@ void loop(){
     }
     else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     #endif
-
-
-    // #ifdef SECOND_BOT
-    // if(noBall) movement(0.91, 0.60, 0);
-    // else defend();
-    // #else
-    // if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
-    // else if(ballCap) sendI2C(zeroBuffer);
-    // else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
-    //     absolute_ball_x = last_ball_x;
-    //     absolute_ball_y = last_ball_y;
-    //     dribblerBallTrack();
-    // }
-    // else if(!noBall){
-    //     dribblerBallTrack();
-    // }
-    // else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    // #endif
 
     if(!noBall) {
         last_ball_x = absolute_ball_x;
