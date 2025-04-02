@@ -11,7 +11,7 @@ Serial not updating: hold down reset, hold and release boot, wait 1 second, rele
 //put RECEIVER mac address here
 uint8_t broadcastAddress[] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60};
 
-// Must match the receiver structure
+// Must match the receiver structure!!
 typedef struct struct_message {
   //sends 3 ints
   int a;

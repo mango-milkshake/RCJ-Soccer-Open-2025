@@ -7,7 +7,7 @@
 
 Adafruit_NeoPixel pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
-// Must match the sender structure
+// Must match the sender structure!!
 typedef struct struct_message {
   int a;
   int b;
