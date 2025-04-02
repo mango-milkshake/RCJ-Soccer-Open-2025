@@ -14,7 +14,7 @@
 #define DEBUG(x) 123;
 #endif
 
-#define SECOND_BOT
+// #define SECOND_BOT
 
 //// ** DEFINITIONS ** ////
 
@@ -211,9 +211,9 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
             setLED(1, 2, strip.Color(15, 0, 15));
-            // DEBUG(self_x);
-            // DEBUG(self_y);
-            // DEBUG(self_heading);
+            DEBUG(self_x);
+            DEBUG(self_y);
+            DEBUG(self_heading);
         }
     }
     else setLED(1, 2, strip.Color(0, 15, 15));
@@ -365,7 +365,7 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_y_dist = total_dist * cosf(total_angle);
 
     if(ballCap){
-        max_translation_pid_value = 0.3;
+        max_translation_pid_value = 0.5;
         max_rotation_pid_value = 0.3;
     }
     else {
@@ -514,8 +514,8 @@ void aim(){
 void dribblerAim(){
     float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self_y, OPP_GOAL_CENTRE_X - self_x);
     movement(OPP_GOAL_MIDDLE_X, OPP_GOAL_MIDDLE_Y, 90-DEG(angleToFace));
-    if(ballCap && self_y > 1.88 && (self_heading > -75 && self_heading < 75)) {
-        // kicker.kick();
+    if(ballCap && self_y > 1.62 && (self_heading > -75 && self_heading < 75)) {
+        kicker.kick();
         dribbler.setSpeed(-1.0);
         lastDribblerRev = millis();
     }
@@ -653,24 +653,6 @@ void loop(){
     }
     else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     #endif
-
-
-    // #ifdef SECOND_BOT
-    // if(noBall) movement(0.91, 0.60, 0);
-    // else defend();
-    // #else
-    // if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
-    // else if(ballCap) sendI2C(zeroBuffer);
-    // else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
-    //     absolute_ball_x = last_ball_x;
-    //     absolute_ball_y = last_ball_y;
-    //     dribblerBallTrack();
-    // }
-    // else if(!noBall){
-    //     dribblerBallTrack();
-    // }
-    // else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    // #endif
 
     if(!noBall) {
         last_ball_x = absolute_ball_x;
