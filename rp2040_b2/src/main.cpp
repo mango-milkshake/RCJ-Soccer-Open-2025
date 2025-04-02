@@ -18,7 +18,9 @@ Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 #define SCL_PIN 7
 #define I2C_DATA_LEN 18
 #define ADDR 0x08
-byte sendBuffer[I2C_DATA_LEN];
+volatile byte sendBuffer[I2C_DATA_LEN];
+byte zeroBuffer[I2C_DATA_LEN];
+bool data_ready = false;
 #define FRONT_CAM_DATA_POS 1
 #define LIDAR_GATE_POS 13
 #define LINE_DATA_POS 14
@@ -37,7 +39,7 @@ std::vector<Line> lineMux;
 
 #define CAM_TX_PIN 12
 #define CAM_RX_PIN 13
-#define CAM_DATA_LEN 6
+#define CAM_DATA_LEN 13
 byte camBuffer[CAM_DATA_LEN];
 
 // #define LIDAR_TX_PIN 4
@@ -74,7 +76,7 @@ void getCamData(){
             }
         }
         else{
-            for (int i=0; i<5; i++) sendBuffer[FRONT_CAM_DATA_POS+i] = camBuffer[i+1];
+            for (int i=0; i<CAM_DATA_LEN-1; i++) sendBuffer[FRONT_CAM_DATA_POS+i] = camBuffer[i+1];
         }
     }
 }
@@ -107,23 +109,7 @@ bool getLidarGateData(){
 }
 
 void send(){
-    // sendBuffer[0] = 1;
-    // getCamData();
-    // getBallCapData();
-    // sendBuffer[11] = 0; // not done
-    // getAllLineData();
-    // if(!is_spin_locked(i2cLock)){
-    //     uint32_t irq_state = spin_lock_blocking(i2cLock);
-        #ifdef DEBUGGING
-        for (auto i : sendBuffer){
-            Serial.print(String(i) + " ");
-        }
-        Serial.println();
-        #endif
-
-        Wire1.write(sendBuffer, I2C_DATA_LEN);
-        // spin_unlock(i2cLock, irq_state);
-    // }
+    Wire1.write((const uint8_t*)sendBuffer, I2C_DATA_LEN);
 }
 
 void setup(){
@@ -133,18 +119,18 @@ void setup(){
     Serial1.setRX(CAM_RX_PIN);
     Serial1.begin(115200);
 
-    Serial2.setTX(LIDAR_TX_PIN);
-    Serial2.setRX(LIDAR_RX_PIN);
-    Serial2.begin(115200);
+    // Serial2.setTX(LIDAR_TX_PIN);
+    // Serial2.setRX(LIDAR_RX_PIN);
+    // Serial2.begin(115200);
 
     Wire1.setSDA(SDA_PIN);
     Wire1.setSCL(SCL_PIN);
     Wire1.begin(ADDR);
     Wire1.onRequest(send);
 
-    pinMode(KICKER_LOGIC_PIN, INPUT);
+    for (int i=0; i<I2C_DATA_LEN; i++) zeroBuffer[i] = 0;
 
-    i2cLock = spin_lock_instance(0);
+    pinMode(KICKER_LOGIC_PIN, INPUT);
 
     Analog_IIC_Init(LIDAR_GATE_SCL_PIN, LIDAR_GATE_SDA_PIN);
 
@@ -162,14 +148,17 @@ void loop(){
     strip.setPixelColor(0, strip.Color(0, 15, 15));
     strip.show();
 
-    // if (!is_spin_locked(i2cLock)) {  
-    //     Serial.println("updating data");
-    //     uint32_t irq_state = spin_lock_blocking(i2cLock);
-        sendBuffer[0] = 1;
-        getCamData();
-        getBallCapData();
-        sendBuffer[LIDAR_GATE_POS] = (uint8_t) getLidarGateData();
-        getAllLineData(); 
-    //     spin_unlock(i2cLock, irq_state);
-    // }
+    sendBuffer[0] = 1;
+    data_ready = false;
+    getCamData();
+    sendBuffer[LIDAR_GATE_POS] = (uint8_t) getLidarGateData();
+    getAllLineData(); 
+    data_ready = true;
+
+    #ifdef DEBUGGING
+    for (auto i : sendBuffer){
+        Serial.print(String(i) + " ");
+    }
+    Serial.println();
+    #endif
 }
