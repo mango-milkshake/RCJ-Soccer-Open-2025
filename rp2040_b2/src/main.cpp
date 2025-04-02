@@ -12,6 +12,8 @@
 #define brightness 50
 Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 
+#define KICKER_LOGIC_PIN 3
+
 #define SDA_PIN 6
 #define SCL_PIN 7
 #define I2C_DATA_LEN 16
@@ -143,6 +145,8 @@ void setup(){
     Wire1.setSCL(SCL_PIN);
     Wire1.begin(ADDR);
     Wire1.onRequest(send);
+
+    pinMode(KICKER_LOGIC_PIN, INPUT);
 
     i2cLock = spin_lock_instance(0);
 
