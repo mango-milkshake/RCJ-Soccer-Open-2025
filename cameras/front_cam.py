@@ -36,7 +36,7 @@ def sendVar(var):
         uart.writechar(0)
     else:
         uart.writechar(1)
-    var = abs(var)
+    var = round(abs(var) * 128)
     uart.writechar(var & 0xFF)
     uart.writechar((var >> 8) & 0xFF)
 
@@ -48,9 +48,11 @@ vel_values_y = []
 vel_values_length = 10
 vel_values_x = [0] * vel_values_length
 vel_values_y = [0] * vel_values_length
+led2 = pyb.LED(2)
 
 while True:
     clock.tick()  # Update the FPS clock.
+    led2.on()
     img = sensor.snapshot()  # Take a picture and return the image.
     img.lens_corr(strength=1.48, zoom=1.0)
     blobs = img.find_blobs([threshold], area_threshold = 150, merge=True)
@@ -69,8 +71,8 @@ while True:
         print("dist = ", dist)
         #print("x = ", x) #image coordinates
         #print("y = ", y)
-        print("x2 = ", x2) #actual coordinates
-        print("y2 = ", y2)
+        #print("x2 = ", x2) #actual coordinates
+        #print("y2 = ", y2)
 
         #update values
         coords = [x2,y2]
@@ -98,8 +100,6 @@ while True:
         vel_values_y[-1] = vy
         vx = sum(vel_values_x)/len(vel_values_x)
         vy = sum(vel_values_y)/len(vel_values_y)
-        #print ("vx =", vx)
-        #print ("vy =", vy)
 
         #log previous values
         prevCoords = [x2,y2]
@@ -110,20 +110,25 @@ while True:
         x4, y4 = Homography(H_inv, x3, y3)
         img.draw_line(int(x),int(y),int(x4),int(y4),color=(255,0,255))
 
-        uart_x = round(x3 * 128)
-        uart_y = round(y3 * 128)
-        uart_vx = round(vx * 128)
-        uart_vy = round(vy * 128)
+        print ("x3 =", x3)
+        print ("y3 =", y3)
+        print ("vx =", vx)
+        print ("vy =", vy)
+
+        uart_x = round(abs(x3) * 128)
+        uart_y = round(abs(y3) * 128)
+        uart_vx = round(abs(vx) * 128)
+        uart_vy = round(abs(vy) * 128)
 
     else:
         no_ball = True
 
     uart.writechar(1)
     if(no_ball==False):
-        sendVar(uart_x)
-        sendVar(uart_y)
-        sendVar(uart_vx)
-        sendVar(uart_vy)
+        sendVar(x3)
+        sendVar(y3)
+        sendVar(vx)
+        sendVar(vy)
     else:
         for _ in range(12):
             uart.writechar(0)
