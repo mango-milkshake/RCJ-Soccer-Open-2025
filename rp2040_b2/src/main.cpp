@@ -19,8 +19,8 @@ Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 #define I2C_DATA_LEN 18
 #define ADDR 0x08
 volatile byte sendBuffer[I2C_DATA_LEN];
-byte zeroBuffer[I2C_DATA_LEN];
-bool data_ready = false;
+byte lastBuffer[I2C_DATA_LEN];
+volatile bool data_ready = false;
 #define FRONT_CAM_DATA_POS 1
 #define LIDAR_GATE_POS 13
 #define LINE_DATA_POS 14
@@ -28,7 +28,6 @@ bool data_ready = false;
 // 1-12: front cam
 // 13: tofsense lidar gate
 // 14-17: line sensors
-spin_lock_t *i2cLock;
 
 #define NUM_MUX 4
 #define S0_PIN 0
@@ -76,7 +75,9 @@ void getCamData(){
             }
         }
         else{
+            data_ready = false;
             for (int i=0; i<CAM_DATA_LEN-1; i++) sendBuffer[FRONT_CAM_DATA_POS+i] = camBuffer[i+1];
+            data_ready = true;
         }
     }
 }
@@ -109,7 +110,8 @@ bool getLidarGateData(){
 }
 
 void send(){
-    Wire1.write((const uint8_t*)sendBuffer, I2C_DATA_LEN);
+    if(data_ready) Wire1.write((const uint8_t*)sendBuffer, I2C_DATA_LEN);
+    else Wire1.write(lastBuffer, I2C_DATA_LEN);
 }
 
 void setup(){
@@ -128,7 +130,8 @@ void setup(){
     Wire1.begin(ADDR);
     Wire1.onRequest(send);
 
-    for (int i=0; i<I2C_DATA_LEN; i++) zeroBuffer[i] = 0;
+    lastBuffer[0] = 1;
+    for (int i=1; i<I2C_DATA_LEN; i++) lastBuffer[i] = 0;
 
     pinMode(KICKER_LOGIC_PIN, INPUT);
 
@@ -149,11 +152,9 @@ void loop(){
     strip.show();
 
     sendBuffer[0] = 1;
-    data_ready = false;
     getCamData();
     sendBuffer[LIDAR_GATE_POS] = (uint8_t) getLidarGateData();
     getAllLineData(); 
-    data_ready = true;
 
     #ifdef DEBUGGING
     for (auto i : sendBuffer){
@@ -161,4 +162,6 @@ void loop(){
     }
     Serial.println();
     #endif
+
+    memcpy(&lastBuffer, (const uint8_t*) sendBuffer, I2C_DATA_LEN);
 }
