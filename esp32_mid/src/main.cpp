@@ -6,6 +6,9 @@
 #include <Dribbler.h>
 #include <Motor.h>
 #include <Kicker.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include <esp_now.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -15,6 +18,7 @@
 #endif
 
 // #define SECOND_BOT
+#define LOOK_AHEAD
 
 //// ** DEFINITIONS ** ////
 
@@ -78,7 +82,7 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 // UART Comms with camera
 #define CAM_TX_PIN 10
 #define CAM_RX_PIN 11
-#define CAM_SERIAL_DATA_LEN 5
+#define CAM_SERIAL_DATA_LEN 11
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
@@ -119,6 +123,19 @@ Kicker kicker(KICKER_PIN);
 // Line Sensors
 #define NUM_LINE_MUX 4
 
+// ESP Bluetooth Communication
+uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
+typedef struct struct_message {
+    int isPresent;
+    bool def;
+    float xpos; 
+    float ypos;
+    bool hasBall; 
+    bool inField;
+} struct_message;
+struct_message espnowData;
+struct_message espnowDataRecv;
+
 // Thresholds
 #define BALLCAP_DURATION 250
 #define ALIGNED_THRESHOLD 0.015f
@@ -139,16 +156,22 @@ Kicker kicker(KICKER_PIN);
 
 // Variables
 float self_x = 0, self_y = 0, self_heading = 0;
-float ball_angle = 0, ball_dist = 0;
-float relative_ball_x = 0, relative_ball_y = 0;
-float absolute_ball_x = 0, absolute_ball_y = 0;
+float top_ball_angle = 0, top_ball_dist = 0;
+float ball_vx = 0, ball_vy = 0;
+float top_ball_vx = 0, top_ball_vy = 0;
+float top_relative_ball_x = 0, top_relative_ball_y = 0;
+float top_absolute_ball_x = 0, top_absolute_ball_y = 0;
+float front_ball_x = 0, front_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
+float front_absolute_ball_x = 0, front_absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
-float front_cam_ball_x = 0, front_cam_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
+
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
 float speed_xdir, speed_ydir, rotation;
 float lastDribblerRev = 0;
+float other_x = 0, other_y = 0;
+bool isDefender = true;
 
 bool moving_back = false;
 unsigned long last_moving_back = 0;
@@ -185,6 +208,85 @@ void checkFault(){
     else setLED(0, 0, strip.Color(0, 0, 0));
 }
 
+void readMacAddress(){ //read own mac address and set broadcast address to other bot
+    uint8_t own_mac_address[6];
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
+    if (ret == ESP_OK) {
+    Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+                  own_mac_address[0], own_mac_address[1], own_mac_address[2],
+                  own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    } 
+    else{
+        Serial.println("Failed to read MAC address");
+    }
+}
+
+void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
+    //Serial.print("\r\nLast Packet Send Status:\t");
+    //Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+
+void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
+    memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
+}
+
+void set_up_esp_now(){
+    esp_now_peer_info_t peerInfo = {};
+    WiFi.mode(WIFI_STA);
+    if (esp_now_init() != ESP_OK) {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+
+    //callback functions for sending and receiving
+    esp_now_register_send_cb(onDataSent);
+    esp_now_register_recv_cb(onDataRecv);
+    
+    // Register peer
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = 0;  
+    peerInfo.encrypt = false;
+    
+    // Add peer        
+    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+        Serial.println("Failed to add peer");
+        return;
+    }
+}
+
+void sendData(){ //send data here
+    //Define what values to send
+    espnowData.isPresent = 2;
+    espnowData.def = isDefender ? true : false;
+    espnowData.xpos = self_x;
+    espnowData.ypos = self_y;
+    espnowData.hasBall = ballCap ? true : false;
+
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &espnowData, sizeof(espnowData));        
+    if (result == ESP_OK) {
+        //Serial.println("Sent with success");
+    }
+    else {
+        //Serial.println("Error sending the data");
+    }
+}
+
+void assignDef(){
+    // from lowest to highest priority
+    if(espnowDataRecv.def == true){  //check if other bot is defending
+        isDefender = false;
+    }
+    else if (espnowDataRecv.def == false){
+        isDefender = true;
+    }    
+    if(isDefender && ballCap){ //check if the bot has the ball 
+        isDefender = false;
+    }
+    if(espnowDataRecv.inField == false){ //check if the other bot is in the field
+        isDefender = true;
+    }
+}
+
 void getTopPlateData(){
     if(Serial2.available()>=PICO_SERIAL_DATA_LEN){
         while(Serial2.available()>=PICO_SERIAL_DATA_LEN && Serial2.peek()!=5) {
@@ -210,9 +312,9 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
             setLED(1, 2, strip.Color(15, 0, 15));
-            DEBUG(self_x);
-            DEBUG(self_y);
-            DEBUG(self_heading);
+            // DEBUG(self_x);
+            // DEBUG(self_y);
+            // DEBUG(self_heading);
         }
     }
     else setLED(1, 2, strip.Color(0, 15, 15));
@@ -221,24 +323,29 @@ void getTopPlateData(){
 void getTopCamData(){
     if(Serial1.available()>=CAM_SERIAL_DATA_LEN){
         while(Serial1.available()>=CAM_SERIAL_DATA_LEN && Serial1.peek()!=1) {
-            // Serial.println("Camera first byte not 1");
+            Serial.println("Camera first byte not 1");
             Serial1.read();
         }
         int len = Serial1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
         // while(Serial1.available()) Serial1.read();
         if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
-            // Serial.print("Received bad data: length: ");
-            // Serial.print(len);
-            // Serial.print(", data: ");
-            // for (auto i : uartBufferCam) {
-            //     Serial.print(i);
-            //     Serial.print(" ");
-            // }
+            Serial.print("Received bad data: length: ");
+            Serial.print(len);
+            Serial.print(", data: ");
+            for (auto i : uartBufferCam) {
+                Serial.print(i);
+                Serial.print(" ");
+            }
         }
         else{
-            ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
-            ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
-            if(ball_angle==0 && ball_dist==0) {
+            top_ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
+            top_ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
+            top_ball_vx = (float)(uartBufferCam[6] + (uartBufferCam[7]<<8)) / 128;
+            if(uartBufferCam[5] == 0) top_ball_vx *= -1;
+            top_ball_vy = (float)(uartBufferCam[9] + (uartBufferCam[10]<<8)) / 128;
+            if(uartBufferCam[8] == 0) top_ball_vy *= -1;
+
+            if(top_ball_angle==0 && top_ball_dist==0) {
                 noBall = true;
                 setLED(6, 8, strip.Color(0, 0, 15));
             }
@@ -248,16 +355,21 @@ void getTopCamData(){
                 lastSeenBall = millis();
             }
 
-            float relative_angle = 90 - (ball_angle + self_heading);
-            relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
-            relative_ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
-            absolute_ball_x = relative_ball_x + self_x;
-            absolute_ball_y = relative_ball_y + self_y;
+            float relative_angle = 90 - (top_ball_angle + self_heading);
+            top_relative_ball_x = (top_ball_dist * cosf(RAD(relative_angle))) / 100;
+            top_relative_ball_y = (top_ball_dist * sinf(RAD(relative_angle))) / 100;
 
-            // DEBUG(relative_ball_x);
-            // DEBUG(relative_ball_y);
-            // DEBUG(absolute_ball_x);
-            // DEBUG(absolute_ball_y);
+            ball_vx = top_ball_vx;
+            ball_vy = top_ball_vy;
+            top_absolute_ball_x = top_relative_ball_x + self_x;
+            top_absolute_ball_y = top_relative_ball_y + self_y;
+
+            DEBUG(ball_vx);
+            DEBUG(ball_vy);
+            DEBUG(top_relative_ball_x);
+            DEBUG(top_relative_ball_y);
+            DEBUG(top_absolute_ball_x);
+            DEBUG(top_absolute_ball_y);
         }
     }
 }
@@ -283,19 +395,28 @@ void getBottomPlateData(){
     }
     else setLED(3, 4, strip.Color(0, 15, 0));
 
-    front_cam_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
-    if(rcvBuffer[1]==0) front_cam_ball_x *= -1;
-    front_cam_ball_y = (float)(rcvBuffer[5] + (rcvBuffer[6]<<8)) / 128;
-    if(rcvBuffer[4]==0) front_cam_ball_y *= -1;
+    front_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
+    if(rcvBuffer[1]==0) front_ball_x *= -1;
+    front_ball_y = (float)(rcvBuffer[5] + (rcvBuffer[6]<<8)) / 128;
+    if(rcvBuffer[4]==0) front_ball_y *= -1;
     front_ball_vx = (float)(rcvBuffer[8] + (rcvBuffer[9]<<8)) / 128;
     if(rcvBuffer[7]==0) front_ball_vx *= -1;
     front_ball_vy = (float)(rcvBuffer[11] + (rcvBuffer[12]<<8)) / 128;
     if(rcvBuffer[10]==0) front_ball_vy *= -1;
 
-    // DEBUG(front_cam_ball_x);
-    // DEBUG(front_cam_ball_y);
-    // DEBUG(front_ball_vx);
-    // DEBUG(front_ball_vy);
+    front_absolute_ball_x = front_ball_x + self_x;
+    front_absolute_ball_y = front_ball_y + self_y;
+
+    for (auto i : rcvBuffer) {
+        Serial.print(i);
+        Serial.print(" ");
+    }
+    Serial.println();
+
+    DEBUG(front_ball_x);
+    DEBUG(front_ball_y);
+    DEBUG(front_ball_vx);
+    DEBUG(front_ball_vy);
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
     // DEBUG(ballCap);
@@ -324,8 +445,8 @@ void ballCapStatus(){
         setLED(9, 11, strip.Color(15, 0, 15));
         lastBallCap = millis();
     }
-    else if(!noBall && self_y < absolute_ball_y && self_y > absolute_ball_y - BALLCAP_DISTANCE 
-        && abs(relative_ball_x) < BALLCAP_WIDTH / 2.0){
+    else if(!noBall && self_y < top_absolute_ball_y && self_y > top_absolute_ball_y - BALLCAP_DISTANCE 
+        && abs(top_relative_ball_x) < BALLCAP_WIDTH / 2.0){
             ballCap = true;
             lastBallCap = millis();
             setLED(9, 11, strip.Color(0, 15, 15));
@@ -405,21 +526,21 @@ void movement(float target_x, float target_y, float target_rotation){
 }
 
 // void ballTrack(){
-//     float absBallAngle = atan2(relative_ball_y - self_y, relative_ball_x - self_x);
-//     float goalToBallAngle = atan2(2.384 - relative_ball_y, 0.91 - relative_ball_x);
+//     float absBallAngle = atan2(top_relative_ball_y - self_y, top_relative_ball_x - self_x);
+//     float goalToBallAngle = atan2(2.384 - top_relative_ball_y, 0.91 - top_relative_ball_x);
 //     float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
 //     if(absBallAngle <= 60 || absBallAngle >= 300){
-//         // movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.06, 90-DEG(angleToFace));
-//         movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.04, 0);
+//         // movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.06, 90-DEG(angleToFace));
+//         movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.04, 0);
 //     }
 //     else{
-//         float new_x = self_x + relative_ball_x + 0.40 * cosf(goalToBallAngle);
-//         float new_y = self_y + relative_ball_y + 0.40 * sinf(goalToBallAngle);
+//         float new_x = self_x + top_relative_ball_x + 0.40 * cosf(goalToBallAngle);
+//         float new_y = self_y + top_relative_ball_y + 0.40 * sinf(goalToBallAngle);
 //         movement(new_x, new_y, 90-DEG(angleToFace));
-//         // movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.40, 90-DEG(angleToFace));
-//         // movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.40, 0);
+//         // movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.40, 90-DEG(angleToFace));
+//         // movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.40, 0);
 //     }
-//     // movement(self_x + relative_ball_x, self_y + relative_ball_y - 0.12, 90-DEG(angleToFace));
+//     // movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.12, 90-DEG(angleToFace));
 // }
 
 void ballTrack(){
@@ -428,18 +549,18 @@ void ballTrack(){
     initial_magnitude = 0.0;
 
     float new_x, new_y;
-    if(self_y > absolute_ball_y) moving_back = true;
+    if(self_y > top_absolute_ball_y) moving_back = true;
     if((moving_back || millis() - last_moving_back > MOVING_BACK_DURATION) && 
-        (self_y > absolute_ball_y - BALLCAP_DISTANCE / 3.0 || 
-        (abs(self_x - absolute_ball_x) > BALLCAP_WIDTH / 2.0 + 0.05f && 
-        abs(self_x - absolute_ball_x) < CLEARANCE_X / 2.0 && 
-        self_y > absolute_ball_y - CLEARANCE_Y / 2.0))){
+        (self_y > top_absolute_ball_y - BALLCAP_DISTANCE / 3.0 || 
+        (abs(self_x - top_absolute_ball_x) > BALLCAP_WIDTH / 2.0 + 0.05f && 
+        abs(self_x - top_absolute_ball_x) < CLEARANCE_X / 2.0 && 
+        self_y > top_absolute_ball_y - CLEARANCE_Y / 2.0))){
             // Serial.println("case1");
-            if(absolute_ball_x < FIELD_MARGIN + CLEARANCE_X + 0.10f) new_x = absolute_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
-            else if(absolute_ball_x > FIELD_WIDTH - FIELD_MARGIN - CLEARANCE_X - 0.10f) new_x = absolute_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
-            else if (self_x > absolute_ball_x) new_x = absolute_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
-            else new_x = absolute_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
-            new_y = (abs(self_x - absolute_ball_x) > CLEARANCE_X / 2.0 + 0.03f) ? absolute_ball_y - CLEARANCE_Y / 2.0 - 0.10f : self_y;
+            if(top_absolute_ball_x < FIELD_MARGIN + CLEARANCE_X + 0.10f) new_x = top_absolute_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
+            else if(top_absolute_ball_x > FIELD_WIDTH - FIELD_MARGIN - CLEARANCE_X - 0.10f) new_x = top_absolute_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
+            else if (self_x > top_absolute_ball_x) new_x = top_absolute_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
+            else new_x = top_absolute_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
+            new_y = (abs(self_x - top_absolute_ball_x) > CLEARANCE_X / 2.0 + 0.03f) ? top_absolute_ball_y - CLEARANCE_Y / 2.0 - 0.10f : self_y;
             moving_back = true;
     }
     else{
@@ -449,12 +570,12 @@ void ballTrack(){
             last_moving_back = millis();
         }
         unsigned long aligning = millis() - last_aligning;
-        new_x = absolute_ball_x;
-        if((aligning > ALIGN_DURATION && aligning < ALIGN_THRESHOLD) || abs(self_x - absolute_ball_x) < BALLCAP_WIDTH / 2.0) 
-            new_y = fmax(absolute_ball_y - BALLCAP_DISTANCE, self_y + 0.03f) ;
+        new_x = top_absolute_ball_x;
+        if((aligning > ALIGN_DURATION && aligning < ALIGN_THRESHOLD) || abs(self_x - top_absolute_ball_x) < BALLCAP_WIDTH / 2.0) 
+            new_y = fmax(top_absolute_ball_y - BALLCAP_DISTANCE, self_y + 0.03f) ;
         else{
             if (aligning > ALIGN_THRESHOLD) last_aligning = millis(); 
-            new_y = absolute_ball_y - BALLCAP_DISTANCE;
+            new_y = top_absolute_ball_y - BALLCAP_DISTANCE;
         }
     }
     // DEBUG(new_x);
@@ -463,7 +584,7 @@ void ballTrack(){
 }
 
 void dribblerBallTrack(){
-    float xToBall = absolute_ball_x - self_x, yToBall = absolute_ball_y - self_y;
+    float xToBall = top_absolute_ball_x - self_x, yToBall = top_absolute_ball_y - self_y;
     float distToBall = sqrt(xToBall * xToBall + yToBall * yToBall);
     float new_x = self_x + xToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
     float new_y = self_y + yToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
@@ -478,10 +599,10 @@ void dribblerBallTrack(){
 void aim(){
     if(!aligned){
         // Serial.println("aim align");
-        if(abs(self_x - absolute_ball_x) < ALIGNED_THRESHOLD) aligned = true;
+        if(abs(self_x - top_absolute_ball_x) < ALIGNED_THRESHOLD) aligned = true;
         // DEBUG(self_x);
-        // DEBUG(absolute_ball_x);
-        movement(absolute_ball_x, self_y, 0);
+        // DEBUG(top_absolute_ball_x);
+        movement(top_absolute_ball_x, self_y, 0);
     }
     else{
         // Serial.println("aim accel");
@@ -518,9 +639,90 @@ void dribblerAim(){
     }
 }
 
+void frontCamTrack(){ 
+    //turns bot to ball based on top cam, use if a more accurate front cam measurement is needed
+    float approx_future_x = top_absolute_ball_x + ball_vx * 0.2;
+    float approx_future_y = top_absolute_ball_y + ball_vy * 0.2;
+    movement(self_x, self_y, atan2(approx_future_x, approx_future_y));
+}
+
+void lookAhead(){
+    float v = 0.5;
+    float latency = 0;
+    bool validt = false;
+    bool useFrontCam = false;
+    float t;
+    float LAball_x, LAball_y, LAball_vx, LAball_vy;
+
+    if(useFrontCam){
+        frontCamTrack();
+        LAball_x = front_absolute_ball_x + ball_vx * latency;
+        LAball_y = front_absolute_ball_y + ball_vy * latency;
+        LAball_vx = front_ball_vx;
+        LAball_vy = front_ball_vy;
+    }
+    else{
+        LAball_x = top_absolute_ball_x + ball_vx * latency;
+        LAball_y = top_absolute_ball_y + ball_vy * latency;
+        LAball_vx = ball_vx;
+        LAball_vy = ball_vy;
+    }
+
+    while(!validt){
+        float C = LAball_x*LAball_x + LAball_y*LAball_y;
+        float B = 2*(LAball_x*ball_vx + LAball_y*LAball_vy);
+        float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
+
+        if (abs(A) > pow(10, -8)){ //we get two solutions for time, so we want to find the minimum time that is not negative
+            float t1 = pow(-1*B - (B*B - 4*A*C), 0.5)/(2*A); 
+            float t2 = pow(-1*B + (B*B - 4*A*C), 0.5)/(2*A); 
+
+            if (t1 >= 0 && t2 >= 0){
+                t = min(t1, t2);
+                validt = true;
+            }
+            else if (t1 >= 0){
+                t = t1;
+                validt = true;
+            }
+            else if (t2 >= 0){
+                t = t2;
+                validt = true;
+            }  
+        }
+
+        if(!validt){ //if ball is too fast, reduce ball's velocity and calculate that position instead
+            float theta_invalid_t;
+            if ((LAball_vx) > pow(10, -8)){ 
+                theta_invalid_t = atan(LAball_vy/LAball_vx);}
+            else{theta_invalid_t = 3.1415/2;}
+            LAball_vx = 0.9*v*cos(theta_invalid_t); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
+            LAball_vx = 0.9*v*sin(theta_invalid_t);
+        }  
+    }
+
+    //assume front is facing towards positive y
+    float targetballposx = LAball_x + LAball_vx*t;
+    float targetballposy = LAball_y + LAball_vy*t;
+    //float targetheadinglookahead = atan2(targetballposx,targetballposy) * (180/3.1415) + 90; 
+    targetballposx = (targetballposx + self_x)/100;
+    targetballposy = (targetballposx + self_y)/100;
+
+    // DEBUG(self_x);
+    // DEBUG(self_y);
+    // DEBUG(LAball_x);
+    // DEBUG(LAball_y);
+    // DEBUG(LAball_vx);
+    // DEBUG(LAball_vy);
+    // DEBUG(targetballposy);
+    // DEBUG(targetballposx);
+
+    //movement(targetballposx, targetballposy, 0);
+}
+
 void defend(){
-    float leftAngle = atan2(SELF_GOAL_Y - absolute_ball_y, SELF_GOAL_LEFT_X - absolute_ball_x);
-    float rightAngle = atan2(SELF_GOAL_Y - absolute_ball_y, SELF_GOAL_RIGHT_X - absolute_ball_x);
+    float leftAngle = atan2(SELF_GOAL_Y - top_absolute_ball_y, SELF_GOAL_LEFT_X - top_absolute_ball_x);
+    float rightAngle = atan2(SELF_GOAL_Y - top_absolute_ball_y, SELF_GOAL_RIGHT_X - top_absolute_ball_x);
     float angleDiff = rightAngle - leftAngle;
     LIM_ANGLE_180(angleDiff);
     if(angleDiff < 0){
@@ -535,8 +737,8 @@ void defend(){
     // if(fabs(sinHalfAngle) , 1e-6f) newDistToBall = 9999.0f;
     // else newDistToBall = BOT_RADIUS_M / sinHalfAngle;
     newDistToBall = BOT_RADIUS_M / sinHalfAngle;
-    new_x = absolute_ball_x + newDistToBall * cosf(midAngle);
-    new_y = absolute_ball_y + newDistToBall * sinf(midAngle);
+    new_x = top_absolute_ball_x + newDistToBall * cosf(midAngle);
+    new_y = top_absolute_ball_y + newDistToBall * sinf(midAngle);
     // DEBUG(new_x);
     // DEBUG(new_y);
     movement(new_x, new_y, 0);
@@ -554,12 +756,17 @@ void setup(){
     pinMode(VOLTAGE_PIN, INPUT);
     analogSetAttenuation(ADC_11db);
 
-    Wire.begin(SDA_PIN, SCL_PIN, 650000);
+    Wire.begin(SDA_PIN, SCL_PIN, 400000);
 
     for (int i=0; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
 
     dribblerMD.init();
     dribblerMD.setMode();
+
+    set_up_esp_now();
+    readMacAddress();
+    if(espnowDataRecv.isPresent == 2) isDefender = false;
+    else isDefender = true;
 
     strip.begin();
     strip.setBrightness(LED_BRIGHTNESS);
@@ -596,8 +803,10 @@ void loop(){
     getBottomPlateData();
     ballCapStatus();
 
+    sendData();
+
     if(millis() - lastDribblerRev < 1000) ;
-    else if(ballCap || (ball_dist>0 && ball_dist<=60)) dribbler.setSpeed(1.0);
+    else if(ballCap || (top_ball_dist>0 && top_ball_dist<=60)) dribbler.setSpeed(1.0);
     else if(noBall) dribbler.setSpeed(0);
     else dribbler.setSpeed(0.5);
 
@@ -608,19 +817,19 @@ void loop(){
         movement(0.91f, 0.60f, 0);
     }
     // 2) Else if the ball is within the no-chase region near the goal
-    else if (absolute_ball_x > 0.62f && absolute_ball_x < 1.20f &&
-             absolute_ball_y < 0.25f)
+    else if (top_absolute_ball_x > 0.62f && top_absolute_ball_x < 1.20f &&
+             top_absolute_ball_y < 0.25f)
     {
         movement(0.91f, 0.60f, 0);
     }
     // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
-    else if (absolute_ball_y <  0.60f) {
+    else if (top_absolute_ball_y <  0.60f) {
         pid_rotate.setConfig(0.5, 0, 0);
         pid_x.setConfig(2.2, 0, 0);
         pid_y.setConfig(2.2, 0, 0);
         if (noBall) {
-            absolute_ball_x = last_ball_x;
-            absolute_ball_y = last_ball_y;
+            top_absolute_ball_x = last_ball_x;
+            top_absolute_ball_y = last_ball_y;
             dribblerBallTrack();
         }
         // 3b) If we DO see the ball => track it with the dribbler
@@ -637,12 +846,16 @@ void loop(){
         defend();
 
     }
+    #elif defined(LOOK_AHEAD)
+    if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    else if(ballCap) aim();
+    else if(ball_vx > 0.10 || ball_vy > 0.10) lookAhead();
     #else
     if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
     else if(ballCap) sendI2C(zeroBuffer);
     else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
-        absolute_ball_x = last_ball_x;
-        absolute_ball_y = last_ball_y;
+        top_absolute_ball_x = last_ball_x;
+        top_absolute_ball_y = last_ball_y;
         dribblerBallTrack();
     }
     else if(!noBall){
@@ -652,7 +865,7 @@ void loop(){
     #endif
 
     if(!noBall) {
-        last_ball_x = absolute_ball_x;
-        last_ball_y = absolute_ball_y;
+        last_ball_x = top_absolute_ball_x;
+        last_ball_y = top_absolute_ball_y;
     }
 }
