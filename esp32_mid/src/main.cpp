@@ -945,14 +945,12 @@ void loop(){
         }
         else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);   
         #endif
-
-        if(!noBall) {
-            last_ball_x = top_absolute_ball_x;
-            last_ball_y = top_absolute_ball_y;
-        }
-
     }
-
+    if(!noBall) {
+    last_ball_x = top_absolute_ball_x;
+    last_ball_y = top_absolute_ball_y;
+    }
+}
 
 
 
