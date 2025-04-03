@@ -19,7 +19,7 @@
 #endif
 
 // #define SECOND_BOT
-// #define LOOK_AHEAD
+//#define LOOK_AHEAD
 
 //// ** DEFINITIONS ** ////
 
@@ -822,6 +822,8 @@ void setup(){
 }
 
 int esp_last_send;
+int LA_ball_seen;
+bool lookAheadDelay = false;
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
@@ -901,8 +903,20 @@ void loop(){
     }
     #elif defined(LOOK_AHEAD)
     if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    else if(ballCap) aim();
-    else if(ball_vx > 0.10 || ball_vy > 0.10) lookAhead();
+    //else if(ballCap) aim();
+    else if(ball_vx > 0.10 || ball_vy > 0.10){
+        if(lookAheadDelay = false){
+            LA_ball_seen = curTime;
+            lookAheadDelay = true;
+        }
+        if(lookAheadDelay == true && LA_ball_seen - curTime >= 100){
+            lookAheadDelay = false;
+            lookAhead();
+        }
+        else{
+            lookAheadDelay = true;
+        }
+    }
     #else
     if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
     else if(ballCap) sendI2C(zeroBuffer);
