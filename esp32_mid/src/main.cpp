@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <esp_now.h>
+#include <esp_task_wdt.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -754,6 +755,9 @@ void setup(){
     pinMode(TURN_OFF_SW, INPUT);
     pinMode(VOLTAGE_PIN, INPUT);
     analogSetAttenuation(ADC_11db);
+
+    esp_task_wdt_init(1, true); // timeout in seconds
+    enableLoopWDT();
 
     Wire.begin(SDA_PIN, SCL_PIN, 400000);
 
