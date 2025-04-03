@@ -810,7 +810,7 @@ void loop(){
     else esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
     esp_led.show();
 
-    if(digitalRead(TURN_OFF_SW)==HIGH) turnOff = true;
+    if(digitalRead(TURN_OFF_SW)==LOW) turnOff = true;
     else turnOff = false;
 
     // readVoltage();
