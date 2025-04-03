@@ -35,10 +35,10 @@ led2 = pyb.LED(2)
 led2.on()
 
 ballExists = True
-centre_x = 156
-centre_y = 127
+centre_x = 165
+centre_y = 128
 mask_radius = 120
-thresh_ball = (28, 63, 38, 80, 19, 69)
+thresh_ball = (31, 79, 19, 75, 7, 51)
 actual_data_len = 10
 
 uart = UART(3, 115200)
@@ -93,8 +93,8 @@ while True:
         continue
 
     b = max(blobs, key=lambda b: b.pixels())
-    img.draw_rectangle(b.rect(), (0,255,0))
-    img.draw_cross(b.cx(), b.cy(), (0,255,0))
+    #img.draw_rectangle(b.rect(), (0,255,0))
+    #img.draw_cross(b.cx(), b.cy(), (0,255,0))
 
     ball_x = b.cx() - centre_x
     ball_y = b.cy() - centre_y
