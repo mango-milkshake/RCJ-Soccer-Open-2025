@@ -169,6 +169,9 @@ float top_absolute_ball_x = 0, top_absolute_ball_y = 0;
 float front_ball_x = 0, front_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
 float front_absolute_ball_x = 0, front_absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
+float self_velocityx = 0, self_velocityy = 0;
+float last_self_x = 0, last_self_y = 0;
+unsigned long last_vel_time = 0;
 
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
@@ -765,6 +768,27 @@ void lookAhead(){
     // DEBUG(targetballposx);
 
     if (lookAheadConfirm){movement(targetballposx, targetballposy, 0);}
+}
+
+//velocity of robot with moving average
+void updateSelfVelocityEWMA(float current_self_x, float current_self_y) {
+    unsigned long now = millis();
+    float dt = (now - last_vel_time) / 1000.0f; 
+    if (dt < 1e-6f) {
+        return;
+    }
+
+    float inst_vx = (current_self_x - last_self_x) / dt;  
+    float inst_vy = (current_self_y - last_self_y) / dt;  
+
+    // Exponential Weighted Moving Average update, beta parameter used = 0.8
+    self_velocityx = 0.2f * inst_vx + (0.8f) * self_velocityx;
+    self_velocityy = 0.2f * inst_vy + (0.8f) * self_velocityy;
+
+    // Save current data for next iteration
+    last_self_x = current_self_x;
+    last_self_y = current_self_y;
+    last_vel_time   = now;
 }
 
 void defend(){
