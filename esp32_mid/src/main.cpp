@@ -19,7 +19,7 @@
 #endif
 
 // #define SECOND_BOT
-// #define LOOK_AHEAD
+//#define LOOK_AHEAD
 
 //// ** DEFINITIONS ** ////
 
@@ -214,7 +214,7 @@ void checkFault(){
 }
 
 void readMacAddress(){ //read own mac address and set broadcast address to other bot
-
+    WiFi.mode(WIFI_STA);
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
     if (ret == ESP_OK) {
     // Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -226,6 +226,7 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     // }
     const uint8_t MAC_1[6] = {0x3c, 0x84, 0x27, 0x26, 0x03, 0x14};
     const uint8_t MAC_2[6] = {0x3c, 0x84, 0x27, 0x26, 0x02, 0x48};
+    //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
     }
@@ -236,22 +237,24 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
 }
 
 void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
-    Serial.print("\r\nLast Packet Send Status:\t");
-    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+    // Serial.print("\r\nLast Packet Send Status:\t");
+    // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
 
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
     memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
-    Serial.println(espnowDataRecv.isPresent);
+   // Serial.println(espnowDataRecv.isPresent);
 }
 
 void set_up_esp_now(){
-
+    WiFi.disconnect(true);
     WiFi.mode(WIFI_STA);
+
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
+
 
     //callback functions for sending and receiving
     esp_now_register_send_cb(onDataSent);
@@ -260,7 +263,7 @@ void set_up_esp_now(){
     // Register peer
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-    peerInfo.channel = 0;  
+    peerInfo.channel = 1;  
     peerInfo.encrypt = false;
     
     // Add peer        
@@ -279,13 +282,33 @@ void sendData(){ //send data here
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espnowData, sizeof(espnowData));
 
-    if (result == ESP_OK) {
-        Serial.println("✅ ESP-NOW: Data sent successfully.");
-    } else {
-        Serial.print("❌ ESP-NOW: Send failed, error code: ");
-        Serial.println(result);
-    }
-
+    // switch (result) {
+    //     case ESP_OK:
+    //         Serial.println("✅ ESP-NOW: Data sent successfully.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_NOT_INIT:
+    //         Serial.println("❌ ESP-NOW: Not initialized.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_ARG:
+    //         Serial.println("❌ ESP-NOW: Invalid argument.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_INTERNAL:
+    //         Serial.println("❌ ESP-NOW: Internal error.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_NO_MEM:
+    //         Serial.println("❌ ESP-NOW: Out of memory.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_NOT_FOUND:
+    //         Serial.println("❌ ESP-NOW: Peer not found.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_IF:
+    //         Serial.println("❌ ESP-NOW: Interface error.");
+    //         break;
+    //     default:
+    //         Serial.print("❌ ESP-NOW: Unknown error: ");
+    //         Serial.println(result);
+    //         break;
+    // }
 }
 
 void assignDef(){
@@ -672,6 +695,7 @@ void lookAhead(){
     float latency = 0;
     bool validt = false;
     bool useFrontCam = false;
+    bool lookAheadConfirm = false;
     float t;
     float LAball_x, LAball_y, LAball_vx, LAball_vy;
 
@@ -689,15 +713,16 @@ void lookAhead(){
         LAball_vy = ball_vy;
     }
 
-    while(!validt){
+    int i = 0;
+    while(!validt && i < 5){
+        i++;
         float C = LAball_x*LAball_x + LAball_y*LAball_y;
         float B = 2*(LAball_x*ball_vx + LAball_y*LAball_vy);
         float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
 
-        if (abs(A) > pow(10, -8)){ //we get two solutions for time, so we want to find the minimum time that is not negative
-            float t1 = pow(-1*B - (B*B - 4*A*C), 0.5)/(2*A); 
-            float t2 = pow(-1*B + (B*B - 4*A*C), 0.5)/(2*A); 
-
+        if (abs(A) > pow(10, -8) && (B*B - 4*A*C) >= 0){ //we get two solutions for time, so we want to find the minimum time that is not negative
+            float t1 = -1*B - pow((B*B - 4*A*C), 0.5)/(2*A); 
+            float t2 = -1*B + pow((B*B - 4*A*C), 0.5)/(2*A); 
             if (t1 >= 0 && t2 >= 0){
                 t = min(t1, t2);
                 validt = true;
@@ -710,6 +735,7 @@ void lookAhead(){
                 t = t2;
                 validt = true;
             }  
+            lookAheadConfirm = true;
         }
 
         if(!validt){ //if ball is too fast, reduce ball's velocity and calculate that position instead
@@ -718,7 +744,7 @@ void lookAhead(){
                 theta_invalid_t = atan2(LAball_vy,LAball_vx);}
             else{theta_invalid_t = 3.1415/2;}
             LAball_vx = 0.9*v*cos(theta_invalid_t); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
-            LAball_vx = 0.9*v*sin(theta_invalid_t);
+            LAball_vy = 0.9*v*sin(theta_invalid_t);
         }  
     }
 
@@ -738,7 +764,7 @@ void lookAhead(){
     // DEBUG(targetballposy);
     // DEBUG(targetballposx);
 
-    //movement(targetballposx, targetballposy, 0);
+    if (lookAheadConfirm){movement(targetballposx, targetballposy, 0);}
 }
 
 void defend(){
@@ -790,8 +816,8 @@ void setup(){
     readMacAddress();
     set_up_esp_now();
 
-    if(espnowDataRecv.isPresent == 2) isDefender = false;
-    else isDefender = true;
+    //if(espnowDataRecv.isPresent == 2) isDefender = false;
+    //else isDefender = true;
 
     strip.begin();
     strip.setBrightness(LED_BRIGHTNESS);
@@ -803,13 +829,15 @@ void setup(){
 
 }
 
+int esp_last_send;
+int LA_ball_seen;
+bool lookAheadDelay = false;
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
     //Serial.print("time: ");
     //Serial.println(curTime - lastLoopTime);
     lastLoopTime = millis();
-
     if(millis() - lastLED >= BLINK_TIME){
         esp_led_state = !esp_led_state;
         lastLED = millis();
@@ -843,7 +871,7 @@ void loop(){
     else dribbler.setSpeed(0.5);
 
     #ifdef SECOND_BOT
-
+    
     // 1) If no ball and it's been too long, just stay put
     if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
         movement(0.91f, 0.60f, 0);
@@ -880,8 +908,20 @@ void loop(){
     }
     #elif defined(LOOK_AHEAD)
     if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    else if(ballCap) aim();
-    else if(ball_vx > 0.10 || ball_vy > 0.10) lookAhead();
+    //else if(ballCap) aim();
+    else if(ball_vx > 0.10 || ball_vy > 0.10){
+        if(lookAheadDelay = false){
+            LA_ball_seen = curTime;
+            lookAheadDelay = true;
+        }
+        if(lookAheadDelay == true && LA_ball_seen - curTime >= 100){
+            lookAheadDelay = false;
+            lookAhead();
+        }
+        else{
+            lookAheadDelay = true;
+        }
+    }
     #else
     if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
     else if(ballCap) sendI2C(zeroBuffer);
@@ -893,7 +933,7 @@ void loop(){
     else if(!noBall){
         dribblerBallTrack();
     }
-    else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);   
     #endif
 
     if(!noBall) {
