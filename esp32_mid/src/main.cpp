@@ -687,6 +687,7 @@ void lookAhead(){
     float latency = 0;
     bool validt = false;
     bool useFrontCam = false;
+    bool lookAheadConfirm = false;
     float t;
     float LAball_x, LAball_y, LAball_vx, LAball_vy;
 
@@ -704,15 +705,16 @@ void lookAhead(){
         LAball_vy = ball_vy;
     }
 
-    while(!validt){
+    int i = 0;
+    while(!validt && i < 5){
+        i++;
         float C = LAball_x*LAball_x + LAball_y*LAball_y;
         float B = 2*(LAball_x*ball_vx + LAball_y*LAball_vy);
         float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
 
-        if (abs(A) > pow(10, -8)){ //we get two solutions for time, so we want to find the minimum time that is not negative
-            float t1 = pow(-1*B - (B*B - 4*A*C), 0.5)/(2*A); 
-            float t2 = pow(-1*B + (B*B - 4*A*C), 0.5)/(2*A); 
-
+        if (abs(A) > pow(10, -8) && (B*B - 4*A*C) >= 0){ //we get two solutions for time, so we want to find the minimum time that is not negative
+            float t1 = -1*B - pow((B*B - 4*A*C), 0.5)/(2*A); 
+            float t2 = -1*B + pow((B*B - 4*A*C), 0.5)/(2*A); 
             if (t1 >= 0 && t2 >= 0){
                 t = min(t1, t2);
                 validt = true;
@@ -725,6 +727,7 @@ void lookAhead(){
                 t = t2;
                 validt = true;
             }  
+            lookAheadConfirm = true;
         }
 
         if(!validt){ //if ball is too fast, reduce ball's velocity and calculate that position instead
@@ -733,7 +736,7 @@ void lookAhead(){
                 theta_invalid_t = atan2(LAball_vy,LAball_vx);}
             else{theta_invalid_t = 3.1415/2;}
             LAball_vx = 0.9*v*cos(theta_invalid_t); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
-            LAball_vx = 0.9*v*sin(theta_invalid_t);
+            LAball_vy = 0.9*v*sin(theta_invalid_t);
         }  
     }
 
@@ -753,7 +756,7 @@ void lookAhead(){
     // DEBUG(targetballposy);
     // DEBUG(targetballposx);
 
-    //movement(targetballposx, targetballposy, 0);
+    if (lookAheadConfirm){movement(targetballposx, targetballposy, 0);}
 }
 
 void defend(){
