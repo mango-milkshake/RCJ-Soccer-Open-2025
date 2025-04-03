@@ -18,19 +18,6 @@ sensor.set_auto_exposure(False, exposure_us=5000)  # Disable auto exposure
 uart = UART(1, 115200)
 uart.init(115200, bits=8, parity=None, stop=1, timeout_char=1000)
 
-H =   [-1.859358520295239 ,  -0.2475423844694668 ,  341.95168802449524 ,
-       0.1593857662399504 ,  0.6168373514426762 ,  -701.4419970037706 ,
-       0.00032056366322381105 ,  -0.20157299901006417 ,  1.0 ] #homography matrix calibrated 21/3
-H_inv =   [-0.56132058638221612798,  -0.27385474401661052705,  -0.1486964956693853285,
-          -0.00153211422104253632,  -0.0078510190489150984,  -4.9831254360538204693,
-          -0.00012889387494789154376,  -0.0014947655750417743606,  -0.0044158718953420171454]
-
-def Homography (H, x, y):
-    n = H[6]*x + H[7]*y + H[8] #normalisation
-    x2 = (H[0]*x + H[1]*y + H[2]) / n
-    y2 = (H[3]*x + H[4]*y + H[5]) / n
-    return x2, y2
-
 def sendVar(var):
     if (var < 0):
         uart.writechar(0)
@@ -61,13 +48,14 @@ while True:
         no_ball = False
         ball = max(blobs, key=lambda b: b.area())
         img.draw_rectangle(ball.rect(), color=(0,255,0))
+        img.draw_cross(ball.cx(), ball.cy(), color=(0,0,255))
+        print(ball.cx(), ball.cy())
         x = ball.cx()
-        y = ball.cy() + ball.h() / 2
-        x2, y2 = Homography(H, x, y)
-        dist = (x2**2 + y2**2)**0.5
+        y = ball.cy()
+        x2 = 2.34678e-7* x**3 - 6.93269e-7* x**2 * y + 0.0000184518 * x**2 + 4.94946e-9 *x * y**2 + 0.000340658*x*y - 0.0405575*x + 1.26915e-7 * y**3 - 0.0000321536*y**2 - 0.0783178*y + 9.3546
+        y2 = -2.17938e-6 * x**3 - 3.57085e-8 * x**2 * y + 0.00129718 * x**2 - 3.14209e-7 * x * y**2 + 0.0000760482 * x * y - 0.27871*x + 6.65652e-7 * y**3 - 0.0001672 * y**2 + 0.00840698*y + 33.1509
 
-        cur_ball_x = round(x2 * 128)
-        cur_ball_y = round(y2 * 128)
+        dist = (x2**2 + y2**2)**0.5
 
         print("dist = ", dist)
         #print("x = ", x) #image coordinates
@@ -108,18 +96,11 @@ while True:
 
         x3 = x2 + vx*0.2 / 1 #position in 1 second [cm]
         y3 = y2 + vy*0.2 / 1
-        x4, y4 = Homography(H_inv, x3, y3)
-        img.draw_line(int(x),int(y),int(x4),int(y4),color=(255,0,255))
 
         print ("x3 =", x3)
         print ("y3 =", y3)
         print ("vx =", vx)
         print ("vy =", vy)
-
-        uart_x = round(abs(x3) * 128)
-        uart_y = round(abs(y3) * 128)
-        uart_vx = round(abs(vx) * 128)
-        uart_vy = round(abs(vy) * 128)
 
     else:
         no_ball = True
