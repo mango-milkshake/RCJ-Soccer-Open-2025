@@ -83,16 +83,16 @@ while True:
 
     # 1) Detect the ball in pixel coords
     blobs = img.find_blobs([thresh_ball], pixel_threshold=10, area_threshold=10, merge=True)
-    if not blobs:
+    if len(blobs)<1:
         print("No ball")
         ballExists = False
-        uart.writechar(1)
+        uart.writechar(5)
         for _ in range (actual_data_len):
             uart.writechar(0)
         uart.sendbreak()
         continue
 
-    b = max(blobs, key=lambda x: x.pixels())
+    b = max(blobs, key=lambda b: b.pixels())
     img.draw_rectangle(b.rect(), (0,255,0))
     img.draw_cross(b.cx(), b.cy(), (0,255,0))
 
@@ -144,7 +144,7 @@ while True:
     yr_future = yr + vy * TIME_FUTURE
 
     # 4.5) send to esp
-    uart.writechar(1)
+    uart.writechar(5)
     if(ballExists):
         uartwrite(ball_angle)
         uartwrite(dist_real)

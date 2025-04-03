@@ -39,7 +39,7 @@ def sendVar(var):
     var = round(abs(var) * 128)
     uart.writechar(var & 0xFF)
     uart.writechar((var >> 8) & 0xFF)
-    # print(var & 0xFF, " ", (var >> 8) & 0xFF, " ")
+    #print(var & 0xFF, (var >> 8) & 0xFF)
 
 prevCoords = [0,0]
 prevTime = 0
@@ -124,7 +124,7 @@ while True:
     else:
         no_ball = True
 
-    uart.writechar(1)
+    uart.writechar(5)
     if(no_ball==False):
         sendVar(x3)
         sendVar(y3)

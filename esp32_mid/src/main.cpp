@@ -9,6 +9,7 @@
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <esp_now.h>
+#include <esp_task_wdt.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -18,7 +19,7 @@
 #endif
 
 // #define SECOND_BOT
-#define LOOK_AHEAD
+// #define LOOK_AHEAD
 
 //// ** DEFINITIONS ** ////
 
@@ -335,13 +336,13 @@ void getTopPlateData(){
 
 void getTopCamData(){
     if(Serial1.available()>=CAM_SERIAL_DATA_LEN){
-        while(Serial1.available()>=CAM_SERIAL_DATA_LEN && Serial1.peek()!=1) {
-            Serial.println("Camera first byte not 1");
+        while(Serial1.available()>=CAM_SERIAL_DATA_LEN && Serial1.peek()!=5) {
+            Serial.println("Camera first byte not 5");
             Serial1.read();
         }
         int len = Serial1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
         // while(Serial1.available()) Serial1.read();
-        if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=1){
+        if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=5){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
             Serial.print(", data: ");
@@ -357,6 +358,11 @@ void getTopCamData(){
             if(uartBufferCam[5] == 0) top_ball_vx *= -1;
             top_ball_vy = (float)(uartBufferCam[9] + (uartBufferCam[10]<<8)) / 128;
             if(uartBufferCam[8] == 0) top_ball_vy *= -1;
+
+            DEBUG(top_ball_angle);
+            DEBUG(top_ball_dist);
+            DEBUG(top_ball_vx);
+            DEBUG(top_ball_vy);
 
             if(top_ball_angle==0 && top_ball_dist==0) {
                 noBall = true;
@@ -377,12 +383,12 @@ void getTopCamData(){
             top_absolute_ball_x = top_relative_ball_x + self_x;
             top_absolute_ball_y = top_relative_ball_y + self_y;
 
-            DEBUG(ball_vx);
-            DEBUG(ball_vy);
-            DEBUG(top_relative_ball_x);
-            DEBUG(top_relative_ball_y);
-            DEBUG(top_absolute_ball_x);
-            DEBUG(top_absolute_ball_y);
+            // DEBUG(ball_vx);
+            // DEBUG(ball_vy);
+            // DEBUG(top_relative_ball_x);
+            // DEBUG(top_relative_ball_y);
+            // DEBUG(top_absolute_ball_x);
+            // DEBUG(top_absolute_ball_y);
         }
     }
 }
@@ -419,12 +425,6 @@ void getBottomPlateData(){
 
     front_absolute_ball_x = front_ball_x + self_x;
     front_absolute_ball_y = front_ball_y + self_y;
-
-    for (auto i : rcvBuffer) {
-        Serial.print(i);
-        Serial.print(" ");
-    }
-    Serial.println();
 
     // DEBUG(front_ball_x);
     // DEBUG(front_ball_y);
@@ -768,6 +768,9 @@ void setup(){
     pinMode(TURN_OFF_SW, INPUT);
     pinMode(VOLTAGE_PIN, INPUT);
     analogSetAttenuation(ADC_11db);
+
+    esp_task_wdt_init(1, true); // timeout in seconds
+    enableLoopWDT();
 
     Wire.begin(SDA_PIN, SCL_PIN, 400000);
 
