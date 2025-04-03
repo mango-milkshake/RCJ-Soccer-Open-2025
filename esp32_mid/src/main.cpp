@@ -125,6 +125,7 @@ Kicker kicker(KICKER_PIN);
 
 // ESP Bluetooth Communication
 uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
+uint8_t own_mac_address[6];
 typedef struct struct_message {
     int isPresent;
     bool def;
@@ -209,29 +210,39 @@ void checkFault(){
 }
 
 void readMacAddress(){ //read own mac address and set broadcast address to other bot
-    uint8_t own_mac_address[6];
+
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
     if (ret == ESP_OK) {
-    Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
-                  own_mac_address[0], own_mac_address[1], own_mac_address[2],
-                  own_mac_address[3], own_mac_address[4], own_mac_address[5]);
-    } 
-    else{
-        Serial.println("Failed to read MAC address");
+    // Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+    //               own_mac_address[0], own_mac_address[1], own_mac_address[2],
+    //               own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    // } 
+    // else{
+    //     Serial.println("Failed to read MAC address");
+    // }
+    const uint8_t MAC_1[6] = {0x3c, 0x84, 0x27, 0x26, 0x03, 0x14};
+    const uint8_t MAC_2[6] = {0x3c, 0x84, 0x27, 0x26, 0x02, 0x48};
+    if (memcmp(own_mac_address, MAC_1, 6) == 0){
+        memcpy(broadcastAddress, MAC_2, 6);
+    }
+    else if (memcmp(own_mac_address, MAC_2, 6) == 0){
+        memcpy(broadcastAddress, MAC_1, 6);
+    }
     }
 }
 
 void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
-    //Serial.print("\r\nLast Packet Send Status:\t");
-    //Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+    Serial.print("\r\nLast Packet Send Status:\t");
+    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
 
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
     memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
+    Serial.println(espnowDataRecv.isPresent);
 }
 
 void set_up_esp_now(){
-    esp_now_peer_info_t peerInfo = {};
+
     WiFi.mode(WIFI_STA);
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
@@ -243,14 +254,14 @@ void set_up_esp_now(){
     esp_now_register_recv_cb(onDataRecv);
     
     // Register peer
+    esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, broadcastAddress, 6);
     peerInfo.channel = 0;  
     peerInfo.encrypt = false;
     
     // Add peer        
-    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
         Serial.println("Failed to add peer");
-        return;
     }
 }
 
@@ -262,13 +273,15 @@ void sendData(){ //send data here
     espnowData.ypos = self_y;
     espnowData.hasBall = ballCap ? true : false;
 
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &espnowData, sizeof(espnowData));        
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espnowData, sizeof(espnowData));
+
     if (result == ESP_OK) {
-        //Serial.println("Sent with success");
+        Serial.println("✅ ESP-NOW: Data sent successfully.");
+    } else {
+        Serial.print("❌ ESP-NOW: Send failed, error code: ");
+        Serial.println(result);
     }
-    else {
-        //Serial.println("Error sending the data");
-    }
+
 }
 
 void assignDef(){
@@ -413,10 +426,10 @@ void getBottomPlateData(){
     }
     Serial.println();
 
-    DEBUG(front_ball_x);
-    DEBUG(front_ball_y);
-    DEBUG(front_ball_vx);
-    DEBUG(front_ball_vy);
+    // DEBUG(front_ball_x);
+    // DEBUG(front_ball_y);
+    // DEBUG(front_ball_vx);
+    // DEBUG(front_ball_vy);
 
     ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
     // DEBUG(ballCap);
@@ -693,8 +706,8 @@ void lookAhead(){
 
         if(!validt){ //if ball is too fast, reduce ball's velocity and calculate that position instead
             float theta_invalid_t;
-            if ((LAball_vx) > pow(10, -8)){ 
-                theta_invalid_t = atan(LAball_vy/LAball_vx);}
+            if (abs(LAball_vx) > pow(10, -8)){ 
+                theta_invalid_t = atan2(LAball_vy,LAball_vx);}
             else{theta_invalid_t = 3.1415/2;}
             LAball_vx = 0.9*v*cos(theta_invalid_t); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
             LAball_vx = 0.9*v*sin(theta_invalid_t);
@@ -763,8 +776,9 @@ void setup(){
     dribblerMD.init();
     dribblerMD.setMode();
 
-    set_up_esp_now();
     readMacAddress();
+    set_up_esp_now();
+
     if(espnowDataRecv.isPresent == 2) isDefender = false;
     else isDefender = true;
 
@@ -781,8 +795,8 @@ void setup(){
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
-    Serial.print("time: ");
-    Serial.println(curTime - lastLoopTime);
+    //Serial.print("time: ");
+    //Serial.println(curTime - lastLoopTime);
     lastLoopTime = millis();
 
     if(millis() - lastLED >= BLINK_TIME){
@@ -797,13 +811,20 @@ void loop(){
     else turnOff = false;
 
     // readVoltage();
-    checkFault();
-    getTopPlateData();
-    getTopCamData();
-    getBottomPlateData();
-    ballCapStatus();
+    //checkFault();
+    //getTopPlateData();
+    //getTopCamData();
+    //getBottomPlateData();
+    //ballCapStatus();
 
     sendData();
+    // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
+    //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
+    //           own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    // Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
+    //           broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
+    //           broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
+    Serial.println(espnowDataRecv.isPresent);
 
     if(millis() - lastDribblerRev < 1000) ;
     else if(ballCap || (top_ball_dist>0 && top_ball_dist<=60)) dribbler.setSpeed(1.0);
