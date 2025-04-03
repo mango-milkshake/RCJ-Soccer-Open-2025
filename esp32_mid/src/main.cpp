@@ -158,6 +158,7 @@ struct_message espnowDataRecv;
 #define FIELD_MARGIN_Y 0.37f
 #define LAST_SEEN_BALL_TIME 500
 #define SCORING_WAIT_TIME 500
+#define DEFENDER_WAIT_TIME 3000
 
 // Variables
 float self_x = 0, self_y = 0, self_heading = 0;
@@ -323,7 +324,7 @@ void assignDef(){
     else if (espnowDataRecv.def == false){
         isDefender = true;
     }    
-    if(isDefender && ballCap && millis() - lastNoBallCap >= SCORING_WAIT_TIME){ //check if the bot has the ball 
+    if(isDefender && ballCap && millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
         isDefender = false;
     }
     if(espnowDataRecv.inField == false){ //check if the other bot is in the field
