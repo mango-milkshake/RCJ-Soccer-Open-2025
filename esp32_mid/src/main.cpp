@@ -211,7 +211,7 @@ void checkFault(){
 }
 
 void readMacAddress(){ //read own mac address and set broadcast address to other bot
-
+    WiFi.mode(WIFI_STA);
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
     if (ret == ESP_OK) {
     // Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -223,6 +223,7 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     // }
     const uint8_t MAC_1[6] = {0x3c, 0x84, 0x27, 0x26, 0x03, 0x14};
     const uint8_t MAC_2[6] = {0x3c, 0x84, 0x27, 0x26, 0x02, 0x48};
+    //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
     }
@@ -233,22 +234,24 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
 }
 
 void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
-    Serial.print("\r\nLast Packet Send Status:\t");
-    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+    // Serial.print("\r\nLast Packet Send Status:\t");
+    // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
 
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
     memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
-    Serial.println(espnowDataRecv.isPresent);
+   // Serial.println(espnowDataRecv.isPresent);
 }
 
 void set_up_esp_now(){
-
+    WiFi.disconnect(true);
     WiFi.mode(WIFI_STA);
+
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
+
 
     //callback functions for sending and receiving
     esp_now_register_send_cb(onDataSent);
@@ -257,7 +260,7 @@ void set_up_esp_now(){
     // Register peer
     esp_now_peer_info_t peerInfo = {};
     memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-    peerInfo.channel = 0;  
+    peerInfo.channel = 1;  
     peerInfo.encrypt = false;
     
     // Add peer        
@@ -276,13 +279,33 @@ void sendData(){ //send data here
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espnowData, sizeof(espnowData));
 
-    if (result == ESP_OK) {
-        Serial.println("✅ ESP-NOW: Data sent successfully.");
-    } else {
-        Serial.print("❌ ESP-NOW: Send failed, error code: ");
-        Serial.println(result);
-    }
-
+    // switch (result) {
+    //     case ESP_OK:
+    //         Serial.println("✅ ESP-NOW: Data sent successfully.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_NOT_INIT:
+    //         Serial.println("❌ ESP-NOW: Not initialized.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_ARG:
+    //         Serial.println("❌ ESP-NOW: Invalid argument.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_INTERNAL:
+    //         Serial.println("❌ ESP-NOW: Internal error.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_NO_MEM:
+    //         Serial.println("❌ ESP-NOW: Out of memory.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_NOT_FOUND:
+    //         Serial.println("❌ ESP-NOW: Peer not found.");
+    //         break;
+    //     case ESP_ERR_ESPNOW_IF:
+    //         Serial.println("❌ ESP-NOW: Interface error.");
+    //         break;
+    //     default:
+    //         Serial.print("❌ ESP-NOW: Unknown error: ");
+    //         Serial.println(result);
+    //         break;
+    // }
 }
 
 void assignDef(){
@@ -782,8 +805,8 @@ void setup(){
     readMacAddress();
     set_up_esp_now();
 
-    if(espnowDataRecv.isPresent == 2) isDefender = false;
-    else isDefender = true;
+    //if(espnowDataRecv.isPresent == 2) isDefender = false;
+    //else isDefender = true;
 
     strip.begin();
     strip.setBrightness(LED_BRIGHTNESS);
@@ -795,13 +818,13 @@ void setup(){
 
 }
 
+int esp_last_send;
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
     //Serial.print("time: ");
     //Serial.println(curTime - lastLoopTime);
     lastLoopTime = millis();
-
     if(millis() - lastLED >= BLINK_TIME){
         esp_led_state = !esp_led_state;
         lastLED = millis();
@@ -810,24 +833,28 @@ void loop(){
     else esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
     esp_led.show();
 
+
     if(digitalRead(TURN_OFF_SW)==HIGH) turnOff = true;
     else turnOff = false;
 
-    // readVoltage();
+    //readVoltage();
     //checkFault();
     //getTopPlateData();
     //getTopCamData();
     //getBottomPlateData();
     //ballCapStatus();
 
-    sendData();
+    if (curTime - esp_last_send >= 500){
+        sendData();
+        esp_last_send = curTime;
+    }
+
     // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
     //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
     //           own_mac_address[3], own_mac_address[4], own_mac_address[5]);
     // Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
     //           broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
     //           broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
-    Serial.println(espnowDataRecv.isPresent);
 
     if(millis() - lastDribblerRev < 1000) ;
     else if(ballCap || (top_ball_dist>0 && top_ball_dist<=60)) dribbler.setSpeed(1.0);
@@ -835,7 +862,7 @@ void loop(){
     else dribbler.setSpeed(0.5);
 
     #ifdef SECOND_BOT
-
+    
     // 1) If no ball and it's been too long, just stay put
     if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
         movement(0.91f, 0.60f, 0);
@@ -885,7 +912,7 @@ void loop(){
     else if(!noBall){
         dribblerBallTrack();
     }
-    else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);   
     #endif
 
     if(!noBall) {
