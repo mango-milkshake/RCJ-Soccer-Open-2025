@@ -59,13 +59,13 @@ void getAllLineData(){
 
 void getCamData(){
     if(Serial1.available()>=CAM_DATA_LEN){
-        while(Serial1.available()>=CAM_DATA_LEN && Serial1.peek()!=1) {
-            Serial.println("Camera first byte not 1");
+        while(Serial1.available()>=CAM_DATA_LEN && Serial1.peek()!=5) {
+            Serial.println("Camera first byte not 5");
             Serial1.read();
         }
         int len = Serial1.readBytes(camBuffer, CAM_DATA_LEN);
         Serial.println(len);
-        if(len!=CAM_DATA_LEN || camBuffer[0]!=1){
+        if(len!=CAM_DATA_LEN || camBuffer[0]!=5){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
             Serial.print(", data: ");
