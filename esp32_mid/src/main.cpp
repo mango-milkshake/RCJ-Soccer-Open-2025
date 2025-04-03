@@ -841,8 +841,8 @@ void setup(){
     readMacAddress();
     set_up_esp_now();
 
-    //if(espnowDataRecv.isPresent == 2) isDefender = false;
-    //else isDefender = true;
+    if(espnowDataRecv.isPresent == 2) isDefender = false;
+    else isDefender = true;
 
     strip.begin();
     strip.setBrightness(LED_BRIGHTNESS);
