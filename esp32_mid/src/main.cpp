@@ -56,6 +56,9 @@ bool turnOff = false;
 #define OPP_GOAL_CENTRE_Y 2.384
 #define OPP_GOAL_MIDDLE_X 0.91
 #define OPP_GOAL_MIDDLE_Y 2.06
+#define OPP_GOAL_LEFT_X 0.61
+#define OPP_GOAL_RIGHT_X 1.21
+#define OPP_GOAL_Y 2.31
 #define BOT_RADIUS_CM 8.5 // in cm
 #define BOT_RADIUS_M 0.085 // in metres
 
@@ -113,7 +116,7 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define DRVOFF_PIN 37
 MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
-uint8_t dribbler_maxspeed = 80;
+uint8_t dribbler_maxspeed = 120;
 Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
 float lastFault = 0;
 
@@ -154,7 +157,7 @@ struct_message espnowDataRecv;
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
 #define LAST_SEEN_BALL_TIME 500
-#define SCORING_WAIT_TIME 200
+#define SCORING_WAIT_TIME 500
 
 // Variables
 float self_x = 0, self_y = 0, self_heading = 0;
@@ -167,6 +170,9 @@ float front_ball_x = 0, front_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
 float front_absolute_ball_x = 0, front_absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
 int current_target_x = 999, current_target_y = 999;
+float self_velocityx = 0, self_velocityy = 0;
+float last_self_x = 0, last_self_y = 0;
+unsigned long last_vel_time = 0;
 
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
@@ -511,7 +517,7 @@ void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
 
 void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
-    if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.28, FIELD_WIDTH - 0.28);
+    if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.28, FIELD_HEIGHT - 0.28);
     else target_y = constrain(target_y, 0.12, FIELD_HEIGHT - 0.12);
     float x_dist = target_x - self_x, y_dist = target_y - self_y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
@@ -674,7 +680,12 @@ void aim(){
 void dribblerAim(){
     float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self_y, OPP_GOAL_CENTRE_X - self_x);
     movement(OPP_GOAL_MIDDLE_X, OPP_GOAL_MIDDLE_Y, 90-DEG(angleToFace));
-    if(ballCap && self_y > 1.62 && (self_heading > -75 && self_heading < 75)) {
+    float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_LEFT_X - self_x));
+    float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_RIGHT_X - self_x));
+    LIM_ANGLE_180(minAngleFace);
+    LIM_ANGLE_180(maxAngleFace);
+    if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
+    if(ballCap && self_y > 1.62 && (self_heading >= minAngleFace && self_heading <= maxAngleFace)) {
         kicker.kick();
         dribbler.setSpeed(-1.0);
         lastDribblerRev = millis();
@@ -781,6 +792,27 @@ void lookAhead(){
     }
 }
 
+//velocity of robot with moving average
+void updateSelfVelocityEWMA(float current_self_x, float current_self_y) {
+    unsigned long now = millis();
+    float dt = (now - last_vel_time) / 1000.0f; 
+    if (dt < 1e-6f) {
+        return;
+    }
+
+    float inst_vx = (current_self_x - last_self_x) / dt;  
+    float inst_vy = (current_self_y - last_self_y) / dt;  
+
+    // Exponential Weighted Moving Average update, beta parameter used = 0.8
+    self_velocityx = 0.2f * inst_vx + (0.8f) * self_velocityx;
+    self_velocityy = 0.2f * inst_vy + (0.8f) * self_velocityy;
+
+    // Save current data for next iteration
+    last_self_x = current_self_x;
+    last_self_y = current_self_y;
+    last_vel_time   = now;
+}
+
 void defend(){
     float leftAngle = atan2(SELF_GOAL_Y - top_absolute_ball_y, SELF_GOAL_LEFT_X - top_absolute_ball_x);
     float rightAngle = atan2(SELF_GOAL_Y - top_absolute_ball_y, SELF_GOAL_RIGHT_X - top_absolute_ball_x);
@@ -875,13 +907,16 @@ void loop(){
         sendData();
         esp_last_send = curTime;
     }
+    updateSelfVelocityEWMA(self_x, self_y);
 
+    // sendData();
     // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
     //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
     //           own_mac_address[3], own_mac_address[4], own_mac_address[5]);
     // Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
     //           broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
     //           broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
+    // Serial.println(espnowDataRecv.isPresent);
 
     if(millis() - lastDribblerRev < 1000) ;
     else if(ballCap || (top_ball_dist>0 && top_ball_dist<=60)) dribbler.setSpeed(1.0);

@@ -19,18 +19,14 @@ sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QVGA)
 
-sensor.set_gainceiling(32)
-sensor.set_auto_gain(False)
-sensor.set_auto_whitebal(False)
-sensor.set_contrast(0)
-sensor.set_auto_exposure(False, exposure_us=14000)
-sensor.set_auto_gain(False, gain_db=-5)
-sensor.set_auto_whitebal(False)
-sensor.set_contrast(3)
+sensor.set_gainceiling(128)
+sensor.set_auto_whitebal(False) # must be turned off for color tracking
 
-sensor.skip_frames(time=200)
+sensor.skip_frames(time=500)
+sensor.set_auto_exposure(False, exposure_us=2000)
+sensor.set_auto_gain(False, gain_db = 8)
+
 clock = time.clock()
-
 led2 = pyb.LED(2)
 led2.on()
 
