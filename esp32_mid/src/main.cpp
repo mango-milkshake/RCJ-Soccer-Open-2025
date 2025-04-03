@@ -879,6 +879,7 @@ void loop(){
     getTopCamData();
     getBottomPlateData();
     ballCapStatus();
+    updateSelfVelocityEWMA(self_x, self_y);
 
     // sendData();
     // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
