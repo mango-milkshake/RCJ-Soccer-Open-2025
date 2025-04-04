@@ -46,6 +46,7 @@ bool turnOff = false;
 // state switch
 #define STATE_SW 41
 #define STATE_SWAP_TIME 1000
+#define TOTAL_STATES 3
 float lastStateSwap = 0;
 int codeState = 0; // 0 = dribbler + ball hide, 1 = dribbler + normal scoring, 2 = without dribbler
 // pause switches
@@ -167,7 +168,9 @@ struct_message espnowDataRecv;
 #define FIELD_MARGIN_Y 0.37f
 #define LAST_SEEN_BALL_TIME 500
 #define SCORING_WAIT_TIME 500
-#define DEFENDER_WAIT_TIME 3000
+#define DEFENDER_WAIT_TIME 1500
+#define DEFENDER_MAX_YPOS 0.80
+#define ATTACKER_MIN_BALL_YPOS 0.80
 
 // Variables
 float self_x = 0, self_y = 0, self_heading = 0;
@@ -178,6 +181,7 @@ float top_relative_ball_x = 0, top_relative_ball_y = 0;
 float top_absolute_ball_x = 0, top_absolute_ball_y = 0;
 float front_ball_x = 0, front_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
 float front_absolute_ball_x = 0, front_absolute_ball_y = 0;
+float final_absolute_ball_x = 0, final_absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
 int current_target_x = 999, current_target_y = 999;
 float self_velocityx = 0, self_velocityy = 0;
@@ -444,6 +448,8 @@ void getTopCamData(){
             top_absolute_ball_x = top_relative_ball_x + self_x;
             top_absolute_ball_y = top_relative_ball_y + self_y;
 
+            final_absolute_ball_x = top_absolute_ball_x;
+            final_absolute_ball_y = top_absolute_ball_y;
 
             // DEBUG(ball_vx);
             // DEBUG(ball_vy);
@@ -487,6 +493,11 @@ void getBottomPlateData(){
 
     front_absolute_ball_x = front_ball_x + self_x;
     front_absolute_ball_y = front_ball_y + self_y;
+
+    if(front_ball_x!=0 && front_ball_y!=0){
+        final_absolute_ball_x = front_absolute_ball_x;
+        final_absolute_ball_y = front_absolute_ball_y;
+    }
 
     // DEBUG(front_ball_x);
     // DEBUG(front_ball_y);
@@ -546,6 +557,8 @@ void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
     if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.28, FIELD_HEIGHT - 0.28);
     else target_y = constrain(target_y, 0.12, FIELD_HEIGHT - 0.12);
+
+    if(isDefender) target_y = constrain(target_y, 0, DEFENDER_MAX_YPOS);
     float x_dist = target_x - self_x, y_dist = target_y - self_y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
     float total_angle = atan2(y_dist, x_dist) + RAD(self_heading) - PI/4; // in radians
@@ -891,6 +904,13 @@ void defend(){
     newDistToBall = BOT_RADIUS_M / sinHalfAngle;
     new_x = top_absolute_ball_x + newDistToBall * cosf(midAngle);
     new_y = top_absolute_ball_y + newDistToBall * sinf(midAngle);
+    if(new_y > 0.80){
+        float denom = (new_x - 0.91f);
+        float slope = (new_y - 0.12f)/ (denom);
+        new_y = 0.80f;
+        float dydefend = (new_y - 0.12f);
+        new_x = 0.91f + (dydefend / slope);
+    }
     // DEBUG(new_x);
     // DEBUG(new_y);
     movement(new_x, new_y, 0);
@@ -962,16 +982,14 @@ void loop(){
     //readVoltage();
     checkFault();
     getTopPlateData();
+    getTopCamData();
     getBottomPlateData();
-    if(!(front_ball_x != 0 && front_ball_y != 0)){
-        getTopCamData();    
-    }
 
     ballCapStatus();
 
     if(digitalRead(STATE_SW)==HIGH && millis() - lastStateSwap >= STATE_SWAP_TIME){
         codeState++;
-        codeState %= 3;
+        codeState %= TOTAL_STATES;
     }
 
     if(digitalRead(PAUSE_SW1)==HIGH || digitalRead(PAUSE_SW2)==HIGH){
@@ -1019,45 +1037,47 @@ void loop(){
         pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
         pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
         pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+        if (!ballCap){
+            if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
+                movement(0.91f, 0.60f, 0);
+            }
+            // 2) Else if the ball is within the no-chase region near the goal
+            else if (top_absolute_ball_x > 0.62f && top_absolute_ball_x < 1.20f &&
+                    top_absolute_ball_y < 0.25f)
+            {
+                movement(0.91f, 0.60f, 0);
+            }
+            // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
+            else if (top_absolute_ball_y <  0.80f) {
+                if (top_absolute_ball_x > 0.62f && top_absolute_ball_x < 1.20f && top_absolute_ball_y < self_y){
+                    pid_rotate.setConfig(0.4, 0, 0);
+                    pid_x.setConfig(1.9, 0, 0);
+                    pid_y.setConfig(1.9, 0, 0);                
+                }
+                else {
+                    pid_rotate.setConfig(0.5, 0, 0);
+                    pid_x.setConfig(2.2, 0, 0);
+                    pid_y.setConfig(2.2, 0, 0);  
+                }
+                if (noBall) {
+                    top_absolute_ball_x = last_ball_x;
+                    top_absolute_ball_y = last_ball_y;
+                    dribblerBallTrack();
+                }
+                // 3b) If we DO see the ball => track it with the dribbler
+                else {
+                    dribblerBallTrack();
+                }
+                pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+                pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+                pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+            }
+            // 4) Otherwise => geometry-based blocking
+            else {
+                
+                defend();
+            }
 
-        if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
-            movement(0.91f, 0.60f, 0);
-        }
-        // 2) Else if the ball is within the no-chase region near the goal
-        else if (top_absolute_ball_x > 0.62f && top_absolute_ball_x < 1.20f &&
-                top_absolute_ball_y < 0.25f)
-        {
-            movement(0.91f, 0.60f, 0);
-        }
-        // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
-        else if (top_absolute_ball_y <  0.60f) {
-            if (top_absolute_ball_x > 0.62f && top_absolute_ball_x < 1.20f && top_absolute_ball_y < self_y){
-                pid_rotate.setConfig(0.4, 0, 0);
-                pid_x.setConfig(1.9, 0, 0);
-                pid_y.setConfig(1.9, 0, 0);                
-            }
-            else {
-                pid_rotate.setConfig(0.5, 0, 0);
-                pid_x.setConfig(2.2, 0, 0);
-                pid_y.setConfig(2.2, 0, 0);  
-            }
-            if (noBall) {
-                top_absolute_ball_x = last_ball_x;
-                top_absolute_ball_y = last_ball_y;
-                dribblerBallTrack();
-            }
-            // 3b) If we DO see the ball => track it with the dribbler
-            else {
-                dribblerBallTrack();
-            }
-            pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
-            pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
-            pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
-        }
-        // 4) Otherwise => geometry-based blocking
-        else {
-            
-            defend();
         }
 
     }
@@ -1077,15 +1097,15 @@ void loop(){
                 else if(codeState==1) dribblerAim();
             }
             else if(ballCap) sendI2C(zeroBuffer);
-            else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
+            else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME && top_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
                 top_absolute_ball_x = last_ball_x;
                 top_absolute_ball_y = last_ball_y;
                 dribblerBallTrack();
             }
-            else if(!noBall){
+            else if(!noBall && top_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
                 dribblerBallTrack();
             }
-        else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31); 
+            else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31); 
         }
     }
     if(!noBall) {
