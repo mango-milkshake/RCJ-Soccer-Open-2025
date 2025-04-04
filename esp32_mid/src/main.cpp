@@ -1006,10 +1006,10 @@ void loop(){
     //           broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
     // Serial.println(espnowDataRecv.isPresent);
 
-   /* if(millis() - lastDribblerRev < 1000) ;
+    if(millis() - lastDribblerRev < 1000) ;
     else if(ballCap || (top_ball_dist>0 && top_ball_dist<=60)) dribbler.setSpeed(1.0);
     else if(noBall) dribbler.setSpeed(0);
-    else dribbler.setSpeed(0.5);*/
+    else dribbler.setSpeed(0.5);
 
     if(codeState==0) setLED(11, 11, strip.Color(0, 15, 0)); // green
     else if(codeState==1) setLED(11, 11, strip.Color(0, 15, 15)); // cyan
