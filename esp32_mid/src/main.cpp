@@ -19,7 +19,7 @@
 #endif
 
 // #define SECOND_BOT
-//#define LOOK_AHEAD
+// #define LOOK_AHEAD
 
 //// ** DEFINITIONS ** ////
 
@@ -158,7 +158,6 @@ struct_message espnowDataRecv;
 #define FIELD_MARGIN_Y 0.37f
 #define LAST_SEEN_BALL_TIME 500
 #define SCORING_WAIT_TIME 500
-#define DEFENDER_WAIT_TIME 3000
 
 // Variables
 float self_x = 0, self_y = 0, self_heading = 0;
@@ -170,6 +169,7 @@ float top_absolute_ball_x = 0, top_absolute_ball_y = 0;
 float front_ball_x = 0, front_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
 float front_absolute_ball_x = 0, front_absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
+int current_target_x = 999, current_target_y = 999;
 float self_velocityx = 0, self_velocityy = 0;
 float last_self_x = 0, last_self_y = 0;
 unsigned long last_vel_time = 0;
@@ -181,6 +181,7 @@ float speed_xdir, speed_ydir, rotation;
 float lastDribblerRev = 0;
 float other_x = 0, other_y = 0;
 bool isDefender = true;
+bool lookingAhead = false;
 
 bool moving_back = false;
 unsigned long last_moving_back = 0;
@@ -229,8 +230,8 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     // else{
     //     Serial.println("Failed to read MAC address");
     // }
-    const uint8_t MAC_1[6] = {0x3c, 0x84, 0x27, 0x26, 0x03, 0x14};
-    const uint8_t MAC_2[6] = {0x3c, 0x84, 0x27, 0x26, 0x02, 0x48};
+    const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60};
+    const uint8_t MAC_2[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x40};
     //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
@@ -248,6 +249,12 @@ void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){
 
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
     memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
+    DEBUG(espnowDataRecv.isPresent);
+    DEBUG(espnowDataRecv.inField);
+    DEBUG(espnowDataRecv.xpos);
+    DEBUG(espnowDataRecv.ypos);
+    DEBUG(espnowDataRecv.def);
+    DEBUG(espnowDataRecv.hasBall);
    // Serial.println(espnowDataRecv.isPresent);
 }
 
@@ -358,8 +365,8 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
             setLED(1, 2, strip.Color(15, 0, 15));
-            // DEBUG(self_x);
-            // DEBUG(self_y);
+            DEBUG(self_x);
+            DEBUG(self_y);
             // DEBUG(self_heading);
         }
     }
@@ -391,6 +398,9 @@ void getTopCamData(){
             top_ball_vy = (float)(uartBufferCam[9] + (uartBufferCam[10]<<8)) / 128;
             if(uartBufferCam[8] == 0) top_ball_vy *= -1;
 
+            //top_ball_vy *= -1;
+          //  top_ball_vx *= -1;
+                    
             DEBUG(top_ball_angle);
             DEBUG(top_ball_dist);
             DEBUG(top_ball_vx);
@@ -406,21 +416,24 @@ void getTopCamData(){
                 lastSeenBall = millis();
             }
 
-            float relative_angle = 90 - (top_ball_angle + self_heading);
+            float relative_angle = 90 - (top_ball_angle + self_heading); 
             top_relative_ball_x = (top_ball_dist * cosf(RAD(relative_angle))) / 100;
             top_relative_ball_y = (top_ball_dist * sinf(RAD(relative_angle))) / 100;
 
             ball_vx = top_ball_vx;
             ball_vy = top_ball_vy;
+            ball_vx -= self_velocityx;
+            ball_vy -= self_velocityy;
             top_absolute_ball_x = top_relative_ball_x + self_x;
             top_absolute_ball_y = top_relative_ball_y + self_y;
+
 
             // DEBUG(ball_vx);
             // DEBUG(ball_vy);
             // DEBUG(top_relative_ball_x);
             // DEBUG(top_relative_ball_y);
-            // DEBUG(top_absolute_ball_x);
-            // DEBUG(top_absolute_ball_y);
+            DEBUG(top_absolute_ball_x);
+            DEBUG(top_absolute_ball_y);
         }
     }
 }
@@ -697,7 +710,7 @@ void frontCamTrack(){
 }
 
 void lookAhead(){
-    float v = 0.5;
+    float v = 0.75;
     float latency = 0;
     bool validt = false;
     bool useFrontCam = false;
@@ -705,6 +718,13 @@ void lookAhead(){
     float t;
     float LAball_x, LAball_y, LAball_vx, LAball_vy;
 
+    // if((abs(self_x - current_target_x) >= 0.2 && abs (self_y - current_target_y) >= 0.2) && (current_target_x != 999) && (current_target_y != 99)){ //moving to target
+         //lookingAhead = true;
+    // }
+    // else{ //arrived at target
+         //lookingAhead = false;
+    // }
+    lookingAhead = true;
     if(useFrontCam){
         frontCamTrack();
         LAball_x = front_absolute_ball_x + ball_vx * latency;
@@ -717,49 +737,54 @@ void lookAhead(){
         LAball_y = top_absolute_ball_y + ball_vy * latency;
         LAball_vx = ball_vx;
         LAball_vy = ball_vy;
+        LAball_vx -= self_velocityx;
+        LAball_vy -= self_velocityy;
+        // DEBUG(LAball_vx);
     }
 
-    int i = 0;
-    while(!validt && i < 5){
-        i++;
-        float C = LAball_x*LAball_x + LAball_y*LAball_y;
-        float B = 2*(LAball_x*ball_vx + LAball_y*LAball_vy);
-        float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
+    float C = LAball_x*LAball_x + LAball_y*LAball_y;
+    float B = 2*(LAball_x*ball_vx + LAball_y*LAball_vy);
+    float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
+    validt = false;
 
-        if (abs(A) > pow(10, -8) && (B*B - 4*A*C) >= 0){ //we get two solutions for time, so we want to find the minimum time that is not negative
-            float t1 = -1*B - pow((B*B - 4*A*C), 0.5)/(2*A); 
-            float t2 = -1*B + pow((B*B - 4*A*C), 0.5)/(2*A); 
-            if (t1 >= 0 && t2 >= 0){
-                t = min(t1, t2);
-                validt = true;
-            }
-            else if (t1 >= 0){
-                t = t1;
-                validt = true;
-            }
-            else if (t2 >= 0){
-                t = t2;
-                validt = true;
-            }  
-            lookAheadConfirm = true;
+    if (abs(A) > pow(10, -8) && (B*B - 4*A*C) >= 0){ //we get two solutions for time, so we want to find the minimum time that is not negative
+        float t1 = (-1*B - pow((B*B - 4*A*C), 0.5))/(2*A); 
+        float t2 = (-1*B + pow((B*B - 4*A*C), 0.5))/(2*A); 
+        if (t1 >= 0 && t2 >= 0){
+            t = min(t1, t2);
+            validt = true;
         }
-
-        if(!validt){ //if ball is too fast, reduce ball's velocity and calculate that position instead
-            float theta_invalid_t;
-            if (abs(LAball_vx) > pow(10, -8)){ 
-                theta_invalid_t = atan2(LAball_vy,LAball_vx);}
-            else{theta_invalid_t = 3.1415/2;}
-            LAball_vx = 0.9*v*cos(theta_invalid_t); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
-            LAball_vy = 0.9*v*sin(theta_invalid_t);
+        else if (t1 >= 0){
+            t = t1;
+            validt = true;
+        }
+        else if (t2 >= 0){
+            t = t2;
+            validt = true;
         }  
+        lookAheadConfirm = true;
     }
+
+    if(!validt){ //ball is too fast
+        // float theta_invalid_t;
+        // if (abs(LAball_vx) > pow(10, -8)){ 
+        //     theta_invalid_t = atan2(LAball_vy,LAball_vx);}
+        // else{theta_invalid_t = 3.1415/2;}
+        // LAball_vx = 0.9*v*cos(theta_invalid_t); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
+        // LAball_vy = 0.9*v*sin(theta_invalid_t);
+        lookingAhead = false;
+        //sendI2C(zeroBuffer);
+        dribblerBallTrack();
+        lookAheadConfirm = false;
+    }  
+    
 
     //assume front is facing towards positive y
     float targetballposx = LAball_x + LAball_vx*t;
     float targetballposy = LAball_y + LAball_vy*t;
     //float targetheadinglookahead = atan2(targetballposx,targetballposy) * (180/3.1415) + 90; 
-    targetballposx = (targetballposx + self_x)/100;
-    targetballposy = (targetballposx + self_y)/100;
+    // targetballposx = (targetballposx + self_x);
+    // targetballposy = (targetballposx + self_y);
 
     // DEBUG(self_x);
     // DEBUG(self_y);
@@ -767,13 +792,22 @@ void lookAhead(){
     // DEBUG(LAball_y);
     // DEBUG(LAball_vx);
     // DEBUG(LAball_vy);
+    // DEBUG(t);
     // DEBUG(targetballposy);
     // DEBUG(targetballposx);
 
-    if (lookAheadConfirm){movement(targetballposx, targetballposy, 0);}
+    if (lookAheadConfirm){
+        float xToBall = top_absolute_ball_x - self_x, yToBall = top_absolute_ball_y - self_y;
+        float absBallAngle = atan2(yToBall, xToBall);
+        movement(targetballposx, targetballposy, 90-DEG(absBallAngle));
+        current_target_x = targetballposx;
+        current_target_y = targetballposy;
+        Serial.println("Moving to new target");
+    }
 }
 
 //velocity of robot with moving average
+
 void updateSelfVelocityEWMA(float current_self_x, float current_self_y) {
     unsigned long now = millis();
     float dt = (now - last_vel_time) / 1000.0f; 
@@ -858,7 +892,8 @@ void setup(){
 
 int esp_last_send;
 int LA_ball_seen;
-bool lookAheadDelay = false;
+float prev_ball_vx, prev_ball_vy;
+float prev_prev_ball_vx, prev_prev_ball_vy;
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
@@ -876,28 +911,33 @@ void loop(){
     if(digitalRead(TURN_OFF_SW)==LOW) turnOff = true;
     else turnOff = false;
 
-    // readVoltage();
+    //readVoltage();
     checkFault();
     getTopPlateData();
     getTopCamData();
     getBottomPlateData();
     ballCapStatus();
+    
+    if (curTime - esp_last_send >= 500){
+        sendData();
+        esp_last_send = curTime;
+    }
     updateSelfVelocityEWMA(self_x, self_y);
     assignDef();
 
-    // sendData();
-    // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
-    //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
-    //           own_mac_address[3], own_mac_address[4], own_mac_address[5]);
-    // Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
-    //           broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
-    //           broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
+    sendData();
+    Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
+              own_mac_address[0], own_mac_address[1], own_mac_address[2],
+              own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
+              broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
+              broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
     // Serial.println(espnowDataRecv.isPresent);
 
-    if(millis() - lastDribblerRev < 1000) ;
+   /* if(millis() - lastDribblerRev < 1000) ;
     else if(ballCap || (top_ball_dist>0 && top_ball_dist<=60)) dribbler.setSpeed(1.0);
     else if(noBall) dribbler.setSpeed(0);
-    else dribbler.setSpeed(0.5);
+    else dribbler.setSpeed(0.5);*/
 
     if (isDefender){
         pid_rotate_default[3] = {0.7, 0, 0};
@@ -1034,8 +1074,8 @@ void loop(){
 //     else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);   
 //     #endif
 
-//     if(!noBall) {
-//         last_ball_x = top_absolute_ball_x;
-//         last_ball_y = top_absolute_ball_y;
-//     }
-// }
+    if(!noBall) {
+        last_ball_x = top_absolute_ball_x;
+        last_ball_y = top_absolute_ball_y;
+    }
+}
