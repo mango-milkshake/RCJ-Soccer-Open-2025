@@ -62,6 +62,7 @@ bool turnOff = false;
 #define OPP_GOAL_Y 2.31
 #define BOT_RADIUS_CM 8.5 // in cm
 #define BOT_RADIUS_M 0.085 // in metres
+#define Y_BOUND 1.50 
 
 // I2C Comms with bottom plate
 #define SDA_PIN 8
@@ -345,7 +346,7 @@ void assignDef(){
     if(espnowDataRecv.inField == false || otherBotExists == false){ //check if the other bot is in the field
         isDefender = true;
     }
-    DEBUG(espnowDataRecv.inField);
+    //DEBUG(espnowDataRecv.inField);
 }
 
 void getTopPlateData(){
@@ -479,7 +480,7 @@ void getBottomPlateData(){
     front_absolute_ball_x = front_ball_x + self_x;
     front_absolute_ball_y = front_ball_y + self_y;
 
-    // DEBUG(front_ball_x);
+    DEBUG(front_ball_x);
     // DEBUG(front_ball_y);
     // DEBUG(front_ball_vx);
     // DEBUG(front_ball_vy);
@@ -952,8 +953,19 @@ void loop(){
     getTopPlateData();
     getBottomPlateData();
     if(!(front_ball_x != 0 && front_ball_y != 0)){
+        Serial.println("using top cam");
         getTopCamData();    
     }
+    else{
+        Serial.println("using front cam");        
+        top_absolute_ball_x = front_absolute_ball_x;
+        top_absolute_ball_y = front_absolute_ball_y;
+        top_relative_ball_x = front_ball_x;
+        top_relative_ball_y = front_ball_x;
+    }
+
+    // DEBUG(top_relative_ball_x)
+    // DEBUG(top_relative_ball_y)
 
     ballCapStatus();
     
@@ -975,7 +987,6 @@ void loop(){
     }
     strip.setBrightness(LED_BRIGHTNESS);
     strip.show();
-
 
     // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
     //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
