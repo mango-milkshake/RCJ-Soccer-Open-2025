@@ -26,7 +26,7 @@
 
 // ESP NeoPixel LED
 #define ESP_LED 21
-#define ESP_BRIGHTNESS 50
+int ESP_BRIGHTNESS = 50;
 #define BLINK_TIME 50
 Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 // to check if code is running
@@ -36,7 +36,7 @@ float lastLED = 0;
 // Debug LEDs
 #define LED_PIN 18
 #define LED_COUNT 12
-#define LED_BRIGHTNESS 100
+int LED_BRIGHTNESS = 100;
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // Switches
@@ -183,6 +183,7 @@ int current_target_x = 999, current_target_y = 999;
 float self_velocityx = 0, self_velocityy = 0;
 float last_self_x = 0, last_self_y = 0;
 unsigned long last_vel_time = 0;
+bool otherBotExists = false;
 
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
@@ -243,7 +244,7 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     //     Serial.println("Failed to read MAC address");
     // }
     const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60};
-    const uint8_t MAC_2[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x40};
+    const uint8_t MAC_2[6] = {0x34, 0x85, 0x18, 0xbc, 0xf5, 0xe8};
     //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
@@ -259,14 +260,17 @@ void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){
     // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
 
+int lastRecvTime;
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
     memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
-    DEBUG(espnowDataRecv.isPresent);
-    DEBUG(espnowDataRecv.inField);
-    DEBUG(espnowDataRecv.xpos);
-    DEBUG(espnowDataRecv.ypos);
-    DEBUG(espnowDataRecv.def);
-    DEBUG(espnowDataRecv.hasBall);
+    otherBotExists = true;
+    lastRecvTime = millis();
+    // DEBUG(espnowDataRecv.isPresent);
+    // DEBUG(espnowDataRecv.inField);
+    // DEBUG(espnowDataRecv.xpos);
+    // DEBUG(espnowDataRecv.ypos);
+    // DEBUG(espnowDataRecv.def);
+    // DEBUG(espnowDataRecv.hasBall);
    // Serial.println(espnowDataRecv.isPresent);
 }
 
@@ -344,12 +348,13 @@ void assignDef(){
     else if (espnowDataRecv.def == false){
         isDefender = true;
     }    
-    if(espnowDataRecv.inField == false){ //check if the other bot is in the field
-        isDefender = true;
-    }
     if(isDefender && ballCap && millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
         isDefender = false;
-    }//swap back infield and defenderballcaptime
+    }
+    if(espnowDataRecv.inField == false || otherBotExists == false){ //check if the other bot is in the field
+        isDefender = true;
+    }
+    DEBUG(espnowDataRecv.inField);
 }
 
 void getTopPlateData(){
@@ -942,6 +947,7 @@ void loop(){
     //Serial.print("time: ");
     //Serial.println(curTime - lastLoopTime);
     lastLoopTime = millis();
+    DEBUG(isDefender);
     if(millis() - lastLED >= BLINK_TIME){
         esp_led_state = !esp_led_state;
         lastLED = millis();
@@ -956,8 +962,11 @@ void loop(){
     //readVoltage();
     checkFault();
     getTopPlateData();
-    getTopCamData();
     getBottomPlateData();
+    if(!(front_ball_x != 0 && front_ball_y != 0)){
+        getTopCamData();    
+    }
+
     ballCapStatus();
 
     if(digitalRead(STATE_SW)==HIGH && millis() - lastStateSwap >= STATE_SWAP_TIME){
@@ -974,15 +983,27 @@ void loop(){
         esp_last_send = curTime;
     }
     updateSelfVelocityEWMA(self_x, self_y);
+    if(curTime - lastRecvTime > 1000){
+        otherBotExists = false;
+    }
     assignDef();
-
     sendData();
-    Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
-              own_mac_address[0], own_mac_address[1], own_mac_address[2],
-              own_mac_address[3], own_mac_address[4], own_mac_address[5]);
-    Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
-              broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
-              broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
+    if(!isDefender){
+        LED_BRIGHTNESS = 255;
+    }
+    else{
+        LED_BRIGHTNESS = 60;
+    }
+    strip.setBrightness(LED_BRIGHTNESS);
+    strip.show();
+
+
+    // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
+    //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
+    //           own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    // Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
+    //           broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
+    //           broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
     // Serial.println(espnowDataRecv.isPresent);
 
    /* if(millis() - lastDribblerRev < 1000) ;
