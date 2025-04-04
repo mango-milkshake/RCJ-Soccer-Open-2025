@@ -187,6 +187,7 @@ unsigned long last_moving_back = 0;
 bool aligned = false;
 float initial_change = 0.0f, initial_magnitude = 0.0f;
 unsigned long last_aligning = 0;
+bool time_to_score = false;
 
 //// ** FUNCTIONS ** ////
 
@@ -324,12 +325,12 @@ void assignDef(){
     else if (espnowDataRecv.def == false){
         isDefender = true;
     }    
-    if(isDefender && ballCap && millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
-        isDefender = false;
-    }
     if(espnowDataRecv.inField == false){ //check if the other bot is in the field
         isDefender = true;
     }
+    if(isDefender && ballCap && millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
+        isDefender = false;
+    }//swap back infield and defenderballcaptime
 }
 
 void getTopPlateData(){
@@ -945,7 +946,6 @@ void loop(){
             dribblerBallTrack();
         }
         else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);   
-        #endif
     }
     if(!noBall) {
     last_ball_x = top_absolute_ball_x;
