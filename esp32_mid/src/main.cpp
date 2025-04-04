@@ -900,6 +900,9 @@ void loop(){
     else dribbler.setSpeed(0.5);
 
     if (isDefender){
+        pid_rotate_default[3] = {0.7, 0, 0};
+        pid_x_default[3] = {3, 0, 0};
+        pid_y_default[3] = {3, 0, 0};
         if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
             movement(0.91f, 0.60f, 0);
         }
@@ -911,9 +914,16 @@ void loop(){
         }
         // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
         else if (top_absolute_ball_y <  0.60f) {
-            pid_rotate.setConfig(0.5, 0, 0);
-            pid_x.setConfig(2.2, 0, 0);
-            pid_y.setConfig(2.2, 0, 0);
+            if (top_absolute_ball_x > 0.62f && top_absolute_ball_x < 1.20f && top_absolute_ball_y < self_y){
+                pid_rotate.setConfig(0.5, 0, 0);
+                pid_x.setConfig(2.2, 0, 0);
+                pid_y.setConfig(2.2, 0, 0);                
+            }
+            else {
+                pid_rotate.setConfig(0.5, 0, 0);
+                pid_x.setConfig(2.2, 0, 0);
+                pid_y.setConfig(2.2, 0, 0);  
+            }
             if (noBall) {
                 top_absolute_ball_x = last_ball_x;
                 top_absolute_ball_y = last_ball_y;
@@ -935,6 +945,9 @@ void loop(){
 
     }
     else {
+        pid_rotate_default[3] = {0.5, 0, 0};
+        pid_x_default[3] = {2.2, 0, 0};
+        pid_y_default[3] = {2.2, 0, 0};
         if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
         else if(ballCap) sendI2C(zeroBuffer);
         else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
