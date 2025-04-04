@@ -1,6 +1,7 @@
 import sensor, time, math, pyb
 from pyb import UART
 
+# bot 2 - half white half black wheels
 # ========== Polynomial Conversion Functions ==========
 def pix_to_real(r_px):
     return (-0.7938274173017964
@@ -38,7 +39,7 @@ ballExists = True
 centre_x = 165
 centre_y = 128
 mask_radius = 120
-thresh_ball = (0, 100, 10, 48, -4, 43) # (0, 100, 45, 76, 25, 55)
+thresh_ball = (0, 100, 40, 75, 19, 51) # (0, 100, 45, 76, 25, 55)
 actual_data_len = 10
 
 uart = UART(3, 115200)
@@ -182,5 +183,3 @@ while True:
     print("Real coords: x=%.2f cm, y=%.2f cm | v_x=%.2f, v_y=%.2f"
           % (xr, yr, vx, vy))
     print("fps:", clock.fps())
-
-

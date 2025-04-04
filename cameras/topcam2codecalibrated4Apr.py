@@ -3,14 +3,13 @@ from pyb import UART
 
 # ========== Polynomial Conversion Functions ==========
 def pix_to_real(r_px):
-    return (-0.7938274173017964
-            + 1.5294566788791972*r_px
-            - 0.016771506764266992*(r_px**2)
-            + 0.00024722073358174443*(r_px**3)
-            - 1.2846712889870513e-6*(r_px**4))
+    return (-1.1421036650268421
+            + 1.0644778314305128*r_px
+            - 0.00346612190134471*(r_px**2)
+            + 3.937525432161291e-6*(r_px**3))
 
 def real_to_pix(r_cm):
-    output = 1.5974054819124033 + 0.3508026709534986*r_cm + 0.02301638290817975*(r_cm**2) - 0.0003494973335512324*(r_cm**3) + 1.7850794050003496e-6*(r_cm**4)
+    output = -0.31745050603830627 + 1.2135648241197068*r_cm - 0.006904480979531766*(r_cm**2) + 0.00011696186868196963*(r_cm**3)
     # output += -0.9 * r_cm + 17.4
     return output
 
@@ -23,22 +22,21 @@ sensor.set_gainceiling(32)
 sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False)
 sensor.set_contrast(0)
-sensor.set_auto_exposure(False, exposure_us=4000)
+sensor.set_auto_exposure(False, exposure_us=5000)
 sensor.set_auto_gain(False, gain_db=-5)
 sensor.set_auto_whitebal(False)
 sensor.set_contrast(3)
 
 sensor.skip_frames(time=200)
-
 clock = time.clock()
 led2 = pyb.LED(2)
 led2.on()
 
 ballExists = True
-centre_x = 165
-centre_y = 128
+centre_x = 156 #171
+centre_y = 128 #125
 mask_radius = 120
-thresh_ball = (0, 100, 10, 48, -4, 43) # (0, 100, 45, 76, 25, 55)
+thresh_ball = (0, 100, 28, 78, 5, 47)# (28, 63, 38, 80, 19, 69)
 actual_data_len = 10
 
 uart = UART(3, 115200)
@@ -93,8 +91,8 @@ while True:
         continue
 
     b = max(blobs, key=lambda b: b.pixels())
-    #img.draw_rectangle(b.rect(), (0,255,0))
-    #img.draw_cross(b.cx(), b.cy(), (0,255,0))
+    img.draw_rectangle(b.rect(), (0,255,0))
+    img.draw_cross(b.cx(), b.cy(), (0,255,0))
 
     ball_x = b.cx() - centre_x
     ball_y = b.cy() - centre_y
@@ -181,6 +179,5 @@ while True:
     # Debug print
     print("Real coords: x=%.2f cm, y=%.2f cm | v_x=%.2f, v_y=%.2f"
           % (xr, yr, vx, vy))
+
     print("fps:", clock.fps())
-
-
