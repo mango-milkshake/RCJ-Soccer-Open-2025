@@ -72,6 +72,7 @@ int codeState = 0; // 0 = dribbler + ball hide, 1 = dribbler + normal scoring, 2
 #define OPP_GOAL_Y 2.31
 #define BOT_RADIUS_CM 8.5 // in cm
 #define BOT_RADIUS_M 0.085 // in metres
+#define Y_BOUND 1.50 
 
 // I2C Comms with bottom plate
 #define SDA_PIN 8
@@ -358,7 +359,7 @@ void assignDef(){
     if(espnowDataRecv.inField == false || otherBotExists == false){ //check if the other bot is in the field
         isDefender = true;
     }
-    DEBUG(espnowDataRecv.inField);
+    //DEBUG(espnowDataRecv.inField);
 }
 
 void getTopPlateData(){
@@ -1014,7 +1015,6 @@ void loop(){
     }
     strip.setBrightness(LED_BRIGHTNESS);
     strip.show();
-
 
     // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
     //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
