@@ -23,16 +23,17 @@ sensor.set_gainceiling(128)
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
 
 sensor.skip_frames(time=500)
-sensor.set_auto_exposure(False, exposure_us=4000)
-sensor.set_auto_gain(False, gain_db = 5)
+sensor.set_auto_exposure(False, exposure_us=3000)
+sensor.set_auto_gain(False, gain_db = 6)
+sensor.set_contrast(2)
 
 clock = time.clock()
 led2 = pyb.LED(2)
 led2.on()
 
 ballExists = True
-centre_x = 156
-centre_y = 127
+centre_x = 165
+centre_y = 128
 mask_radius = 120
 thresh_ball = (0, 100, 45, 76, 25, 55) # (28, 63, 38, 80, 19, 69)
 actual_data_len = 10
@@ -43,7 +44,7 @@ uart.init(115200, bits=8, parity=None, stop=1, timeout_char=1000)
 # Velocity storage in real coords (cm/s)
 vx = 0.0
 vy = 0.0
-beta = 0.6  # EWMA smoothing factor
+beta = 0.9  # EWMA smoothing factor
 
 prev_xr = None  # real coords
 prev_yr = None
@@ -89,8 +90,8 @@ while True:
         continue
 
     b = max(blobs, key=lambda b: b.pixels())
-    img.draw_rectangle(b.rect(), (0,255,0))
-    img.draw_cross(b.cx(), b.cy(), (0,255,0))
+    #img.draw_rectangle(b.rect(), (0,255,0))
+    #img.draw_cross(b.cx(), b.cy(), (0,255,0))
 
     ball_x = b.cx() - centre_x
     ball_y = b.cy() - centre_y
