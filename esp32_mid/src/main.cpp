@@ -955,9 +955,9 @@ void loop(){
         // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
         else if (top_absolute_ball_y <  0.60f) {
             if (top_absolute_ball_x > 0.62f && top_absolute_ball_x < 1.20f && top_absolute_ball_y < self_y){
-                pid_rotate.setConfig(0.5, 0, 0);
-                pid_x.setConfig(2.2, 0, 0);
-                pid_y.setConfig(2.2, 0, 0);                
+                pid_rotate.setConfig(0.4, 0, 0);
+                pid_x.setConfig(1.9, 0, 0);
+                pid_y.setConfig(1.9, 0, 0);                
             }
             else {
                 pid_rotate.setConfig(0.5, 0, 0);
