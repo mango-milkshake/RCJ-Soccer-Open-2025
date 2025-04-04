@@ -388,8 +388,8 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
             setLED(1, 2, strip.Color(15, 0, 15));
-            DEBUG(self_x);
-            DEBUG(self_y);
+            // DEBUG(self_x);
+            // DEBUG(self_y);
             // DEBUG(self_heading);
         }
     }
@@ -426,8 +426,8 @@ void getTopCamData(){
                     
             DEBUG(top_ball_angle);
             DEBUG(top_ball_dist);
-            DEBUG(top_ball_vx);
-            DEBUG(top_ball_vy);
+            // DEBUG(top_ball_vx);
+            // DEBUG(top_ball_vy);
 
             if(top_ball_angle==0 && top_ball_dist==0) {
                 noBall = true;
@@ -506,6 +506,10 @@ void getBottomPlateData(){
         final_absolute_ball_x = front_absolute_ball_x;
         final_absolute_ball_y = front_absolute_ball_y;
     }
+    DEBUG(front_absolute_ball_x);
+    DEBUG(front_absolute_ball_y);
+    DEBUG(final_absolute_ball_x);
+    DEBUG(final_absolute_ball_y);
 
     // DEBUG(front_ball_x);
     // DEBUG(front_ball_y);
@@ -1086,6 +1090,7 @@ void loop(){
             }
 
         }
+        else sendI2C(zeroBuffer);
 
     }
     else {
@@ -1104,15 +1109,17 @@ void loop(){
                 else if(codeState==1) dribblerAim();
             }
             else if(ballCap) sendI2C(zeroBuffer);
-            else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME && top_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
-                top_absolute_ball_x = last_ball_x;
-                top_absolute_ball_y = last_ball_y;
+            else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
+                final_absolute_ball_x = last_ball_x;
+                final_absolute_ball_y = last_ball_y;
                 dribblerBallTrack();
             }
-            else if(!noBall && top_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
+            else if(!noBall && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
                 dribblerBallTrack();
+                Serial.println("not my ball bro");
             }
-            else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31); 
+            // else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31); 
+            else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
         }
     }
     if(!noBall) {
