@@ -229,8 +229,8 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     // else{
     //     Serial.println("Failed to read MAC address");
     // }
-    const uint8_t MAC_1[6] = {0x3c, 0x84, 0x27, 0x26, 0x03, 0x14};
-    const uint8_t MAC_2[6] = {0x3c, 0x84, 0x27, 0x26, 0x02, 0x48};
+    const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60};
+    const uint8_t MAC_2[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x40};
     //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
@@ -248,6 +248,12 @@ void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){
 
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
     memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
+    DEBUG(espnowDataRecv.isPresent);
+    DEBUG(espnowDataRecv.inField);
+    DEBUG(espnowDataRecv.xpos);
+    DEBUG(espnowDataRecv.ypos);
+    DEBUG(espnowDataRecv.def);
+    DEBUG(espnowDataRecv.hasBall);
    // Serial.println(espnowDataRecv.isPresent);
 }
 
@@ -415,6 +421,8 @@ void getTopCamData(){
 
             ball_vx = top_ball_vx;
             ball_vy = top_ball_vy;
+            ball_vx -= self_velocityx;
+            ball_vy -= self_velocityy;
             top_absolute_ball_x = top_relative_ball_x + self_x;
             top_absolute_ball_y = top_relative_ball_y + self_y;
 
@@ -728,6 +736,9 @@ void lookAhead(){
         LAball_y = top_absolute_ball_y + ball_vy * latency;
         LAball_vx = ball_vx;
         LAball_vy = ball_vy;
+        LAball_vx -= self_velocityx;
+        LAball_vy -= self_velocityy;
+        // DEBUG(LAball_vx);
     }
 
     float C = LAball_x*LAball_x + LAball_y*LAball_y;
@@ -761,8 +772,8 @@ void lookAhead(){
         // LAball_vx = 0.9*v*cos(theta_invalid_t); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
         // LAball_vy = 0.9*v*sin(theta_invalid_t);
         lookingAhead = false;
-        sendI2C(zeroBuffer);
-        ballTrack();
+        //sendI2C(zeroBuffer);
+        dribblerBallTrack();
         lookAheadConfirm = false;
     }  
     
@@ -774,18 +785,20 @@ void lookAhead(){
     // targetballposx = (targetballposx + self_x);
     // targetballposy = (targetballposx + self_y);
 
-    DEBUG(self_x);
-    DEBUG(self_y);
-    DEBUG(LAball_x);
-    DEBUG(LAball_y);
-    DEBUG(LAball_vx);
-    DEBUG(LAball_vy);
-    DEBUG(t);
-    DEBUG(targetballposy);
-    DEBUG(targetballposx);
+    // DEBUG(self_x);
+    // DEBUG(self_y);
+    // DEBUG(LAball_x);
+    // DEBUG(LAball_y);
+    // DEBUG(LAball_vx);
+    // DEBUG(LAball_vy);
+    // DEBUG(t);
+    // DEBUG(targetballposy);
+    // DEBUG(targetballposx);
 
     if (lookAheadConfirm){
-        movement(targetballposx, targetballposy, self_heading);
+        float xToBall = top_absolute_ball_x - self_x, yToBall = top_absolute_ball_y - self_y;
+        float absBallAngle = atan2(yToBall, xToBall);
+        movement(targetballposx, targetballposy, 90-DEG(absBallAngle));
         current_target_x = targetballposx;
         current_target_y = targetballposy;
         Serial.println("Moving to new target");
@@ -903,7 +916,7 @@ void loop(){
     getTopCamData();
     getBottomPlateData();
     ballCapStatus();
-
+    
     if (curTime - esp_last_send >= 500){
         sendData();
         esp_last_send = curTime;
@@ -911,21 +924,21 @@ void loop(){
     updateSelfVelocityEWMA(self_x, self_y);
     assignDef();
 
-    // sendData();
-    // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
-    //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
-    //           own_mac_address[3], own_mac_address[4], own_mac_address[5]);
-    // Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
-    //           broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
-    //           broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
+    sendData();
+    Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
+              own_mac_address[0], own_mac_address[1], own_mac_address[2],
+              own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
+              broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
+              broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
     // Serial.println(espnowDataRecv.isPresent);
 
-    if(millis() - lastDribblerRev < 1000) ;
+   /* if(millis() - lastDribblerRev < 1000) ;
     else if(ballCap || (top_ball_dist>0 && top_ball_dist<=60)) dribbler.setSpeed(1.0);
     else if(noBall) dribbler.setSpeed(0);
-    else dribbler.setSpeed(0.5);
+    else dribbler.setSpeed(0.5);*/
 
-    if (isDefender){
+    /*if (isDefender){
         if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
             movement(0.91f, 0.60f, 0);
         }
@@ -1013,24 +1026,32 @@ void loop(){
     // 4) Otherwise => geometry-based blocking
     else {
         defend();
-    }
+    }*/
     #if defined(LOOK_AHEAD)
-    if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    else if(ballCap) aim();
-    else if(abs(ball_vx) > 0.10 || abs(ball_vy) > 0.10){
+    if(noBall){
+        //sendI2C(zeroBuffer);
+        movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    }
+    //else if(ballCap) aim();
+    else if((abs(ball_vx) > 0.10 || abs(ball_vy) > 0.10) && abs(prev_ball_vx - ball_vx) <= 0.1 && abs(prev_ball_vy - ball_vy) <= 0.1 && abs(prev_prev_ball_vx - prev_ball_vx) <= 0.1 && abs(prev_prev_ball_vy - prev_ball_vy) <= 0.1  ){
         Serial.println("Look ahead");
         lookAhead();
     }
     else{
-        if(lookingAhead){
-            sendI2C(zeroBuffer);
-            lookingAhead = false;
-            ballTrack();
-        }
-        if(!lookingAhead){
-            ballTrack();
-        }
+        dribblerBallTrack();
+        // if(lookingAhead){
+        //     //sendI2C(zeroBuffer);
+        //     lookingAhead = false;
+        //     dribblerBallTrack();
+        // }
+        // if(!lookingAhead){
+        //     dribblerBallTrack();
+        // }
     }
+    prev_prev_ball_vx = prev_ball_vx;
+    prev_prev_ball_vy = prev_ball_vy;
+    prev_ball_vx = ball_vx;
+    prev_ball_vy = ball_vy;
     //     if(lookAheadDelay = false){
     //         LA_ball_seen = curTime;
     //         lookAheadDelay = true;
