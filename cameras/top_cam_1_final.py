@@ -1,6 +1,7 @@
 import sensor, time, math, pyb
 from pyb import UART
 
+# bot 1 - all black wheels
 # ========== Polynomial Conversion Functions ==========
 def pix_to_real(r_px):
     return (-0.7938274173017964
