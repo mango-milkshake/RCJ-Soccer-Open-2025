@@ -35,7 +35,7 @@ ballExists = True
 centre_x = 165
 centre_y = 128
 mask_radius = 120
-thresh_ball = (24, 83, -7, 78, 17, 55)
+thresh_ball = (0, 100, 45, 76, 25, 55) # (28, 63, 38, 80, 19, 69)
 actual_data_len = 10
 
 uart = UART(3, 115200)

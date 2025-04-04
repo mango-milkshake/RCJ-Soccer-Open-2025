@@ -19,7 +19,8 @@
 #endif
 
 // #define SECOND_BOT
-// #define LOOK_AHEAD
+//  #define LOOK_AHEAD
+// #define NO_DRIBBLER
 
 //// ** DEFINITIONS ** ////
 
@@ -90,18 +91,17 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
-#ifdef SECOND_BOT
-float pid_rotate_default[3] = {0.7, 0, 0};
-float pid_x_default[3] = {3, 0, 0};
-float pid_y_default[3] = {3, 0, 0};
-#else
-float pid_rotate_default[3] = {0.5, 0, 0};
-float pid_x_default[3] = {2.2, 0, 0};
-float pid_y_default[3] = {2.2, 0, 0};
-#endif
-PID pid_rotate(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2], 1000);
-PID pid_x(pid_x_default[0], pid_x_default[1], pid_x_default[2], 1000);
-PID pid_y(pid_y_default[0], pid_y_default[1], pid_y_default[2], 1000);
+float pid_def_rotate_default[3] = {0.7, 0, 0};
+float pid_def_x_default[3] = {3, 0, 0};
+float pid_def_y_default[3] = {3, 0, 0};
+
+float pid_att_rotate_default[3] = {0.5, 0, 0};
+float pid_att_x_default[3] = {2.2, 0, 0};
+float pid_att_y_default[3] = {2.2, 0, 0};
+
+PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
+PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000);
+PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000);
 float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 
 // Dribbler
@@ -178,6 +178,7 @@ bool otherBotExists = false;
 
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
+bool oscillateState = false, ballHideState = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
 float speed_xdir, speed_ydir, rotation;
 float lastDribblerRev = 0;
@@ -190,6 +191,7 @@ unsigned long last_moving_back = 0;
 bool aligned = false;
 float initial_change = 0.0f, initial_magnitude = 0.0f;
 unsigned long last_aligning = 0;
+bool time_to_score = false;
 
 //// ** FUNCTIONS ** ////
 
@@ -213,6 +215,7 @@ void checkFault(){
         setLED(0, 0, strip.Color(15, 15, 15));
         float curTime = millis();
         if(curTime - lastFault >= 500){
+            dribblerMD.clearFault();
             dribblerMD.readRegister(0b01000001);
             lastFault = millis();
         }
@@ -547,7 +550,7 @@ void movement(float target_x, float target_y, float target_rotation){
 
     if(ballCap){
         max_translation_pid_value = 0.5;
-        max_rotation_pid_value = 0.3;
+        max_rotation_pid_value = 0.25;
     }
     else {
         max_translation_pid_value = 1;
@@ -586,6 +589,15 @@ void movement(float target_x, float target_y, float target_rotation){
 
     if(turnOff || isTilted) sendI2C(zeroBuffer);
     else sendI2C(sendBuffer);
+}
+
+void oscillateAboutPoint(float pointx, float pointy, float oscillationDist){
+    float new_x = 0, new_y = pointy;
+    if(oscillateState) new_x = pointx - oscillationDist;
+    else new_x = pointx + oscillationDist;
+    float distToPoint = sqrt((new_x - self_x)*(new_x - self_x) + (new_y - self_y)*(new_y - self_y));
+    if(distToPoint <= 0.10) oscillateState = !oscillateState;
+    movement(new_x, new_y, 0);
 }
 
 // void ballTrack(){
@@ -685,9 +697,12 @@ void aim(){
         // DEBUG(new_y);
         movement(new_x, new_y, DEG(angleToGoal));
     }
-    // float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
-    // movement(0.91, 2.06, 90-DEG(angleToFace));
-    if(ballCap && self_y > 1.83 && (self_heading > -75 && self_heading < 75)) {
+    float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_LEFT_X - self_x));
+    float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_RIGHT_X - self_x));
+    LIM_ANGLE_180(minAngleFace);
+    LIM_ANGLE_180(maxAngleFace);
+    if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
+    if(ballCap && self_y > 1.62 && (self_heading >= minAngleFace && self_heading <= maxAngleFace)) {
         kicker.kick();
     }
 }
@@ -704,6 +719,21 @@ void dribblerAim(){
         kicker.kick();
         dribbler.setSpeed(-1.0);
         lastDribblerRev = millis();
+    }
+}
+
+void ballHide(){
+    if(self_x < FIELD_WIDTH/2)  ballHideState = false; // left side
+    else ballHideState = true; // right side
+    if(self_y > 1.80) dribblerAim();
+    else if(self_x > 0.30 && self_x < FIELD_WIDTH - 0.30){
+        // move to side of field
+        if(ballHideState) movement(FIELD_WIDTH - 0.20, self_y, 90);
+        else movement(0.20, self_y, -90);
+    }
+    else {
+        if(ballHideState) movement(FIELD_WIDTH - 0.20, 1.90, 90);
+        else movement(0.20, 1.90, -90);
     }
 }
 
@@ -960,7 +990,11 @@ void loop(){
     else if(noBall) dribbler.setSpeed(0);
     else dribbler.setSpeed(0.5);*/
 
-    /*if (isDefender){
+    if (isDefender){
+        pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+        pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+        pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+
         if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
             movement(0.91f, 0.60f, 0);
         }
@@ -972,9 +1006,16 @@ void loop(){
         }
         // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
         else if (top_absolute_ball_y <  0.60f) {
-            pid_rotate.setConfig(0.5, 0, 0);
-            pid_x.setConfig(2.2, 0, 0);
-            pid_y.setConfig(2.2, 0, 0);
+            if (top_absolute_ball_x > 0.62f && top_absolute_ball_x < 1.20f && top_absolute_ball_y < self_y){
+                pid_rotate.setConfig(0.4, 0, 0);
+                pid_x.setConfig(1.9, 0, 0);
+                pid_y.setConfig(1.9, 0, 0);                
+            }
+            else {
+                pid_rotate.setConfig(0.5, 0, 0);
+                pid_x.setConfig(2.2, 0, 0);
+                pid_y.setConfig(2.2, 0, 0);  
+            }
             if (noBall) {
                 top_absolute_ball_x = last_ball_x;
                 top_absolute_ball_y = last_ball_y;
@@ -984,9 +1025,9 @@ void loop(){
             else {
                 dribblerBallTrack();
             }
-            pid_rotate.setConfig(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2]);
-            pid_x.setConfig(pid_x_default[0], pid_x_default[1], pid_x_default[2]);
-            pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
+            pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+            pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+            pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
         }
         // 4) Otherwise => geometry-based blocking
         else {
@@ -996,7 +1037,11 @@ void loop(){
 
     }
     else {
-        if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
+        pid_rotate.setConfig(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2]);
+        pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
+        pid_y.setConfig(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2]);
+        
+        if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) ballHide();
         else if(ballCap) sendI2C(zeroBuffer);
         else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
             top_absolute_ball_x = last_ball_x;
@@ -1006,16 +1051,16 @@ void loop(){
         else if(!noBall){
             dribblerBallTrack();
         }
-        else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);   
-
-        if(!noBall) {
-            last_ball_x = top_absolute_ball_x;
-            last_ball_y = top_absolute_ball_y;
-        }
-
+        else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31); 
     }
+    if(!noBall) {
+    last_ball_x = top_absolute_ball_x;
+    last_ball_y = top_absolute_ball_y;
+    }
+}
 
-
+/*
+#ifdef SECOND_BOT
     
     // 1) If no ball and it's been too long, just stay put
     if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
@@ -1047,47 +1092,32 @@ void loop(){
     }
     // 4) Otherwise => geometry-based blocking
     else {
+        
         defend();
-    }*/
-    #if defined(LOOK_AHEAD)
-    if(noBall){
-        //sendI2C(zeroBuffer);
-        movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+
     }
+    #elif defined(LOOK_AHEAD)
+    if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     //else if(ballCap) aim();
-    else if((abs(ball_vx) > 0.10 || abs(ball_vy) > 0.10) && abs(prev_ball_vx - ball_vx) <= 0.1 && abs(prev_ball_vy - ball_vy) <= 0.1 && abs(prev_prev_ball_vx - prev_ball_vx) <= 0.1 && abs(prev_prev_ball_vy - prev_ball_vy) <= 0.1  ){
-        Serial.println("Look ahead");
-        lookAhead();
+    else if(ball_vx > 0.10 || ball_vy > 0.10){
+        if(lookAheadDelay = false){
+            LA_ball_seen = curTime;
+            lookAheadDelay = true;
+        }
+        if(lookAheadDelay == true && LA_ball_seen - curTime >= 100){
+            lookAheadDelay = false;
+            lookAhead();
+        }
+        else{
+            lookAheadDelay = true;
+        }
     }
-    else{
-        dribblerBallTrack();
-        // if(lookingAhead){
-        //     //sendI2C(zeroBuffer);
-        //     lookingAhead = false;
-        //     dribblerBallTrack();
-        // }
-        // if(!lookingAhead){
-        //     dribblerBallTrack();
-        // }
-    }
-    prev_prev_ball_vx = prev_ball_vx;
-    prev_prev_ball_vy = prev_ball_vy;
-    prev_ball_vx = ball_vx;
-    prev_ball_vy = ball_vy;
-    //     if(lookAheadDelay = false){
-    //         LA_ball_seen = curTime;
-    //         lookAheadDelay = true;
-    //     }
-    //     if(lookAheadDelay == true && LA_ball_seen - curTime >= 100){
-    //         lookAheadDelay = false;
-    //         lookAhead();
-    //     }
-    //     else{
-    //         lookAheadDelay = true;
-    //     }
-    
+    #elif defined(NO_DRIBBLER)
+    if(noBall) oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
+    else if(ballCap) aim();
+    else ballTrack();
     #else
-    if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
+    if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) ballHide();
     else if(ballCap) sendI2C(zeroBuffer);
     else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
         top_absolute_ball_x = last_ball_x;
@@ -1097,11 +1127,6 @@ void loop(){
     else if(!noBall){
         dribblerBallTrack();
     }
-    else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);   
+    else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
     #endif
-
-    if(!noBall) {
-        last_ball_x = top_absolute_ball_x;
-        last_ball_y = top_absolute_ball_y;
-    }
-}
+*/

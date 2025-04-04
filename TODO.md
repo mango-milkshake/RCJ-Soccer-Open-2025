@@ -3,6 +3,8 @@
 - Build the bots
 
 ## Software
+??????????? OMG
+
 - retune PID
 - possible top plate latency compensation
 - Test scoring and aiming with current top plate and ballcap
@@ -29,10 +31,10 @@
 - GAME LOGIC
 
 ## I Fried It
-Fried RP2040-Zero Count: 5  
-Fried ESP32-S3-Pico Count: 1  
+Fried RP2040-Zero Count: 6  
+Fried ESP32-S3-Pico Count: 2  
 Fried Motor Driver Count: 5  
 Fried TOFSense Count: ?  
 Fried Solenoid Count: 1
 
-Last updated: 2025-03-28 11:11AM
+Last updated: 2025-04-04 09:38AM
