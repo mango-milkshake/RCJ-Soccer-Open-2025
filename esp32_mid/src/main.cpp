@@ -19,7 +19,8 @@
 #endif
 
 // #define SECOND_BOT
-//#define LOOK_AHEAD
+// #define LOOK_AHEAD
+// #define NO_DRIBBLER
 
 //// ** DEFINITIONS ** ////
 
@@ -172,6 +173,7 @@ float last_ball_x = 0, last_ball_y = 0;
 
 float line_status[NUM_LINE_MUX];
 bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
+bool oscillateState = false, ballHideState = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
 float speed_xdir, speed_ydir, rotation;
 float lastDribblerRev = 0;
@@ -206,6 +208,7 @@ void checkFault(){
         setLED(0, 0, strip.Color(15, 15, 15));
         float curTime = millis();
         if(curTime - lastFault >= 500){
+            dribblerMD.clearFault();
             dribblerMD.readRegister(0b01000001);
             lastFault = millis();
         }
@@ -523,7 +526,7 @@ void movement(float target_x, float target_y, float target_rotation){
 
     if(ballCap){
         max_translation_pid_value = 0.5;
-        max_rotation_pid_value = 0.3;
+        max_rotation_pid_value = 0.25;
     }
     else {
         max_translation_pid_value = 1;
@@ -562,6 +565,15 @@ void movement(float target_x, float target_y, float target_rotation){
 
     if(turnOff || isTilted) sendI2C(zeroBuffer);
     else sendI2C(sendBuffer);
+}
+
+void oscillateAboutPoint(float pointx, float pointy, float oscillationDist){
+    float new_x = 0, new_y = pointy;
+    if(oscillateState) new_x = pointx - oscillationDist;
+    else new_x = pointx + oscillationDist;
+    float distToPoint = sqrt((new_x - self_x)*(new_x - self_x) + (new_y - self_y)*(new_y - self_y));
+    if(distToPoint <= 0.10) oscillateState = !oscillateState;
+    movement(new_x, new_y, 0);
 }
 
 // void ballTrack(){
@@ -661,9 +673,12 @@ void aim(){
         // DEBUG(new_y);
         movement(new_x, new_y, DEG(angleToGoal));
     }
-    // float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
-    // movement(0.91, 2.06, 90-DEG(angleToFace));
-    if(ballCap && self_y > 1.83 && (self_heading > -75 && self_heading < 75)) {
+    float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_LEFT_X - self_x));
+    float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_RIGHT_X - self_x));
+    LIM_ANGLE_180(minAngleFace);
+    LIM_ANGLE_180(maxAngleFace);
+    if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
+    if(ballCap && self_y > 1.62 && (self_heading >= minAngleFace && self_heading <= maxAngleFace)) {
         kicker.kick();
     }
 }
@@ -680,6 +695,21 @@ void dribblerAim(){
         kicker.kick();
         dribbler.setSpeed(-1.0);
         lastDribblerRev = millis();
+    }
+}
+
+void ballHide(){
+    if(self_x < FIELD_WIDTH/2)  ballHideState = false; // left side
+    else ballHideState = true; // right side
+    if(self_y > 1.80) dribblerAim();
+    else if(self_x > 0.30 && self_x < FIELD_WIDTH - 0.30){
+        // move to side of field
+        if(ballHideState) movement(FIELD_WIDTH - 0.20, self_y, 90);
+        else movement(0.20, self_y, -90);
+    }
+    else {
+        if(ballHideState) movement(FIELD_WIDTH - 0.20, 1.90, 90);
+        else movement(0.20, 1.90, -90);
     }
 }
 
@@ -856,7 +886,13 @@ void loop(){
     getBottomPlateData();
     ballCapStatus();
 
-    // sendData();
+    if(curTime - esp_last_send >= 5000){
+        sendData();
+        esp_last_send = curTime;
+    }
+    assignDef();
+    sendData();
+
     // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
     //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
     //           own_mac_address[3], own_mac_address[4], own_mac_address[5]);
@@ -922,8 +958,12 @@ void loop(){
             lookAheadDelay = true;
         }
     }
+    #elif defined(NO_DRIBBLER)
+    if(noBall) oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
+    else if(ballCap) aim();
+    else ballTrack();
     #else
-    if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) dribblerAim();
+    if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) ballHide();
     else if(ballCap) sendI2C(zeroBuffer);
     else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
         top_absolute_ball_x = last_ball_x;
@@ -933,7 +973,7 @@ void loop(){
     else if(!noBall){
         dribblerBallTrack();
     }
-    else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);   
+    else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
     #endif
 
     if(!noBall) {
