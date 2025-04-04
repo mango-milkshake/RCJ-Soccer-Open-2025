@@ -23,8 +23,8 @@ sensor.set_gainceiling(128)
 sensor.set_auto_whitebal(False) # must be turned off for color tracking
 
 sensor.skip_frames(time=500)
-sensor.set_auto_exposure(False, exposure_us=2000)
-sensor.set_auto_gain(False, gain_db = 8)
+sensor.set_auto_exposure(False, exposure_us=4000)
+sensor.set_auto_gain(False, gain_db = 5)
 
 clock = time.clock()
 led2 = pyb.LED(2)
@@ -34,7 +34,7 @@ ballExists = True
 centre_x = 156
 centre_y = 127
 mask_radius = 120
-thresh_ball = (28, 63, 38, 80, 19, 69)
+thresh_ball = (0, 100, 45, 76, 25, 55) # (28, 63, 38, 80, 19, 69)
 actual_data_len = 10
 
 uart = UART(3, 115200)
