@@ -102,9 +102,9 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
-float pid_def_rotate_default[3] = {0.7, 0, 0};
-float pid_def_x_default[3] = {3, 0, 0};
-float pid_def_y_default[3] = {3, 0, 0};
+float pid_def_rotate_default[3] = {0.5, 0, 0};
+float pid_def_x_default[3] = {2.5, 0, 0};
+float pid_def_y_default[3] = {2.5, 0, 0};
 
 float pid_att_rotate_default[3] = {0.5, 0, 0};
 float pid_att_x_default[3] = {2.2, 0, 0};
@@ -181,6 +181,7 @@ float top_ball_vx = 0, top_ball_vy = 0;
 float top_relative_ball_x = 0, top_relative_ball_y = 0;
 float top_absolute_ball_x = 0, top_absolute_ball_y = 0;
 float front_ball_x = 0, front_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
+float front_relative_ball_x = 0, front_relative_ball_y = 0;
 float front_absolute_ball_x = 0, front_absolute_ball_y = 0;
 float final_absolute_ball_x = 0, final_absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
@@ -421,7 +422,7 @@ void getTopCamData(){
             if(uartBufferCam[8] == 0) top_ball_vy *= -1;
 
             //top_ball_vy *= -1;
-          //  top_ball_vx *= -1;
+            //top_ball_vx *= -1;
                     
             DEBUG(top_ball_angle);
             DEBUG(top_ball_dist);
@@ -491,9 +492,15 @@ void getBottomPlateData(){
     if(rcvBuffer[7]==0) front_ball_vx *= -1;
     front_ball_vy = (float)(rcvBuffer[11] + (rcvBuffer[12]<<8)) / 128;
     if(rcvBuffer[10]==0) front_ball_vy *= -1;
-
-    front_absolute_ball_x = front_ball_x + self_x;
-    front_absolute_ball_y = front_ball_y + self_y;
+    
+    float front_ball_angle = 90 - DEG(atan2(front_ball_y, front_ball_x));
+    float front_ball_dist = sqrt(front_ball_x * front_ball_x + front_ball_y * front_ball_y);
+    float front_relative_angle = 90 - (front_ball_angle + self_heading); 
+    float front_relative_ball_x = (front_ball_dist * cosf(RAD(front_relative_angle))) / 100;
+    float front_relative_ball_y = (front_ball_dist * sinf(RAD(front_relative_angle))) / 100;
+    
+    front_absolute_ball_x = front_relative_ball_x + self_x;
+    front_absolute_ball_y = front_relative_ball_y + self_y;
 
     if(front_ball_x!=0 && front_ball_y!=0){
         final_absolute_ball_x = front_absolute_ball_x;
