@@ -39,9 +39,18 @@ float lastLED = 0;
 #define LED_BRIGHTNESS 100
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
+// Switches
 // Motor software switch
 #define TURN_OFF_SW 40
 bool turnOff = false;
+// state switch
+#define STATE_SW 41
+#define STATE_SWAP_TIME 1000
+float lastStateSwap = 0;
+int codeState = 0; // 0 = dribbler + ball hide, 1 = dribbler + normal scoring, 2 = without dribbler
+// pause switches
+#define PAUSE_SW1 38
+#define PAUSE_SW2 39
 
 // Voltage checker
 #define VOLTAGE_PIN 2
@@ -503,22 +512,22 @@ void getBottomPlateData(){
 
 void ballCapStatus(){
     if(ballCap){
-        setLED(9, 11, strip.Color(15, 0, 15));
+        setLED(9, 10, strip.Color(15, 0, 15));
         lastBallCap = millis();
     }
     else if(!noBall && self_y < top_absolute_ball_y && self_y > top_absolute_ball_y - BALLCAP_DISTANCE 
         && abs(top_relative_ball_x) < BALLCAP_WIDTH / 2.0){
             ballCap = true;
             lastBallCap = millis();
-            setLED(9, 11, strip.Color(0, 15, 15));
+            setLED(9, 10, strip.Color(0, 15, 15));
     }
     else if(millis() - lastBallCap < BALLCAP_DURATION){
         ballCap = true;
-        setLED(9, 11, strip.Color(15, 15, 15));
+        setLED(9, 10, strip.Color(15, 15, 15));
     }
     else {
         lastNoBallCap = millis();
-        setLED(9, 11, strip.Color(15, 15, 0));
+        setLED(9, 10, strip.Color(15, 15, 0));
     }
 }
 
@@ -892,6 +901,9 @@ void setup(){
 
     pinMode(TURN_OFF_SW, INPUT);
     pinMode(VOLTAGE_PIN, INPUT);
+    pinMode(PAUSE_SW1, INPUT);
+    pinMode(PAUSE_SW2, INPUT);
+    pinMode(STATE_SW, INPUT);
     analogSetAttenuation(ADC_11db);
 
     esp_task_wdt_init(1, true); // timeout in seconds
@@ -947,6 +959,15 @@ void loop(){
     getTopCamData();
     getBottomPlateData();
     ballCapStatus();
+
+    if(digitalRead(STATE_SW)==HIGH && millis() - lastStateSwap >= STATE_SWAP_TIME){
+        codeState++;
+        codeState %= 3;
+    }
+
+    if(digitalRead(PAUSE_SW1)==HIGH || digitalRead(PAUSE_SW2)==HIGH){
+        isTilted = true;
+    }
     
     if (curTime - esp_last_send >= 500){
         sendData();
@@ -968,6 +989,10 @@ void loop(){
     else if(ballCap || (top_ball_dist>0 && top_ball_dist<=60)) dribbler.setSpeed(1.0);
     else if(noBall) dribbler.setSpeed(0);
     else dribbler.setSpeed(0.5);*/
+
+    if(codeState==0) setLED(11, 11, strip.Color(0, 15, 0)); // green
+    else if(codeState==1) setLED(11, 11, strip.Color(0, 15, 15)); // cyan
+    else setLED(11, 11, strip.Color(0, 0, 15)); // blue
 
     if (isDefender){
         pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
@@ -1019,22 +1044,32 @@ void loop(){
         pid_rotate.setConfig(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2]);
         pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
         pid_y.setConfig(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2]);
-        
-        if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) ballHide();
-        else if(ballCap) sendI2C(zeroBuffer);
-        else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
-            top_absolute_ball_x = last_ball_x;
-            top_absolute_ball_y = last_ball_y;
-            dribblerBallTrack();
+
+        if(codeState==2){
+            if(noBall) oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
+            else if(ballCap) aim();
+            else ballTrack();
         }
-        else if(!noBall){
-            dribblerBallTrack();
-        }
+        else{
+            if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap){
+                if(codeState==0) ballHide();
+                else if(codeState==1) dribblerAim();
+            }
+            else if(ballCap) sendI2C(zeroBuffer);
+            else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
+                top_absolute_ball_x = last_ball_x;
+                top_absolute_ball_y = last_ball_y;
+                dribblerBallTrack();
+            }
+            else if(!noBall){
+                dribblerBallTrack();
+            }
         else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31); 
+        }
     }
     if(!noBall) {
-    last_ball_x = top_absolute_ball_x;
-    last_ball_y = top_absolute_ball_y;
+        last_ball_x = top_absolute_ball_x;
+        last_ball_y = top_absolute_ball_y;
     }
 }
 
