@@ -350,7 +350,7 @@ void sendData(){ //send data here
     // }
 }
 
-int assignDefBuffer = 10;
+int assignDefBuffer = 4;
 int defCount = 0;
 int atkCount = 0;
 void assignDef(){
@@ -374,14 +374,12 @@ void assignDef(){
     if(isTilted){
         isDefender = false;
     }
-    if(isDefender && ballCap && millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
+    if(ballCap && millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
         isDefender = false;
     }
     if(espnowDataRecv.inField == false || otherBotExists == false){ //check if the other bot is in the field
         isDefender = true;
     }
-
-
     //DEBUG(espnowDataRecv.inField);
 }
 
