@@ -1133,7 +1133,7 @@ void loop(){
                 defend();
             }
         }
-        else sendI2C(zeroBuffer);
+        else ballHide();
 
     }
     else {
