@@ -1133,6 +1133,9 @@ void loop(){
                 defend();
             }
         }
+        else if(millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){
+            ballHide();
+        }
         else sendI2C(zeroBuffer);
 
     }
