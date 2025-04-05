@@ -1081,6 +1081,7 @@ void loop(){
     else if(codeState==1) setLED(11, 11, strip.Color(0, 15, 15)); // cyan
     else setLED(11, 11, strip.Color(0, 0, 15)); // blue
 
+    isDefender = false;
     if (isDefender){
         pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
         pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
