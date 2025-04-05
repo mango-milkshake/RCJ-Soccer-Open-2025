@@ -102,9 +102,9 @@ byte uartBufferPico[PICO_SERIAL_DATA_LEN];
 byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
-float pid_def_rotate_default[3] = {0.5, 0, 0};
-float pid_def_x_default[3] = {3, 0, 0};
-float pid_def_y_default[3] = {3, 0, 0};
+float pid_def_rotate_default[3] = {0.7, 0, 0};
+float pid_def_x_default[3] = {3.5, 0, 0};
+float pid_def_y_default[3] = {3.5, 0, 0};
 
 float pid_att_rotate_default[3] = {0.3, 0, 0};
 float pid_att_x_default[3] = {2.2, 0, 0};
@@ -170,8 +170,8 @@ struct_message espnowDataRecv;
 #define LAST_SEEN_BALL_TIME 1000
 #define SCORING_WAIT_TIME 500
 #define DEFENDER_WAIT_TIME 1500
-#define DEFENDER_MAX_YPOS 0.80
-#define ATTACKER_MIN_BALL_YPOS 0.80
+#define DEFENDER_MAX_YPOS 0.70
+#define ATTACKER_MIN_BALL_YPOS 0.70
 #define OSCILLATE_WAIT_TIME 2000
 
 // Variables
@@ -790,6 +790,10 @@ void dribblerAim(){
     }
 }
 
+// void transitionState(){
+
+// }
+
 void ballHide(){
     if(self_x < FIELD_WIDTH/2)  ballHideState = false; // left side
     else ballHideState = true; // right side
@@ -950,10 +954,10 @@ void defend(){
     newDistToBall = BOT_RADIUS_M / sinHalfAngle;
     new_x = final_absolute_ball_x + newDistToBall * cosf(midAngle);
     new_y = final_absolute_ball_y + newDistToBall * sinf(midAngle);
-    if(new_y > 0.80){
+    if(new_y > DEFENDER_MAX_YPOS){
         float denom = (new_x - 0.91f);
         float slope = (new_y - 0.12f)/ (denom);
-        new_y = 0.80f;
+        new_y = DEFENDER_MAX_YPOS;
         float dydefend = (new_y - 0.12f);
         new_x = 0.91f + (dydefend / slope);
     }
@@ -1100,10 +1104,10 @@ void loop(){
                 movement(0.91f, 0.60f, 0);
             }
             // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
-            else if (final_absolute_ball_y <  0.80f) {
+            else if (final_absolute_ball_y <  DEFENDER_MAX_YPOS) {
 
                 if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f && final_absolute_ball_y < self_y){
-                    pid_rotate.setConfig(0.4, 0, 0);
+                    pid_rotate.setConfig(0.5, 0, 0);
                     pid_x.setConfig(1.9, 0, 0);
                     pid_y.setConfig(1.9, 0, 0);                
                 }
