@@ -103,8 +103,8 @@ byte uartBufferCam[CAM_SERIAL_DATA_LEN];
 
 // PID
 float pid_def_rotate_default[3] = {0.5, 0, 0};
-float pid_def_x_default[3] = {2.5, 0, 0};
-float pid_def_y_default[3] = {2.5, 0, 0};
+float pid_def_x_default[3] = {3, 0, 0};
+float pid_def_y_default[3] = {3, 0, 0};
 
 float pid_att_rotate_default[3] = {0.3, 0, 0};
 float pid_att_x_default[3] = {2.2, 0, 0};
