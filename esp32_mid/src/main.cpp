@@ -1080,6 +1080,7 @@ void loop(){
     else setLED(11, 11, strip.Color(0, 0, 15)); // blue
 
     if (isDefender){
+        setLED(5, 5, strip.Color(0, 0, 15)); // blue
         if(millis() - lastDribblerRev < 1000) ;
         else if (ballCap) dribbler.setSpeed(1.0);
         else if ((final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(0.8);
@@ -1100,12 +1101,6 @@ void loop(){
             }
             // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
             else if (final_absolute_ball_y <  0.80f) {
-                if(millis() - lastDribblerRev < 1000) ;
-                else if(ballCap || (final_ball_dist>0 && final_ball_dist<=40) || 
-                    (last_ball_dist>0 && last_ball_dist<=40 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) 
-                    dribbler.setSpeed(1.0);
-                else if(noBall) dribbler.setSpeed(0);
-                else dribbler.setSpeed(0.3);
 
                 if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f && final_absolute_ball_y < self_y){
                     pid_rotate.setConfig(0.4, 0, 0);
@@ -1139,6 +1134,7 @@ void loop(){
 
     }
     else {
+        setLED(5, 5, strip.Color(0, 15, 0)); // green
         if(millis() - lastDribblerRev < 1000) ;
         else if (ballCap) dribbler.setSpeed(1.0);
         else if ((final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(0.8);
