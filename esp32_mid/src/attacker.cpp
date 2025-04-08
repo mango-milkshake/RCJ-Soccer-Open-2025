@@ -127,7 +127,7 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define DRVOFF_PIN 37
 MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
-uint8_t dribbler_maxspeed = 120;
+uint8_t dribbler_maxspeed = 50;
 Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
 float lastFault = 0;
 
@@ -609,7 +609,7 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_y_dist = total_dist * cosf(total_angle);
 
     if(ballCap){
-        max_translation_pid_value = 0.5;
+        max_translation_pid_value = 0.4;
         max_rotation_pid_value = 0.25;
     }
     else {
@@ -982,7 +982,7 @@ void setup(){
     esp_task_wdt_init(1, true); // timeout in seconds
     enableLoopWDT();
 
-    Wire.begin(SDA_PIN, SCL_PIN, 400000);
+    Wire.begin(SDA_PIN, SCL_PIN, 60000);
 
     for (int i=0; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
 
@@ -1072,16 +1072,16 @@ void loop(){
     // Serial.println(espnowDataRecv.isPresent);
 
     float last_ball_dist = sqrt(last_ball_x * last_ball_x + last_ball_y * last_ball_y);
-    if(millis() - lastDribblerRev < 1000) ;
-    else if(ballCap || (final_ball_dist>0 && final_ball_dist<=40) || (last_ball_dist>0 && last_ball_dist<=40)) dribbler.setSpeed(1.0);
-    else if(noBall) dribbler.setSpeed(0);
-    else dribbler.setSpeed(0.5);
+    if(isTilted) dribbler.setSpeed(0);
+    else if(millis() - lastDribblerRev < 1000 || isTilted) ;
+    else if(ballCap || (final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(1.0);
+    else dribbler.setSpeed(0);
 
     if(codeState==0) setLED(11, 11, strip.Color(0, 15, 0)); // green
     else if(codeState==1) setLED(11, 11, strip.Color(0, 15, 15)); // cyan
     else setLED(11, 11, strip.Color(0, 0, 15)); // blue
 
-    isDefender = false;
+    isDefender = false;                                            
     if (isDefender){
         pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
         pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
@@ -1098,12 +1098,12 @@ void loop(){
             }
             // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
             else if (final_absolute_ball_y <  0.80f) {
-                if(millis() - lastDribblerRev < 1000) ;
-                else if(ballCap || (final_ball_dist>0 && final_ball_dist<=40) || 
-                    (last_ball_dist>0 && last_ball_dist<=40 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) 
+                if(millis() - lastDribblerRev < 1000 || isTilted) ;
+                else if(ballCap || (final_ball_dist>0 && final_ball_dist<=30) || 
+                    (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) 
                     dribbler.setSpeed(1.0);
-                else if(noBall) dribbler.setSpeed(0);
-                else dribbler.setSpeed(0.5);
+                else dribbler.setSpeed(0);
+
 
                 if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f && final_absolute_ball_y < self_y){
                     pid_rotate.setConfig(0.4, 0, 0);
@@ -1137,12 +1137,12 @@ void loop(){
 
     }
     else {
-        if(millis() - lastDribblerRev < 1000) ;
-        else if(ballCap || (final_ball_dist>0 && final_ball_dist<=40) || 
-            (last_ball_dist>0 && last_ball_dist<=40 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) 
+        if(millis() - lastDribblerRev < 1000 || isTilted) ;
+        else if(ballCap || (final_ball_dist>0 && final_ball_dist<=30) || 
+            (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) 
             dribbler.setSpeed(1.0);
-        else if(noBall) dribbler.setSpeed(0);
-        else dribbler.setSpeed(0.5);
+        else dribbler.setSpeed(0);
+
 
         pid_rotate.setConfig(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2]);
         pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
@@ -1159,18 +1159,19 @@ void loop(){
                 else if(codeState==1) dribblerAim();
             }
             else if(ballCap) sendI2C(zeroBuffer);
-            else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
+            // else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
+            else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
                 final_absolute_ball_x = last_ball_x;
                 final_absolute_ball_y = last_ball_y;
                 dribblerBallTrack();
             }
-            else if(!noBall && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
-            // else if(!noBall){
+            // else if(!noBall && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
+            else if(!noBall){
                 dribblerBallTrack();
-                Serial.println("not my ball bro");
+                // Serial.println("not my ball bro");
             }
-            else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.60); 
-            // else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+            // else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.60); 
+            else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
         }
     }
     if(!noBall) {

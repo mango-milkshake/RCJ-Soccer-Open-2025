@@ -48,7 +48,7 @@ bool turnOff = false;
 #define STATE_SWAP_TIME 1000
 #define TOTAL_STATES 3
 float lastStateSwap = 0;
-int codeState = 0; // 0 = dribbler + ball hide, 1 = dribbler + normal scoring, 2 = without dribbler
+int codeState = 2; // 0 = dribbler + ball hide, 1 = dribbler + normal scoring, 2 = without dribbler
 // pause switches
 #define PAUSE_SW1 38
 #define PAUSE_SW2 39
@@ -160,7 +160,7 @@ struct_message espnowDataRecv;
 #define GRADUAL_CHANGE 250.0f
 #define ALIGN_DURATION 2000
 #define ALIGN_THRESHOLD 3000
-#define BALLCAP_DISTANCE -0.10f
+#define BALLCAP_DISTANCE 0.05f
 #define BALLCAP_WIDTH 0.0335f
 #define CLEARANCE_X 0.20f
 #define CLEARANCE_Y 0.15f
