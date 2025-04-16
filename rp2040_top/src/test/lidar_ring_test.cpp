@@ -10,9 +10,9 @@
 // #define PRINT_LIDARS
 // #define PRINT_RECT
 #define PRINT_COORDS
-#define PRINT_DUMMY_POINTS
+// #define PRINT_DUMMY_POINTS
 #define PRINT_HEADING
-#define PRINT_IMU
+// #define PRINT_IMU
 
 #define FIELD_WIDTH 1.82f
 #define FIELD_HEIGHT 2.43f
@@ -120,7 +120,7 @@ void setup(){
 
     pico_led.begin();
     pico_led.setBrightness(PICO_LED_BRIGHTNESS);
-    pico_led.setPixelColor(0, pico_led.Color(15, 15, 0));
+    pico_led.setPixelColor(0, pico_led.Color(15, 0, 0));
     pico_led.show();
 }
 
@@ -132,7 +132,7 @@ void setup1(){
 }
 
 void loop(){
-    pico_led.setPixelColor(0, pico_led.Color(15, 0, 0));
+    pico_led.setPixelColor(0, pico_led.Color(15, 15, 0));
     pico_led.show();
 
     if(digitalRead(TARE_BUTTON)==HIGH){
@@ -183,6 +183,11 @@ void loop(){
         if(lidar[i].buffer.dis > MAX_LIDAR_DIST) strip.setPixelColor(i, strip.Color(15, 0, 15));
         else if(lidar[i].buffer.dis<=0.10) strip.setPixelColor(i, strip.Color(15, 0, 0));
         else strip.setPixelColor(i, strip.Color(0, 15, 0));
+
+        if((i+1)%2==0) {
+            coords[i] = {0.0f, 0.0f};
+            continue;
+        }
 
         #ifdef PRINT_LIDARS
         Serial.print("{");

@@ -10,6 +10,9 @@ Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 #define KICKER_PIN 3
 Kicker kicker(KICKER_PIN);
 
+int delayTime = 1000;
+int iterations = 5;
+
 void setup() {
     Serial.begin(115200);
     // while(!Serial.available()) ;
@@ -26,5 +29,14 @@ void loop() {
     Serial.println("running");
     strip.setPixelColor(0, strip.Color(15, 15, 0));
     strip.show();
-    kicker.kick();
+    // kicker.kick();
+
+    for (int i=delayTime; i>=50; i-=50){
+        for (int j=0; j<iterations; j++){
+            digitalWrite(KICKER_PIN, HIGH);
+            delayMicroseconds(i);
+            digitalWrite(KICKER_PIN, LOW);
+            delayMicroseconds(i);
+        }
+    }
 }
