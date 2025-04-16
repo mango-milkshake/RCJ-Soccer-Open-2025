@@ -46,14 +46,14 @@ void setup()
     while (1);
   }
 
-  sensor.setResolution(4*4); // Enable all 64 pads
+  sensor.setResolution(8*8); // Enable all 64 pads
 
   imageResolution = sensor.getResolution(); // Query sensor for current resolution - either 4x4 or 8x8
   imageWidth = sqrt(imageResolution);         // Calculate printing width
 
   // Using 4x4, min frequency is 1Hz and max is 60Hz
   // Using 8x8, min frequency is 1Hz and max is 15Hz
-  sensor.setRangingFrequency(60);
+  sensor.setRangingFrequency(15);
 
   sensor.startRanging();
 
@@ -73,8 +73,8 @@ void loop()
       {
         for (int x = imageWidth - 1; x >= 0; x--)
         {
-          //Serial.print(measurementData.distance_mm[x + y]);
-          //Serial.print(",");
+          Serial.print(measurementData.distance_mm[x + y]);
+          Serial.print(",");
         }
       }
       Serial.println();

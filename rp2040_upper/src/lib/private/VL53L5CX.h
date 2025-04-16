@@ -1,0 +1,48 @@
+#ifndef VL53L5CX_H
+#define VL53L5CX_H
+
+#include <Wire.h> 
+#include <SparkFun_VL53L5CX_Library.h>
+
+class VL53L5CX {
+    public:
+        VL53L5CX(uint8_t scl, uint8_t sda, int width, int freq, TwoWire &wire) :
+            _scl(scl), _sda(sda), _width(width), _freq(freq), _wire(wire){
+        }
+
+        SparkFun_VL53L5CX sensor;
+        VL53L5CX_ResultsData data;
+
+        void init(){
+            _wire.setSCL(_scl);
+            _wire.setSDA(_sda);
+            _wire.begin();
+            _wire.setClock(1000000);
+
+            sensor.setWireMaxPacketSize(128);
+            if (!sensor.begin()){
+                Serial.println(F("Sensor not found."));
+                while (1);
+            }
+            sensor.setResolution(_width*_width);
+            sensor.setRangingFrequency(_freq); // for 4x4, max 60; for 8x8, max 15
+            sensor.startRanging();
+        }
+
+        bool updateData(){
+            // if data ready, read into data array
+            if(sensor.isDataReady()){
+                if(sensor.getRangingData(&data)) return true;
+                else return false;
+            }
+            else return false;
+        }
+
+    private:
+        const uint8_t _scl, _sda;
+        const int _width; // should onlybe 4 or 8
+        const int _freq;
+        TwoWire &_wire;
+};
+
+#endif
