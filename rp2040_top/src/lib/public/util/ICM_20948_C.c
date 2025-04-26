@@ -1,6 +1,7 @@
 #include "ICM_20948_C.h"
 #include "ICM_20948_REGISTERS.h"
 #include "AK09916_REGISTERS.h"
+#include <string.h>
 
 /*
  * Icm20948 device require a DMP image to be loaded on init
