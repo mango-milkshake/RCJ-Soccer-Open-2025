@@ -29,6 +29,7 @@ void loop(){
                 Serial.print(vlLidar.data.distance_mm[x+y]);
                 Serial.print(",");
             }
+            Serial.println();
         }
         Serial.println();
     }
