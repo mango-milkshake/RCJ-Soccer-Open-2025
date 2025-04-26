@@ -167,7 +167,7 @@ struct_message espnowDataRecv;
 #define FIELD_MARGIN 0.12f
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
-#define LAST_SEEN_BALL_TIME 1000
+#define LAST_SEEN_BALL_TIME 500
 #define SCORING_WAIT_TIME 500
 #define DEFENDER_WAIT_TIME 1500
 #define DEFENDER_MAX_YPOS 0.70
@@ -210,6 +210,11 @@ bool aligned = false;
 float initial_change = 0.0f, initial_magnitude = 0.0f;
 unsigned long last_aligning = 0;
 bool time_to_score = false;
+
+//ball motion tracking variables
+float ref_ball_x = 0.0f, ref_ball_y = 0.0f;
+unsigned long ref_balltime = 0;
+bool ballNotMoving = false;
 
 //// ** FUNCTIONS ** ////
 
@@ -594,7 +599,6 @@ void movement(float target_x, float target_y, float target_rotation){
     if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
     else target_y = constrain(target_y, 0.20, FIELD_HEIGHT - 0.20);
 
-    if(isDefender) target_y = constrain(target_y, 0, DEFENDER_MAX_YPOS);
     float x_dist = target_x - self_x, y_dist = target_y - self_y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
     float total_angle = atan2(y_dist, x_dist) + RAD(self_heading) - PI/4; // in radians
@@ -966,6 +970,24 @@ void defend(){
     movement(new_x, new_y, 0);
 }
 
+void trackBallMotion() {
+    unsigned long nowball = millis();
+    float balldx = fabs(last_ball_x - ref_ball_x);
+    float balldy = fabs(last_ball_y - ref_ball_y);
+
+    if (balldx < 0.20f && balldy < 0.20f) {
+        if (nowball - ref_balltime >= 5000) {
+            ballNotMoving = true;
+        }
+    } else {
+
+        ref_ball_x = last_ball_x;
+        ref_ball_y = last_ball_y;
+        ref_balltime = nowball;
+        ballNotMoving = false;
+    }
+}
+
 //// ** LOOPS ** ////
 
 void setup(){
@@ -1036,6 +1058,7 @@ void loop(){
     getBottomPlateData();
 
     ballCapStatus();
+    trackBallMotion();
 
     if(digitalRead(STATE_SW)==HIGH && millis() - lastStateSwap >= STATE_SWAP_TIME){
         codeState++;
@@ -1104,10 +1127,10 @@ void loop(){
                 movement(0.91f, 0.60f, 0);
             }
             // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
-            else if (final_absolute_ball_y <  DEFENDER_MAX_YPOS) {
+            else if (final_absolute_ball_y <  DEFENDER_MAX_YPOS || ballNotMoving) {
 
                 if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f && final_absolute_ball_y < self_y){
-                    pid_rotate.setConfig(0.5, 0, 0);
+                    pid_rotate.setConfig(0.4, 0, 0);
                     pid_x.setConfig(1.9, 0, 0);
                     pid_y.setConfig(1.9, 0, 0);                
                 }

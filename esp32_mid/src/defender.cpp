@@ -127,7 +127,7 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define DRVOFF_PIN 37
 MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
-uint8_t dribbler_maxspeed = 120;
+uint8_t dribbler_maxspeed = 60;
 Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
 float lastFault = 0;
 
@@ -167,11 +167,11 @@ struct_message espnowDataRecv;
 #define FIELD_MARGIN 0.12f
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
-#define LAST_SEEN_BALL_TIME 1000
+#define LAST_SEEN_BALL_TIME 500
 #define SCORING_WAIT_TIME 500
 #define DEFENDER_WAIT_TIME 1500
-#define DEFENDER_MAX_YPOS 0.80
-#define ATTACKER_MIN_BALL_YPOS 0.80
+#define DEFENDER_MAX_YPOS 0.70
+#define ATTACKER_MIN_BALL_YPOS 0.70
 #define OSCILLATE_WAIT_TIME 2000
 
 // Variables
@@ -183,7 +183,7 @@ float top_relative_ball_x = 0, top_relative_ball_y = 0;
 float top_absolute_ball_x = 0, top_absolute_ball_y = 0;
 float front_ball_x = 0, front_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
 float front_relative_ball_x = 0, front_relative_ball_y = 0;
-float front_absolute_ball_x = 0, front_absolute_ball_y = 0;
+float front_absolute_ball_x = 0,front_absolute_ball_y = 0;
 float final_ball_dist = 0, final_absolute_ball_x = 0, final_absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
 int current_target_x = 999, current_target_y = 999;
@@ -210,6 +210,12 @@ bool aligned = false;
 float initial_change = 0.0f, initial_magnitude = 0.0f;
 unsigned long last_aligning = 0;
 bool time_to_score = false;
+
+//ball motion tracking variables
+float ref_ball_x = 0.0f, ref_ball_y = 0.0f;
+unsigned long ref_balltime = 0;
+bool ballNotMoving = false;
+
 
 //// ** FUNCTIONS ** ////
 
@@ -596,7 +602,7 @@ void movement(float target_x, float target_y, float target_rotation){
     if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
     else target_y = constrain(target_y, 0.20, FIELD_HEIGHT - 0.20);
 
-    if(isDefender) target_y = constrain(target_y, 0, DEFENDER_MAX_YPOS);
+
     float x_dist = target_x - self_x, y_dist = target_y - self_y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
     float total_angle = atan2(y_dist, x_dist) + RAD(self_heading) - PI/4; // in radians
@@ -952,16 +958,33 @@ void defend(){
     newDistToBall = BOT_RADIUS_M / sinHalfAngle;
     new_x = final_absolute_ball_x + newDistToBall * cosf(midAngle);
     new_y = final_absolute_ball_y + newDistToBall * sinf(midAngle);
-    if(new_y > 0.80){
+    if(new_y > DEFENDER_MAX_YPOS){
         float denom = (new_x - 0.91f);
         float slope = (new_y - 0.12f)/ (denom);
-        new_y = 0.80f;
+        new_y = DEFENDER_MAX_YPOS;
         float dydefend = (new_y - 0.12f);
         new_x = 0.91f + (dydefend / slope);
     }
     // DEBUG(new_x);
     // DEBUG(new_y);
     movement(new_x, new_y, 0);
+}
+void trackBallMotion() {
+    unsigned long nowball = millis();
+    float balldx = fabs(last_ball_x - ref_ball_x);
+    float balldy = fabs(last_ball_y - ref_ball_y);
+
+    if (balldx < 0.20f && balldy < 0.20f) {
+        if (nowball - ref_balltime >= 3000) {
+            ballNotMoving = true;
+        }
+    } else {
+
+        ref_ball_x = last_ball_x;
+        ref_ball_y = last_ball_y;
+        ref_balltime = nowball;
+        ballNotMoving = false;
+    }
 }
 
 //// ** LOOPS ** ////
@@ -1034,6 +1057,7 @@ void loop(){
     getBottomPlateData();
 
     ballCapStatus();
+    trackBallMotion();
 
     if(digitalRead(STATE_SW)==HIGH && millis() - lastStateSwap >= STATE_SWAP_TIME){
         codeState++;
@@ -1073,7 +1097,7 @@ void loop(){
 
     float last_ball_dist = sqrt(last_ball_x * last_ball_x + last_ball_y * last_ball_y);
     if(millis() - lastDribblerRev < 1000) ;
-    else if(ballCap || (final_ball_dist>0 && final_ball_dist<=40) || (last_ball_dist>0 && last_ball_dist<=40)) dribbler.setSpeed(1.0);
+    else if(ballCap || (final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(1.0);
     else if(noBall) dribbler.setSpeed(0);
     else dribbler.setSpeed(0.5);
 
@@ -1097,10 +1121,10 @@ void loop(){
                 movement(0.91f, 0.60f, 0);
             }
             // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
-            else if (final_absolute_ball_y <  0.80f) {
+            else if (final_absolute_ball_y <  DEFENDER_MAX_YPOS || ballNotMoving) {
                 if(millis() - lastDribblerRev < 1000) ;
-                else if(ballCap || (final_ball_dist>0 && final_ball_dist<=40) || 
-                    (last_ball_dist>0 && last_ball_dist<=40 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) 
+                else if(ballCap || (final_ball_dist>0 && final_ball_dist<=30) || 
+                    (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) 
                     dribbler.setSpeed(1.0);
                 else if(noBall) dribbler.setSpeed(0);
                 else dribbler.setSpeed(0.5);
@@ -1134,6 +1158,9 @@ void loop(){
             }
         }
         else if(millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){
+            pid_rotate.setConfig(0.3, 0, 0);
+            pid_x.setConfig(2.2, 0, 0);
+            pid_y.setConfig(2.2, 0, 0);          
             ballHide();
         }
         else sendI2C(zeroBuffer);
@@ -1141,8 +1168,8 @@ void loop(){
     }
     else {
         if(millis() - lastDribblerRev < 1000) ;
-        else if(ballCap || (final_ball_dist>0 && final_ball_dist<=40) || 
-            (last_ball_dist>0 && last_ball_dist<=40 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) 
+        else if(ballCap || (final_ball_dist>0 && final_ball_dist<=30) || 
+            (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) 
             dribbler.setSpeed(1.0);
         else if(noBall) dribbler.setSpeed(0);
         else dribbler.setSpeed(0.5);
