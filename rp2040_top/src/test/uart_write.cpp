@@ -3,7 +3,7 @@
 #define TX_PIN 0
 #define RX_PIN 1
 #define SERIAL_SIZE 128
-#define DATA_LEN 99
+#define DATA_LEN 30
 
 void setup(){
     Serial.begin(115200);
@@ -18,7 +18,7 @@ void setup(){
 }
 
 void loop(){
-    Serial.print("running");
+    // Serial.print("running");
     for (int i=1; i<=DATA_LEN; i++){
         Serial1.write(i);
     }
