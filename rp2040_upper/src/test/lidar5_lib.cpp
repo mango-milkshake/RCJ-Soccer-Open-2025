@@ -24,12 +24,20 @@ void loop(){
         Serial.printf("Time: %d \n", curTime - lastReadTime);
         lastReadTime = curTime;
         // print readings inverted (reflects reality)
+        Serial.println("==================================================================");
         for (int y = 0; y <= SENSOR_WIDTH * (SENSOR_WIDTH - 1); y += SENSOR_WIDTH){
+            Serial.print("||");
             for (int x = SENSOR_WIDTH - 1; x >= 0; x--){
+                if(vlLidar.data.distance_mm[x+y] < 10) Serial.print("   ");
+                else if(vlLidar.data.distance_mm[x+y] < 1000) Serial.print("  ");
+                else Serial.print(" ");
                 Serial.print(vlLidar.data.distance_mm[x+y]);
-                Serial.print(",");
+                if(vlLidar.data.distance_mm[x+y] < 100) Serial.print("  ");
+                else Serial.print(" ");
+                Serial.print("||");
             }
             Serial.println();
+            Serial.println("==================================================================");
         }
         Serial.println();
     }
