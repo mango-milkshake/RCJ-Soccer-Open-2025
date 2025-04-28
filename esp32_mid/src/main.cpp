@@ -10,6 +10,9 @@
 #include <esp_wifi.h>
 #include <esp_now.h>
 #include <esp_task_wdt.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <WebSerial.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -152,6 +155,14 @@ typedef struct struct_message {
 struct_message espnowData;
 struct_message espnowDataRecv;
 
+// Wifi / WebSerial Debugging
+#define WEB_PRINT_DELAY 50
+AsyncWebServer server(80);
+
+const char* ssid = "heeheehaahaaheeheehaahaa"; // WiFi SSID
+const char* password = "lipofire"; // WiFi Password
+int lastWebPrintTime = 0;
+
 // Thresholds
 #define BALLCAP_DURATION 250
 #define ALIGNED_THRESHOLD 0.015f
@@ -239,6 +250,46 @@ void checkFault(){
         }
     } 
     else setLED(0, 0, strip.Color(0, 0, 0));
+}
+
+void initWiFi() {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    Serial.print("Connecting to WiFi ..");
+    while (WiFi.status() != WL_CONNECTED) {
+        if(millis()-lastWebPrintTime>=1000) {
+            Serial.println("Wifi not connected");
+            lastWebPrintTime = millis();
+        }
+    }
+    Serial.println(WiFi.localIP());
+}
+
+void startWebSerial(){
+    initWiFi();
+
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        // request->send(200, "text/plain", "Webserial interface at http://" + WiFi.softAPIP().toString() + "/webserial");
+        request->send(200, "text/plain", "Webserial interface at http://" + WiFi.localIP().toString() + "/webserial");
+    });
+
+    // WebSerial is accessible at "<IP Address>/webserial" in browser
+    WebSerial.begin(&server);
+
+    /* Attach Message Callback */
+    WebSerial.onMessage([&](uint8_t *data, size_t len) {
+        Serial.printf("Received %u bytes from WebSerial: ", len);
+        Serial.write(data, len);
+        Serial.println();
+        WebSerial.println("Received Data...");
+        String d = "";
+            for(size_t i=0; i < len; i++){
+            d += char(data[i]);
+        }
+        WebSerial.println(d);
+    });
+
+    server.begin();
 }
 
 void readMacAddress(){ //read own mac address and set broadcast address to other bot
@@ -997,6 +1048,8 @@ void setup(){
     if(espnowDataRecv.isPresent == 2) isDefender = false;
     else isDefender = true;
 
+    startWebSerial();
+
     strip.begin();
     strip.setBrightness(LED_BRIGHTNESS);
     strip.show();
@@ -1055,7 +1108,8 @@ void loop(){
         otherBotExists = false;
     }
     assignDef();
-    sendData();
+    // sendData();
+
     if(!isDefender){
         LED_BRIGHTNESS = 255;
     }
@@ -1084,6 +1138,12 @@ void loop(){
     else setLED(11, 11, strip.Color(0, 0, 15)); // blue
 
     // movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+
+    updateSelfVelocityEWMA(self_x, self_y);
+    if(millis()-lastWebPrintTime >= WEB_PRINT_DELAY){
+        WebSerial.printf("Vx: %f\n Vy: %f\n", self_velocityx, self_velocityy);
+        lastWebPrintTime = millis();
+    }
 
     if (isDefender){
         setLED(5, 5, strip.Color(0, 0, 15)); // blue
@@ -1180,6 +1240,8 @@ void loop(){
         last_ball_x = final_absolute_ball_x;
         last_ball_y = final_absolute_ball_y;
     }
+
+    WebSerial.loop();
 }
 
 /*

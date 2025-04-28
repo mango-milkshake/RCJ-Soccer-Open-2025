@@ -1,9 +1,10 @@
 #include <Arduino.h>
-#include <SoftwareSerial.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerial.h>
+
+#define NO_SERIAL
 
 #define TX_PIN 8
 #define RX_PIN 9
@@ -76,6 +77,12 @@ void loop(){
         Serial.println("main loop started");
         started = true;
     }
+    #ifdef NO_SERIAL
+    if(millis()-lastPrintTime >= PRINT_DELAY){
+        WebSerial.println("hi");
+        lastPrintTime = millis();
+    }
+    #else
     // float loopStartTime = micros();
     if(Serial1.available()>=DATA_LEN){
         while(Serial1.available()>=DATA_LEN && Serial1.peek()!=1) {
@@ -120,6 +127,7 @@ void loop(){
     // }
     // float loopEndTime = micros();
     // Serial.printf("Loop Time: %f \n", loopEndTime - loopStartTime);
+    #endif
 
     WebSerial.loop();
 }
