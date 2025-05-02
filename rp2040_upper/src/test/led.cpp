@@ -20,7 +20,7 @@ void setup()
 void loop()
 {
   Serial.println("looping");
-  strip.setPixelColor(0, strip.Color(0, 15, 15));
+  strip.setPixelColor(0, strip.Color(15, 0, 15));
   strip.show();
 
 }

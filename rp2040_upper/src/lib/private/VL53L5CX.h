@@ -6,24 +6,27 @@
 
 class VL53L5CX {
     public:
-        VL53L5CX(uint8_t scl, uint8_t sda, int width, int freq, TwoWire &wire) :
-            _scl(scl), _sda(sda), _width(width), _freq(freq), _wire(wire){
+        VL53L5CX(uint8_t scl, uint8_t sda, uint8_t xshut, uint8_t addr, int width, int freq, TwoWire &wire) :
+            _scl(scl), _sda(sda), _xshut(xshut), _addr(addr), _width(width), _freq(freq), _wire(wire){
         }
 
         SparkFun_VL53L5CX sensor;
         VL53L5CX_ResultsData data;
 
-        void init(){
+        void initWire(){
             _wire.setSCL(_scl);
             _wire.setSDA(_sda);
             _wire.begin();
-            _wire.setClock(1000000);
+            _wire.setClock(400000);
+        }
 
-            sensor.setWireMaxPacketSize(128);
-            if (!sensor.begin()){
-                Serial.println(F("Sensor not found."));
-                while (1);
+        void init(){
+            digitalWrite(_xshut, HIGH);
+            while(!sensor.begin()){
+                Serial.println("Sensor not found");
             }
+            sensor.setAddress(_addr);
+            sensor.setWireMaxPacketSize(128);
             sensor.setResolution(_width*_width);
             sensor.setRangingFrequency(_freq); // for 4x4, max 60; for 8x8, max 15
             sensor.startRanging();
@@ -39,8 +42,8 @@ class VL53L5CX {
         }
 
     private:
-        const uint8_t _scl, _sda;
-        const int _width; // should onlybe 4 or 8
+        const uint8_t _scl, _sda, _xshut, _addr;
+        const int _width; // should only be 4 or 8
         const int _freq;
         TwoWire &_wire;
 };
