@@ -24,6 +24,13 @@
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
 // #define NO_DRIBBLER
+#define PRINT_DELAY 50
+
+// AsyncWebServer server(80);
+
+// const char* ssid = "heeheehaahaaheeheehaahaa"; // WiFi SSID
+// const char* password = "lipofire"; // WiFi Password
+// int lastWebPrintTime = 0;
 
 //// ** DEFINITIONS ** ////
 
@@ -215,6 +222,46 @@ unsigned long last_aligning = 0;
 bool time_to_score = false;
 
 //// ** FUNCTIONS ** ////
+// void initWiFi() {
+//     WiFi.mode(WIFI_STA);
+//     WiFi.begin(ssid, password);
+//     Serial.print("Connecting to WiFi ..");
+//     while (WiFi.status() != WL_CONNECTED) {
+//         if(millis()-lastWebPrintTime>=1000) {
+//             Serial.println("Wifi not connected");
+//             lastWebPrintTime = millis();
+//         }
+//     }
+//     Serial.println(WiFi.localIP());
+// }
+
+// void startWebSerial(){
+//     initWiFi();
+
+//     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+//         // request->send(200, "text/plain", "Webserial interface at http://" + WiFi.softAPIP().toString() + "/webserial");
+//         request->send(200, "text/plain", "Webserial interface at http://" + WiFi.localIP().toString() + "/webserial");
+//     });
+
+//     // WebSerial is accessible at "<IP Address>/webserial" in browser
+//     WebSerial.begin(&server);
+
+//     /* Attach Message Callback */
+//     WebSerial.onMessage([&](uint8_t *data, size_t len) {
+//         Serial.printf("Received %u bytes from WebSerial: ", len);
+//         Serial.write(data, len);
+//         Serial.println();
+//         WebSerial.println("Received Data...");
+//         String d = "";
+//             for(size_t i=0; i < len; i++){
+//             d += char(data[i]);
+//         }
+//         WebSerial.println(d);
+//     });
+
+//     server.begin();
+// }
+
 
 void setLED(int first, int last, uint32_t color){
     for (int i=first; i<=last; i++){
@@ -234,8 +281,8 @@ void checkFault(){
     if(faulted){
         // Serial.println("faulted");
         setLED(0, 0, strip.Color(15, 15, 15));
-        float curTime = millis();
-        if(curTime - lastFault >= 500){
+        float faultTime = millis();
+        if(faultTime - lastFault >= 500){
             dribblerMD.clearFault();
             dribblerMD.readRegister(0b01000001);
             lastFault = millis();
@@ -832,7 +879,7 @@ void frontCamTrack(){
 float targetballposx = FIELD_WIDTH/2;
 float targetballposy = 0.80;
 void lookAhead(){
-    float v = 0.20;
+    float v = 0.15;
     float latency = 0.2;
     bool validt = false;
     bool useFrontCam = false;
@@ -923,10 +970,12 @@ void lookAhead(){
     // DEBUG(t);
     DEBUG(targetballposx);
     DEBUG(targetballposy);
+    DEBUG(LAball_vx);
+    DEBUG(LAball_vy);
     DEBUG(self_x);
     DEBUG(self_y);
     DEBUG(t);
-    DEBUG(lookAheadConfirm);
+    // DEBUG(lookAheadConfirm);
 
     if (lookAheadConfirm){
         float absBallAngle = atan2(targetballposy - self_y, targetballposx - self_x);
@@ -953,7 +1002,9 @@ void updateSelfVelocityEWMA(float current_self_x, float current_self_y) {
     // Save current data for next iteration
     last_self_x = current_self_x;
     last_self_y = current_self_y;
-    last_vel_time   = now;
+    last_vel_time = now;
+    DEBUG(self_velocityx);
+    DEBUG(self_velocityy);
 }
 
 void defend(){
@@ -1012,10 +1063,12 @@ bool checkv(int n, float threshold){ //n = how many previous velocities to check
 //// ** LOOPS ** ////
 
 void setup(){
+
     Serial.begin(115200);
 
     Serial1.begin(115200, SERIAL_8N1, CAM_RX_PIN, CAM_TX_PIN);
     Serial2.begin(115200, SERIAL_8N1, PICO_RX_PIN, PICO_TX_PIN);
+    // startWebSerial();
 
     pinMode(TURN_OFF_SW, INPUT);
     pinMode(VOLTAGE_PIN, INPUT);
@@ -1051,7 +1104,11 @@ void setup(){
 
 }
 
-
+float lastLookAhead = millis();
+float targetballposx_current = 0;
+float targetballposy_current = 0;
+#define LOOK_AHEAD_THRESHOLD_T 500
+#define LOOK_AHEAD_THRESHOLD_D 0.15
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
@@ -1234,23 +1291,21 @@ void loop(){
         pbvx[pbvx_size] = 0;
         pbvy[pbvx_size] = 0;  
     }
-
-    // DEBUG(pbvx[pbvx_size]);
-    // DEBUG(pbvx[pbvx_size-1]);
-    // DEBUG(pbvx[pbvx_size-2]);
-    // DEBUG(pbvy[pbvx_size]);
-    // DEBUG(pbvy[pbvx_size-1]);
-    // DEBUG(pbvy[pbvx_size-2]);
-    // DEBUG(noBall);
-
-
+    /*
+    DEBUG(pbvx[pbvx_size]);
+    DEBUG(pbvx[pbvx_size-1]);
+    DEBUG(pbvx[pbvx_size-2]);
+    DEBUG(pbvy[pbvx_size]);
+    DEBUG(pbvy[pbvx_size-1]);
+    DEBUG(pbvy[pbvx_size-2]);
+    DEBUG(noBall);*/
     if(noBall){
         if(noBallTimer == 0){ //substitute for remembering last ball location in main code
-            // noBallTimer = millis(); 
+            noBallTimer = millis(); 
         }
         else if(abs(millis() - noBallTimer) < 700){
-            // top_absolute_ball_x = last_ball_x;
-            // top_absolute_ball_y = last_ball_y;
+            top_absolute_ball_x = last_ball_x;
+            top_absolute_ball_y = last_ball_y;
         }
         else{
             moveToGoal = true;
@@ -1267,23 +1322,48 @@ void loop(){
 
     if(!moveToGoal && noBall && pbvx[pbvx_size] + pbvx[pbvx_size-1] + pbvx[pbvx_size-2] + pbvy[pbvx_size] + pbvy[pbvx_size-1] + pbvy[pbvx_size-2] == 0){ // if no ball, stop bot
         esp_led.setPixelColor(0, esp_led.Color(0, 0,0));
-        //sendI2C(zeroBuffer);
+        sendI2C(zeroBuffer);
         esp_led.show();
-        lookAhead(); //delete this later if needed
+        // lookAhead(); //delete this later if needed
     }  
     // else if (sqrtf(ball_vx*ball_vx + ball_vy*ball_vy) < 0.15){} //don't look ahead if velocity is too small
     else if (!moveToGoal && !noBall && checkv(5, 0.05)){ // if last n values are within x of each other, update look ahead target
-        esp_led.setPixelColor(0, esp_led.Color(0, 20, 0));
-        esp_led.show();
-        Serial.println("look ahead called////////////////////////////////////////////////////////////");
-        lookAhead();
+        if(abs(curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
+            //switches target only if last switch target was sufficiently long ago
+            esp_led.setPixelColor(0, esp_led.Color(0, 20, 0));
+            esp_led.show();
+            Serial.println("look ahead called////////////////////////////////////////////////////////////");
+            lookAhead();
+            lastLookAhead = millis();
+        }
     } 
-    else if (moveToGoal){
+    if(targetballposx<0 || targetballposx >FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
         targetballposx = FIELD_WIDTH/2;
-        targetballposy = 0.80;
+        targetballposy = 0.5;    
     }
-    movement(targetballposx, targetballposy, 0);
-
+    if (moveToGoal){
+        if(targetballposx != FIELD_WIDTH/2 && targetballposy != 0.5){
+            sendI2C(zeroBuffer);
+        }
+        targetballposx = FIELD_WIDTH/2;
+        targetballposy = 0.5;
+    }
+    DEBUG(moveToGoal);
+    DEBUG(targetballposx);
+    DEBUG(targetballposy);
+    DEBUG(targetballposx_current);
+    DEBUG(targetballposy_current);
+    DEBUG(self_x);
+    DEBUG(self_y);
+    if (abs(pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5)) >= LOOK_AHEAD_THRESHOLD_D){
+        //swithces target only if new target is far away from current target 
+        targetballposx_current = targetballposx;
+        targetballposy_current = targetballposy; 
+        movement(targetballposx, targetballposy, 0);
+    }
+    // if(moveToGoal){
+    //     movement(targetballposx, targetballposy, 0);
+    // }
 
         //else if(ballCap) aim();
         // else if(ball_vx > 0.10 || ball_vy > 0.10){
@@ -1302,7 +1382,7 @@ void loop(){
             // }
         // }
 
-
+    // WebSerial.loop();
 }
 
 
