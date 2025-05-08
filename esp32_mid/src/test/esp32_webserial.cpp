@@ -27,10 +27,11 @@ void initWiFi() {
         Serial.print('.');
         delay(1000);
     }
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
     Serial.println(WiFi.localIP());
 }
 
-#define PRINT_DELAY 50
+#define PRINT_DELAY 100
 bool started = false;
 int lastPrintTime = millis();
 
