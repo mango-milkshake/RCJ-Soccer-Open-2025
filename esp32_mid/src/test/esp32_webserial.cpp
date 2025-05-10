@@ -3,6 +3,7 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerial.h>
+#include <esp_task_wdt.h>
 
 #define NO_SERIAL
 
@@ -34,6 +35,7 @@ void initWiFi() {
 #define PRINT_DELAY 100
 bool started = false;
 int lastPrintTime = millis();
+int loopTime = millis();
 
 void setup(){
     Serial.begin(115200);
@@ -71,6 +73,9 @@ void setup(){
     server.begin();
 
     Serial1.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
+
+    esp_task_wdt_init(2, true); // timeout in seconds
+    enableLoopWDT();
 }
 
 void loop(){
@@ -78,6 +83,7 @@ void loop(){
         Serial.println("main loop started");
         started = true;
     }
+    Serial.println("beginning of loop");
     #ifdef NO_SERIAL
     if(millis()-lastPrintTime >= PRINT_DELAY){
         WebSerial.println("hi");
@@ -129,6 +135,11 @@ void loop(){
     // float loopEndTime = micros();
     // Serial.printf("Loop Time: %f \n", loopEndTime - loopStartTime);
     #endif
+    Serial.println("printed to web");
 
     WebSerial.loop();
+
+    Serial.println("end of loop");
+    Serial.printf("loop time: %d\n", millis()-loopTime);
+    loopTime = millis();
 }
