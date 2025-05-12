@@ -262,6 +262,7 @@ void initWiFi() {
             lastWebPrintTime = millis();
         }
     }
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
     Serial.println(WiFi.localIP());
 }
 
@@ -336,8 +337,8 @@ void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //in
 }
 
 void set_up_esp_now(){
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_STA);
+    // WiFi.disconnect(true);
+    // WiFi.mode(WIFI_STA);
 
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
@@ -1032,7 +1033,7 @@ void setup(){
     pinMode(STATE_SW, INPUT);
     analogSetAttenuation(ADC_11db);
 
-    esp_task_wdt_init(1, true); // timeout in seconds
+    esp_task_wdt_init(2, true); // timeout in seconds
     enableLoopWDT();
 
     Wire.begin(SDA_PIN, SCL_PIN, 400000);
@@ -1042,13 +1043,12 @@ void setup(){
     dribblerMD.init();
     dribblerMD.setMode();
 
+    startWebSerial();
     readMacAddress();
     set_up_esp_now();
 
     if(espnowDataRecv.isPresent == 2) isDefender = false;
     else isDefender = true;
-
-    startWebSerial();
 
     strip.begin();
     strip.setBrightness(LED_BRIGHTNESS);

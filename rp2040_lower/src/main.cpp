@@ -130,7 +130,7 @@ void setup(){
 }
 
 void loop(){
-    Serial.println("running");
+    // Serial.println("running");
     // strip.setPixelColor(0, strip.Color(0, 0, 15));
     // strip.show();
     if(millis() - lastLED >= BLINK_TIME){
