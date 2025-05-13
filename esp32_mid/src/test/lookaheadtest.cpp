@@ -533,9 +533,10 @@ void getTopCamData(){
             ball_vy = top_ball_vy;
             //not tested:
             ball_vx += self_velocityx;
-            ball_vy += self_velocityy;
-            ball_vx += pow((top_relative_ball_x*top_relative_ball_x, top_relative_ball_y*top_relative_ball_y),0.5)*self_velocityw*cosf(atan2f(ball_vy,ball_vx));
-            ball_vy += pow((top_relative_ball_x*top_relative_ball_x, top_relative_ball_y*top_relative_ball_y),0.5)*self_velocityw*sinf(atan2f(ball_vy,ball_vx));
+            ball_vy += self_velocityy;  
+            //Since counterclockwise is positive w, vx -= rw cos(90-theta) whereas vy += rw sin(90-theta); note the sign difference
+            ball_vx -= pow((top_relative_ball_x*top_relative_ball_x, top_relative_ball_y*top_relative_ball_y),0.5)*self_velocityw*cosf((3.1415/2)-atan2f(top_relative_ball_y,top_relative_ball_x));
+            ball_vy += pow((top_relative_ball_x*top_relative_ball_x, top_relative_ball_y*top_relative_ball_y),0.5)*self_velocityw*sinf((3.1415/2)-atan2f(top_relative_ball_y,top_relative_ball_x));
             //
             top_absolute_ball_x = top_relative_ball_x + self_x;
             top_absolute_ball_y = top_relative_ball_y + self_y;
@@ -920,7 +921,7 @@ void lookAhead(){
     //     LAball_vy += self_velocityy;
     //     // DEBUG(LAball_vx);
     // }
-    else{
+    else{ //look ahead uses relative position and absolute velocity
         LAball_x = top_relative_ball_x;
         LAball_y = top_relative_ball_y;
         LAball_vx = ball_vx + self_velocityx;
@@ -1345,7 +1346,7 @@ void loop(){
         noBallTimer = 0;
         moveToGoal = false;
     }
-    updateSelfVelocityEWMA(self_heading, self_x, self_y);
+    updateSelfVelocityEWMA(RAD(self_heading), self_x, self_y); //14/5
 
 
     if(!moveToGoal && noBall && checkzero(10)){ // if no ball, stop bot
