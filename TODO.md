@@ -30,6 +30,14 @@
 - Make use of line sensor data
 - GAME LOGIC
 
+scoring cases
+transition state -> bot targets centre of field and faces backwards
+when bool beenInStateTime >= switch case timeout: enter transition state + clear beeninstate time + increase state index
+
+1. ballhide: move till x is on sides of field, facing outwards. then move till y at centre of field. then go towards middle of field while still facing outward. then closer to goal it will then turn to score
+2. turnback: move backfacing till centre y of field. then go to goal corner while backfacing goal. then turn to score
+3. normal scoring but at around goal corner / sides of field
+
 ## I Fried It
 Fried RP2040-Zero Count: 6  
 Fried ESP32-S3-Pico Count: 2  

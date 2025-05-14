@@ -36,10 +36,10 @@ led2 = pyb.LED(2)
 led2.on()
 
 ballExists = True
-centre_x = 165
-centre_y = 128
+centre_x = 144
+centre_y = 134
 mask_radius = 120
-thresh_ball = (0, 100, 10, 48, -4, 43) # (0, 100, 45, 76, 25, 55)
+thresh_ball = (21, 64, 37, 81, -39, 55) # (0, 100, 10, 48, -4, 43)
 actual_data_len = 10
 
 uart = UART(3, 115200)

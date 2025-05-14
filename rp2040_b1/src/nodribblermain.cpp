@@ -57,7 +57,7 @@ void checkFault(){
     if(digitalRead(motorBL.nfault)==LOW) faulted = true;
     if(digitalRead(motorBR.nfault)==LOW) faulted = true;
     if(faulted){
-        // Serial.println("faulted");
+        Serial.println("faulted");
         float curTime = millis();
         if(curTime - lastFault >= 500){
             motor_driver.readRegister(0b01000001);
@@ -101,10 +101,10 @@ void receive(int num_bytes){
     // DEBUG(speed_xdir);
     // DEBUG(speed_ydir);
 
-    // speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
-    // speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
-    // bot.setDrive(speedX, speedY, rotation);
-    bot.setDrive(speed_xdir, speed_ydir, rotation);
+    speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
+    speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
+    bot.setDrive(speedX, speedY, rotation);
+    // bot.setDrive(speed_xdir, speed_ydir, rotation);
 }
 
 void setup(){
@@ -125,7 +125,6 @@ void setup(){
 }
 
 void loop(){
-    Serial.println("running");
     // strip.setPixelColor(0, strip.Color(0, 0, 15));
     // strip.show();
     if(millis() - lastLED >= BLINK_TIME){
@@ -140,6 +139,6 @@ void loop(){
         strip.setPixelColor(0, strip.Color(0, 0, 0));
         strip.show();
     }
-    // checkFault();
+    checkFault();
 }
 

@@ -24,8 +24,8 @@ sensor.set_gainceiling(32)
 sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False)
 sensor.set_contrast(0)
-sensor.set_auto_exposure(False, exposure_us=4000)
-sensor.set_auto_gain(False, gain_db=-5)
+sensor.set_auto_exposure(False, exposure_us=6000)
+sensor.set_auto_gain(False, gain_db=-8)
 sensor.set_auto_whitebal(False)
 sensor.set_contrast(3)
 
@@ -36,10 +36,10 @@ led2 = pyb.LED(2)
 led2.on()
 
 ballExists = True
-centre_x = 165
+centre_x = 154
 centre_y = 128
 mask_radius = 120
-thresh_ball = (0, 100, 40, 75, 19, 51) # (0, 100, 45, 76, 25, 55)
+thresh_ball = (0, 100, 35, 73, 15, 59) # (0, 100, 45, 76, 25, 55)
 actual_data_len = 10
 
 uart = UART(3, 115200)
