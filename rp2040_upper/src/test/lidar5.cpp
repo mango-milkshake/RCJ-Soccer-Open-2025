@@ -32,18 +32,19 @@ void setup()
   delay(1000);
   Serial.println("SparkFun VL53L5CX Imager Example");
 
-  Wire.setSCL(9);
-  Wire.setSDA(8);
-  Wire.begin(); // This resets I2C bus to 100kHz
-  Wire.setClock(1000000); //Sensor has max I2C freq of 1MHz
+  Wire1.setSCL(7);
+  Wire1.setSDA(6);
+  Wire1.begin(); // This resets I2C bus to 100kHz
+  Wire1.setClock(1000000); //Sensor has max I2C freq of 1MHz
 
   sensor.setWireMaxPacketSize(128); // Increase default from 32 bytes to 128 - not supported on all platforms
 
   Serial.println("Initializing sensor board. This can take up to 10s. Please wait.");
-  if (sensor.begin() == false)
+  while (sensor.begin((byte)41U, Wire1) == false)
   {
-    Serial.println(F("Sensor not found - check your wiring. Freezing"));
-    while (1);
+    Serial.println(F("Sensor not found - check your wiring."));
+    delay(5);
+    // while (1);
   }
 
   sensor.setResolution(8*8); // Enable all 64 pads
