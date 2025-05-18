@@ -2,6 +2,7 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <esp_task_wdt.h>
 #include <WebSerial.h>
 #include <esp_task_wdt.h>
 
@@ -42,7 +43,8 @@ void setup(){
     // while(!Serial.available()) ;
     // while(Serial.available()) Serial.read();
     Serial.println("started");
-
+    esp_task_wdt_init(1, true); // timeout in seconds
+    enableLoopWDT();
     // WiFi.softAP(ssid, password);
     // // Once connected, print IP
     // Serial.print("IP Address: ");

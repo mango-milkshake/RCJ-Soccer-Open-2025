@@ -197,8 +197,8 @@ float front_absolute_ball_x = 0, front_absolute_ball_y = 0;
 float final_ball_dist = 0, final_absolute_ball_x = 0, final_absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
 int current_target_x = 999, current_target_y = 999;
-float self_velocityx = 0, self_velocityy = 0;
-float last_self_x = 0, last_self_y = 0;
+float self_velocityw = 0, self_velocityx = 0, self_velocityy = 0;
+float last_self_w = 0, last_self_x = 0, last_self_y = 0;
 unsigned long last_vel_time = 0;
 bool otherBotExists = false;
 bool reachTargetOscillation = false;
@@ -234,6 +234,7 @@ void initWiFi() {
     }
     Serial.println(WiFi.localIP());
 }
+
 
 void startWebSerial(){
     initWiFi();
@@ -326,7 +327,7 @@ void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //in
     memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
     otherBotExists = true;
     lastRecvTime = millis();
-    DEBUG(espnowDataRecv.isPresent);
+    // DEBUG(espnowDataRecv.isPresent);
     // DEBUG(espnowDataRecv.inField);
     // DEBUG(espnowDataRecv.xpos);
     // DEBUG(espnowDataRecv.ypos);
@@ -500,18 +501,19 @@ void getTopCamData(){
         else{
             top_ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
             top_ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
-            top_ball_vx = (float)(uartBufferCam[6] + (uartBufferCam[7]<<8)) / 128;
+            top_ball_vy = (float)(uartBufferCam[6] + (uartBufferCam[7]<<8)) / 128;
             if(uartBufferCam[5] == 0) top_ball_vx *= -1;
-            top_ball_vy = (float)(uartBufferCam[9] + (uartBufferCam[10]<<8)) / 128;
+            top_ball_vx = (float)(uartBufferCam[9] + (uartBufferCam[10]<<8)) / 128;
             if(uartBufferCam[8] == 0) top_ball_vy *= -1;
 
+            
             //top_ball_vy *= -1;
             //top_ball_vx *= -1;
                     
-            DEBUG(top_ball_angle);
-            DEBUG(top_ball_dist);
-            // DEBUG(top_ball_vx);
-            // DEBUG(top_ball_vy);
+            // DEBUG(top_ball_angle);
+            // DEBUG(top_ball_dist);
+            DEBUG(top_ball_vx);
+            DEBUG(top_ball_vy);
 
             if(top_ball_angle==0 && top_ball_dist==0) {
                 noBall = true;
@@ -529,10 +531,17 @@ void getTopCamData(){
 
             ball_vx = top_ball_vx;
             ball_vy = top_ball_vy;
-            ball_vx -= self_velocityx;
-            ball_vy -= self_velocityy;
+            //not tested:
+            ball_vx += self_velocityx;
+            ball_vy += self_velocityy;  
+            //Since counterclockwise is positive w, vx -= rw cos(90-theta) whereas vy += rw sin(90-theta); note the sign difference
+            ball_vx -= pow((top_relative_ball_x*top_relative_ball_x, top_relative_ball_y*top_relative_ball_y),0.5)*self_velocityw*cosf((3.1415/2)-atan2f(top_relative_ball_y,top_relative_ball_x));
+            ball_vy += pow((top_relative_ball_x*top_relative_ball_x, top_relative_ball_y*top_relative_ball_y),0.5)*self_velocityw*sinf((3.1415/2)-atan2f(top_relative_ball_y,top_relative_ball_x));
+            //
             top_absolute_ball_x = top_relative_ball_x + self_x;
             top_absolute_ball_y = top_relative_ball_y + self_y;
+            // DEBUG(top_absolute_ball_x);
+            // DEBUG(top_absolute_ball_y);
 
             final_ball_dist = top_ball_dist;
             final_absolute_ball_x = top_absolute_ball_x;
@@ -594,10 +603,10 @@ void getBottomPlateData(){
         setLED(6, 6, strip.Color(0, 15, 0));
     }
     else setLED(6, 6, strip.Color(0, 0, 15));
-    DEBUG(front_absolute_ball_x);
-    DEBUG(front_absolute_ball_y);
-    DEBUG(final_absolute_ball_x);
-    DEBUG(final_absolute_ball_y);
+    // DEBUG(front_absolute_ball_x);
+    // DEBUG(front_absolute_ball_y);
+    // DEBUG(final_absolute_ball_x);
+    // DEBUG(final_absolute_ball_y);
 
     // DEBUG(front_ball_x);
     // DEBUG(front_ball_y);
@@ -803,6 +812,13 @@ void dribblerBallTrack(){
     movement(new_x, new_y, 90-DEG(absBallAngle));
 }
 
+float faceBall(){
+    float xToBall = top_relative_ball_x, yToBall = top_relative_ball_y;
+    float absBallAngle = atan2(yToBall, xToBall);
+
+    return 90-DEG(absBallAngle);
+}
+
 void aim(){
     if(!aligned){
         // Serial.println("aim align");
@@ -905,7 +921,7 @@ void lookAhead(){
     //     LAball_vy += self_velocityy;
     //     // DEBUG(LAball_vx);
     // }
-    else{
+    else{ //look ahead uses relative position and absolute velocity
         LAball_x = top_relative_ball_x;
         LAball_y = top_relative_ball_y;
         LAball_vx = ball_vx + self_velocityx;
@@ -913,32 +929,31 @@ void lookAhead(){
     }
 
 int lookahead_n = 0;
-while(!lookAheadConfirm && lookahead_n < 10){ 
+while(!lookAheadConfirm && lookahead_n < 5){ 
     lookahead_n++;
     float C = LAball_x*LAball_x + LAball_y*LAball_y;
     float B = 2*(LAball_x*LAball_vx + LAball_y*LAball_vy);
     float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
-    validt = false;
+    lookAheadConfirm = false;
 
     if (abs(A) > pow(10, -8) && (B*B - 4*A*C) >= 0){ //we get two solutions for time, so we want to find the minimum time that is not negative
         float t1 = (-1*B - pow((B*B - 4*A*C), 0.5))/(2*A); 
         float t2 = (-1*B + pow((B*B - 4*A*C), 0.5))/(2*A); 
         if (t1 >= 0 && t2 >= 0){
             t = min(t1, t2);
-            validt = true;
+            lookAheadConfirm = true;
         }
         else if (t1 >= 0){
             t = t1;
-            validt = true;
+            lookAheadConfirm = true;
         }
         else if (t2 >= 0){
             t = t2;
-            validt = true;
+            lookAheadConfirm = true;
         }  
-        lookAheadConfirm = true;
     }
 
-    if(!validt){ //ball is too fast
+    if(!lookAheadConfirm){ //ball is too fast
         // float theta_invalid_t;
         // if (abs(LAball_vx) > pow(10, -8)){ 
         //     theta_invalid_t = atan2(LAball_vy,LAball_vx);}
@@ -955,16 +970,16 @@ while(!lookAheadConfirm && lookahead_n < 10){
     
     targetballposx = LAball_x + LAball_vx*t;
     targetballposy = LAball_y + LAball_vy*t;
-    targetheadinglookahead = atan2(targetballposx,targetballposy);
+    targetheadinglookahead = atan2(targetballposy,targetballposx);
     targetballposx += self_x; 
     targetballposy += self_y;
 
     DEBUG(targetballposx);
     DEBUG(targetballposy);
-    DEBUG(LAball_vx);
-    DEBUG(LAball_vy);
-    DEBUG(self_x);
-    DEBUG(self_y);
+    // DEBUG(LAball_vx);
+    // DEBUG(LAball_vy);
+    // DEBUG(self_x);
+    // DEBUG(self_y);
     DEBUG(t);
     // DEBUG(lookAheadConfirm);
 
@@ -976,26 +991,38 @@ while(!lookAheadConfirm && lookahead_n < 10){
 }
 
 //velocity of robot with moving average
-void updateSelfVelocityEWMA(float current_self_x, float current_self_y) {
+void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float current_self_y) { 
     unsigned long now = millis();
     float dt = (now - last_vel_time) / 1000.0f; 
     if (dt < 1e-6f) {
         return;
     }
-
+    
+    if(abs(current_self_w - last_self_w) > 6){ //account for 0 -> 2pi
+        if(current_self_w > last_self_w){
+            current_self_w = 2*3.1415 - current_self_w;
+        }
+        else{
+            last_self_w = 2*3.1415 - last_self_w;
+        }
+    }
+    float inst_vw = (current_self_w - last_self_w) / dt;
     float inst_vx = (current_self_x - last_self_x) / dt;  
-    float inst_vy = (current_self_y - last_self_y) / dt;  
+    float inst_vy = (current_self_y - last_self_y) / dt;   
 
     // Exponential Weighted Moving Average update, beta parameter used = 0.8
+    self_velocityw = 0.2f * inst_vw + (0.8f) * self_velocityw;    
     self_velocityx = 0.2f * inst_vx + (0.8f) * self_velocityx;
     self_velocityy = 0.2f * inst_vy + (0.8f) * self_velocityy;
 
+
     // Save current data for next iteration
+    last_self_w = current_self_w;
     last_self_x = current_self_x;
     last_self_y = current_self_y;
     last_vel_time = now;
-    DEBUG(self_velocityx);
-    DEBUG(self_velocityy);
+    // DEBUG(self_velocityx);
+    // DEBUG(self_velocityy);
 }
 
 void defend(){
@@ -1068,7 +1095,7 @@ void setup(){
 
     Serial1.begin(115200, SERIAL_8N1, CAM_RX_PIN, CAM_TX_PIN);
     Serial2.begin(115200, SERIAL_8N1, PICO_RX_PIN, PICO_TX_PIN);
-    startWebSerial();
+    // startWebSerial();
 
     pinMode(TURN_OFF_SW, INPUT);
     pinMode(VOLTAGE_PIN, INPUT);
@@ -1077,7 +1104,7 @@ void setup(){
     pinMode(STATE_SW, INPUT);
     analogSetAttenuation(ADC_11db);
 
-    esp_task_wdt_init(1, true); // timeout in seconds
+    esp_task_wdt_init(2, true); // timeout in seconds
     enableLoopWDT();
 
     Wire.begin(SDA_PIN, SCL_PIN, 50000);
@@ -1109,7 +1136,7 @@ float targetballposx_current = 0;
 float targetballposy_current = 0;
 #define LOOK_AHEAD_THRESHOLD_T 300
 #define LOOK_AHEAD_THRESHOLD_DMIN 0
-#define LOOK_AHEAD_THRESHOLD_DMAX 1000
+#define LOOK_AHEAD_THRESHOLD_DMAX 2
 
 void loop(){
     // Serial.println("running main code");
@@ -1117,7 +1144,7 @@ void loop(){
     Serial.print("time: ");
     Serial.println(curTime - lastLoopTime);
     lastLoopTime = millis();
-    DEBUG(isDefender);
+    // DEBUG(isDefender);
     // if(millis() - lastLED >= BLINK_TIME){
     //     esp_led_state = !esp_led_state;
     //     lastLED = millis();
@@ -1319,22 +1346,22 @@ void loop(){
         noBallTimer = 0;
         moveToGoal = false;
     }
-    updateSelfVelocityEWMA(self_x, self_y);
+    updateSelfVelocityEWMA(RAD(self_heading), self_x, self_y); //14/5
 
 
     if(!moveToGoal && noBall && checkzero(10)){ // if no ball, stop bot
         esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
-        // sendI2C(zeroBuffer);
+        sendI2C(zeroBuffer);
         esp_led.show();
         // lookAhead(); //delete this later if needed
     }  
     // else if (sqrtf(ball_vx*ball_vx + ball_vy*ball_vy) < 0.15){} //don't look ahead if velocity is too small
-    else if (!moveToGoal && !noBall && checkv(5, 0.2)){ // if last n values are within x of each other, update look ahead target
+    else if (!moveToGoal && !noBall && checkv(5, 0.1)){ // if last n values are within x of each other, update look ahead target
         if(abs(curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
             //switches target only if last switch target was sufficiently long ago
             esp_led.setPixelColor(0, esp_led.Color(0, 20, 0));
             esp_led.show();
-            Serial.println("look ahead called////////////////////////////////////////////////////////////");
+            WebSerial.println("look ahead called////////////////////////////////////////////////////////////");
             lookAhead();
             lastLookAhead = millis();
         }
@@ -1346,30 +1373,32 @@ void loop(){
         }
         targetballposx = FIELD_WIDTH/2;
         targetballposy = 0.5;
+
         movement(targetballposx, targetballposy, 0);
     }
-    DEBUG(moveToGoal);
+    // DEBUG(moveToGoal);
     DEBUG(targetballposx);
     DEBUG(targetballposy);
-    DEBUG(targetballposx_current);
-    DEBUG(targetballposy_current);
-    DEBUG(self_x);
-    DEBUG(self_y);
+    // DEBUG(targetballposx_current);
+    // DEBUG(targetballposy_current);
+    // DEBUG(self_x);
+    // DEBUG(self_y);
+    float ballAngle_LA = faceBall();
     float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
     //call movement at least once every loop
-    if(targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
-        // targetballposx = FIELD_WIDTH/2;
-        // targetballposy = 0.5;    
-        targetheadinglookahead = 0;
-        movement(targetballposx, targetballposy,  targetheadinglookahead * (180/3.14159));
+    if(!moveToGoal && targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
+        targetballposx = targetballposx_current;
+        targetballposy = targetballposy_current;
+        // targetheadinglookahead = 0;
+        movement(targetballposx, targetballposy, ballAngle_LA);
         // sendI2C(zeroBuffer);
     }
-    else if (abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
+    else if (!moveToGoal && abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
         //switches target only if new target is far away from current target 
         targetballposx_current = targetballposx;
         targetballposy_current = targetballposy; 
-        targetheadinglookahead=0;
-        movement(targetballposx, targetballposy, targetheadinglookahead * (180/3.14159));
+        // targetheadinglookahead = 0;
+        movement(targetballposx, targetballposy, ballAngle_LA);
     }
     // if(moveToGoal){
     //     movement(targetballposx, targetballposy, 0);
@@ -1392,7 +1421,7 @@ void loop(){
             // }
         // }
 
-    WebSerial.loop();
+    // WebSerial.loop();
 }
 
 
