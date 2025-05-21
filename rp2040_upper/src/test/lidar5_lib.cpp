@@ -2,27 +2,38 @@
 #include <VL53L5CX.h>
 #include <Adafruit_NeoPixel.h>
 
-#define SCL_PIN 5
-#define SDA_PIN 4
+#define SCL_PIN 7
+#define SDA_PIN 6
 
 #define ADDR1 0x30
 #define ADDR2 0x31
 
-#define XSHUT1 1
-#define XSHUT2 2
+#define LPIN1 2
+#define LPIN2 14
 
 #define SENSOR_WIDTH 8
 #define SENSOR_FREQ 15
 
-#define led_pin 16
-#define led_count 1
-#define brightness 50
-Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
+#define PICO_LED_PIN 16
+#define PICO_LED_BRIGHTNESS 50
+Adafruit_NeoPixel pico_led(1, PICO_LED_PIN, NEO_GRB + NEO_KHZ800);
 
-VL53L5CX vlLidar1(SCL_PIN, SDA_PIN, XSHUT1, ADDR1, SENSOR_WIDTH, SENSOR_FREQ, Wire);
-VL53L5CX vlLidar2(SCL_PIN, SDA_PIN, XSHUT2, ADDR2, SENSOR_WIDTH, SENSOR_FREQ, Wire);
+#define STRIP_LED_PIN 26
+#define STRIP_LED_COUNT 6
+#define STRIP_LED_BRIGHTNESS 100
+Adafruit_NeoPixel strip(STRIP_LED_COUNT, STRIP_LED_PIN, NEO_GRB + NEO_KHZ800);
+
+VL53L5CX vlLidar1(SCL_PIN, SDA_PIN, LPIN1, ADDR1, SENSOR_WIDTH, SENSOR_FREQ, Wire1);
+VL53L5CX vlLidar2(SCL_PIN, SDA_PIN, LPIN2, ADDR2, SENSOR_WIDTH, SENSOR_FREQ, Wire1);
 
 int lastReadTime = 0;
+
+void setLED(int first, int last, uint32_t color){
+    for (int i=first; i<=last; i++){
+        strip.setPixelColor(i, color);
+    }
+    strip.show();
+}
 
 void printReadings(int16_t arr[]){
     // print readings inverted (reflects reality)
@@ -48,30 +59,34 @@ void setup(){
     Serial.begin(115200);
 
     strip.begin();
-    strip.setBrightness(brightness);
-    strip.setPixelColor(0, strip.Color(0, 0, 15));
-    strip.show();
+    strip.setBrightness(STRIP_LED_BRIGHTNESS);
+    setLED(0, STRIP_LED_COUNT-1, strip.Color(0, 0, 15));
 
-    pinMode(XSHUT1, OUTPUT);
-    pinMode(XSHUT2, OUTPUT);
-    digitalWrite(XSHUT1, LOW);
-    digitalWrite(XSHUT2, LOW);
+    pico_led.begin();
+    pico_led.setBrightness(PICO_LED_BRIGHTNESS);
+    pico_led.setPixelColor(0, pico_led.Color(0, 0, 15));
+    pico_led.show();
+
+    pinMode(LPIN1, OUTPUT);
+    pinMode(LPIN2, OUTPUT);
+    digitalWrite(LPIN1, LOW);
+    digitalWrite(LPIN2, LOW);
 
     vlLidar1.initWire();
 
-    strip.setPixelColor(0, strip.Color(0, 15, 0));
-    strip.show();
+    pico_led.setPixelColor(0, pico_led.Color(0, 15, 0));
+    pico_led.show();
 
     vlLidar1.init();
     vlLidar2.init();
 
-    strip.setPixelColor(0, strip.Color(15, 0, 0));
-    strip.show();
+    pico_led.setPixelColor(0, pico_led.Color(15, 0, 0));
+    pico_led.show();
 }
 
 void loop(){
-    strip.setPixelColor(0, strip.Color(15, 15, 0));
-    strip.show();
+    pico_led.setPixelColor(0, pico_led.Color(15, 15, 0));
+    pico_led.show();
 
     bool status1 = vlLidar1.updateData();
     if(status1){
@@ -79,12 +94,16 @@ void loop(){
         // int curTime = millis();
         // Serial.printf("Time: %d \n", curTime - lastReadTime);
         // lastReadTime = curTime;
+        setLED(0, 0, strip.Color(0, 15, 0));
         Serial.println("1:");
         printReadings(vlLidar1.data.distance_mm);
     }
+    else setLED(0, 0, strip.Color(15, 0, 0));
     bool status2 = vlLidar2.updateData();
     if(status2) {
+        setLED(4, 4, strip.Color(0, 15, 0));
         Serial.println("2:");
         printReadings(vlLidar2.data.distance_mm);
     }
+    else setLED(4, 4, strip.Color(15, 0, 0));
 }
