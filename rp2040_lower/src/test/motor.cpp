@@ -20,7 +20,6 @@ Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 // PINS
 #define CS_PIN 1
 #define NSLEEP_PIN 14
-// #define NFAULT_PIN 7
 #define DRVOFF_PIN 15
 #define MOSI_PIN 3 // TX
 #define MISO_PIN 0 // RX
@@ -98,29 +97,4 @@ void loop()
     curidx %= 4;
     lastSwap = millis();
   }
-  
-  // motorFL.setSpeed(MOTOR_SPEED);
-  // motorFR.setSpeed(0.0);
-  // motorBL.setSpeed(0.0);
-  // motorBR.setSpeed(0.0);
-  // delay(1000);
-
-  // motorFL.setSpeed(0.0);
-  // motorFR.setSpeed(MOTOR_SPEED);
-  // motorBL.setSpeed(0.0);
-  // motorBR.setSpeed(0.0);
-  // delay(1000);
-
-  // motorFL.setSpeed(0.0);
-  // motorFR.setSpeed(0.0);
-  // motorBL.setSpeed(MOTOR_SPEED);
-  // motorBR.setSpeed(0.0);
-  // delay(1000);
-
-  // motorFL.setSpeed(0.0);
-  // motorFR.setSpeed(0.0);
-  // motorBL.setSpeed(0.0);
-  // motorBR.setSpeed(MOTOR_SPEED);
-  // delay(1000);
-
 }
