@@ -305,14 +305,17 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     //     Serial.println("Failed to read MAC address");
     // }
     //const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}; //cooked
-    const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x40};
+    const uint8_t MAC_1[6] = {0x28, 0x37, 0x2f, 0x86, 0xce, 0x4c};
     const uint8_t MAC_2[6] = {0x34, 0x85, 0x18, 0xbc, 0xf5, 0xe8};
-    //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
+    const uint8_t MAC_3[6] = {0x28, 0x37, 0x2f, 0x86, 0xce, 0x4c}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
     }
     else if (memcmp(own_mac_address, MAC_2, 6) == 0){
         memcpy(broadcastAddress, MAC_1, 6);
+    }
+    else{
+        memcpy(broadcastAddress, MAC_3, 6); //for testing
     }
     }
 }

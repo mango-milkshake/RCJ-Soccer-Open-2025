@@ -158,6 +158,8 @@ typedef struct struct_message {
     float ypos;
     bool hasBall; 
     bool inField;
+
+    int botID_comm;
 } struct_message;
 struct_message espnowData;
 struct_message espnowDataRecv;
@@ -292,6 +294,7 @@ void checkFault(){
     else setLED(0, 0, strip.Color(0, 0, 0));
 }
 
+int botID = 0;
 void readMacAddress(){ //read own mac address and set broadcast address to other bot
     WiFi.mode(WIFI_AP_STA);
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
@@ -304,14 +307,20 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     //     Serial.println("Failed to read MAC address");
     // }
     //const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}; //cooked
-    const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x40};
-    const uint8_t MAC_2[6] = {0x34, 0x85, 0x18, 0xbc, 0xf5, 0xe8};
+    const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xf5, 0xe8}; // id 1
+    const uint8_t MAC_2[6] = {0x28, 0x37, 0x2f, 0x86, 0xce, 0x4c}; // id 2 (wroom)
     //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
+        botID = 1;
     }
     else if (memcmp(own_mac_address, MAC_2, 6) == 0){
         memcpy(broadcastAddress, MAC_1, 6);
+        botID = 2;
+    }
+    else{
+        memcpy(broadcastAddress, MAC_2, 6);
+        botID = 1;
     }
     }
 }
@@ -370,36 +379,38 @@ void sendData(){ //send data here
     espnowData.ypos = self_y;
     espnowData.hasBall = ballCap ? true : false;
     espnowData.inField = isTilted ? false : true;
+    espnowData.botID_comm = botID;
+    
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espnowData, sizeof(espnowData));
 
-    // switch (result) {
-    //     case ESP_OK:
-    //         Serial.println("✅ ESP-NOW: Data sent successfully.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_NOT_INIT:
-    //         Serial.println("❌ ESP-NOW: Not initialized.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_ARG:
-    //         Serial.println("❌ ESP-NOW: Invalid argument.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_INTERNAL:
-    //         Serial.println("❌ ESP-NOW: Internal error.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_NO_MEM:
-    //         Serial.println("❌ ESP-NOW: Out of memory.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_NOT_FOUND:
-    //         Serial.println("❌ ESP-NOW: Peer not found.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_IF:
-    //         Serial.println("❌ ESP-NOW: Interface error.");
-    //         break;
-    //     default:
-    //         Serial.print("❌ ESP-NOW: Unknown error: ");
-    //         Serial.println(result);
-    //         break;
-    // }
+    switch (result) {
+        case ESP_OK:
+            Serial.println("✅ ESP-NOW: Data sent successfully.");
+            break;
+        case ESP_ERR_ESPNOW_NOT_INIT:
+            Serial.println("❌ ESP-NOW: Not initialized.");
+            break;
+        case ESP_ERR_ESPNOW_ARG:
+            Serial.println("❌ ESP-NOW: Invalid argument.");
+            break;
+        case ESP_ERR_ESPNOW_INTERNAL:
+            Serial.println("❌ ESP-NOW: Internal error.");
+            break;
+        case ESP_ERR_ESPNOW_NO_MEM:
+            Serial.println("❌ ESP-NOW: Out of memory.");
+            break;
+        case ESP_ERR_ESPNOW_NOT_FOUND:
+            Serial.println("❌ ESP-NOW: Peer not found.");
+            break;
+        case ESP_ERR_ESPNOW_IF:
+            Serial.println("❌ ESP-NOW: Interface error.");
+            break;
+        default:
+            Serial.print("❌ ESP-NOW: Unknown error: ");
+            Serial.println(result);
+            break;
+    }
 }
 
 int assignDefBuffer = 10;
@@ -993,6 +1004,21 @@ while(!lookAheadConfirm && lookahead_n < 5){
     }    
 }
 
+void ballHide2(){
+    if(botID == 1){
+        // movement(60, 100, 90);
+        Serial.println("bot 1");
+        DEBUG(espnowDataRecv.xpos);
+        DEBUG(espnowDataRecv.ypos);
+    }
+    else if(botID == 2){
+        // movement(espnowDataRecv.xpos + 60, espnowDataRecv.ypos, 270);
+        Serial.println("bot 2 (wroom)");
+        DEBUG(espnowDataRecv.xpos);
+        DEBUG(espnowDataRecv.ypos);
+    }
+}
+
 //velocity of robot with moving average
 float last_top_absolute_ball_x = 0;
 float last_top_absolute_ball_y = 0;
@@ -1125,8 +1151,8 @@ void setup(){
     pinMode(STATE_SW, INPUT);
     analogSetAttenuation(ADC_11db);
 
-    esp_task_wdt_init(3, true); // timeout in seconds
-    enableLoopWDT();
+    // esp_task_wdt_init(3, true); // timeout in seconds
+    // enableLoopWDT();
 
     Wire.begin(SDA_PIN, SCL_PIN, 50000);
 
@@ -1198,7 +1224,7 @@ void loop(){
     }
     
     if (curTime - esp_last_send >= 500){
-        // sendData();
+        sendData();
         esp_last_send = curTime;
     }
     if(curTime - lastRecvTime > 1000){
@@ -1330,124 +1356,8 @@ void loop(){
         last_ball_y = final_absolute_ball_y;
     }
 */
-    for (int i  = 0; i < pbvx_size; i++){ //stores the last 50 values
-        pbvx[i] = pbvx[i+1];
-        pbvy[i] = pbvy[i+1];
-    }
-    if (!noBall){
-        pbvx[pbvx_size] = ball_vx;
-        pbvy[pbvx_size] = ball_vy;
-    }
-    else{
-        pbvx[pbvx_size] = 0;
-        pbvy[pbvx_size] = 0;  
-    }
-    /*
-    DEBUG(pbvx[pbvx_size]);
-    DEBUG(pbvx[pbvx_size-1]);
-    DEBUG(pbvx[pbvx_size-2]);
-    DEBUG(pbvy[pbvx_size]);
-    DEBUG(pbvy[pbvx_size-1]);
-    DEBUG(pbvy[pbvx_size-2]);
-    DEBUG(noBall);*/
-    updateSelfVelocityEWMA(RAD(self_heading), self_x, self_y); 
-    if(ballCap){
-        sendI2C(zeroBuffer);
-        noBallTimer = 0;
-    }
-    else{
-        if(noBall){
-            if(noBallTimer == 0){ //substitute for remembering last ball location in main code
-                noBallTimer = millis(); 
-            }
-            else if(abs(millis() - noBallTimer) < 2000){
-                top_absolute_ball_x = last_ball_x;
-                top_absolute_ball_y = last_ball_y;
-            }
-            else{
-                moveToGoal = true;
-            }
-        }
-        else{
-            last_ball_x = top_absolute_ball_x;
-            last_ball_y = top_absolute_ball_y;
-            noBallTimer = 0;
-            moveToGoal = false;
-        }
-        
-        if(!moveToGoal && noBall && checkzero(10)){ // if no ball, stop bot
-            // esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
-            // sendI2C(zeroBuffer);
-            // esp_led.show();
-            // lookAhead(); //delete this later if needed
-        }  
-        // else if (sqrtf(ball_vx*ball_vx + ball_vy*ball_vy) < 0.15){} //don't look ahead if velocity is too small
-        else if (!moveToGoal && !noBall && checkv(4, 200)){ // if last n values are within x of each other, update look ahead target
-            if(abs(curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
-                //switches target only if last switch target was sufficiently long ago
-                esp_led.setPixelColor(0, esp_led.Color(0, 20, 0));
-                esp_led.show();
-                Serial.println("look ahead called////////////////////////////////////////////////////////////");
-                lookAhead();
-                lastLookAhead = millis();
-            }
-        } 
-
-        if (moveToGoal){
-            if(targetballposx != FIELD_WIDTH/2 && targetballposy != 0.5){
-                sendI2C(zeroBuffer);
-            }
-            targetballposx = FIELD_WIDTH/2;
-            targetballposy = 0.5;
-
-            movement(targetballposx, targetballposy, 0);
-        }
-        // DEBUG(moveToGoal);
-        DEBUG(targetballposx);
-        DEBUG(targetballposy);
-        // DEBUG(targetballposx_current);
-        // DEBUG(targetballposy_current);
-        // DEBUG(self_x);
-        // DEBUG(self_y);
-        float ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(top_relative_ball_y, top_relative_ball_x)) : 0;
-        float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
-        //call movement at least once every loop
-        if(!moveToGoal && (targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT)){
-            targetballposx = targetballposx_current;
-            targetballposy = targetballposy_current;
-            // targetheadinglookahead = 0;
-            movement(targetballposx, targetballposy, ballAngle_LA);
-            // sendI2C(zeroBuffer);
-        }
-        else if (!moveToGoal && abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
-            //switches target only if new target is far away from current target 
-            targetballposx_current = targetballposx;
-            targetballposy_current = targetballposy; 
-            // targetheadinglookahead = 0;
-            movement(targetballposx, targetballposy, ballAngle_LA);
-        }
-    }   
-    // if(moveToGoal){
-    //     movement(targetballposx, targetballposy, 0);
-    // }
-
-        //else if(ballCap) aim();
-        // else if(ball_vx > 0.10 || ball_vy > 0.10){
-        //     lookAhead();
-            
-            // if(lookAheadDelay = false){
-            //     LA_ball_seen = curTime;
-            //     lookAheadDelay = true;
-            // }
-            // if(lookAheadDelay == true && LA_ball_seen - curTime >= 100){
-            //     //lookAheadDelay = false;
-            //     lookAhead();
-            // }
-            // else{
-            //     lookAheadDelay = true;
-            // }
-        // }
-
+    ballHide2();
+   
     // WebSerial.loop();
 }
 
