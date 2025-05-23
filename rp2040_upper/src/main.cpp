@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <UARTComms.h>
+#include <VL53L5CX.h>
 #include <Adafruit_NeoPixel.h>
 
 #define DEBUGGING
@@ -13,6 +14,16 @@
 #define PICO_LED 16
 #define PICO_LED_BRIGHTNESS 50
 Adafruit_NeoPixel pico_led(1, PICO_LED, NEO_GRB + NEO_KHZ800);
+
+// VL53L5CX Lidars
+#define VL_SDA_PIN 6
+#define VL_SCL_PIN 7
+#define NUM_LIDARS 6
+#define SENSOR_WIDTH 8
+#define SENSOR_FREQ 15
+uint8_t lpin[NUM_LIDARS] = {2, 3, 10, 11, 14, 15};
+uint8_t addr[NUM_LIDARS] = {0x30, 0x31, 0x32, 0x33, 0x34, 0x35};
+std::vector<VL53L5CX> vlLidar;
 
 // I2C Comms with ESP
 #define ESP_SDA_PIN 4
@@ -45,6 +56,12 @@ UARTComms frontCamUART(FRONT_CAM_TX_PIN, FRONT_CAM_RX_PIN, frontCamBuffer, FRONT
 float front_ball_angle, front_ball_dist;
 bool frontNoBall = false;
 float fronLastSeenBall = 0;
+
+// NeoPixel LED Strip
+#define STRIP_LED_PIN 26
+#define STRIP_LED_COUNT 6
+#define STRIP_LED_BRIGHTNESS 100
+Adafruit_NeoPixel strip(STRIP_LED_COUNT, STRIP_LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // Variables
 float self_x = 0, self_y = 0, self_heading = 0;
@@ -79,9 +96,16 @@ void receive(int num_bytes){
     self_y = (float)(espRcvBuffer[3] + (espRcvBuffer[4]<<8)) / 128;
     self_heading = (float)(espRcvBuffer[6] + (espRcvBuffer[7]<<8)) / 128;
     if(espRcvBuffer[5]==0) self_heading *= -1;
-    DEBUG(self_x);
-    DEBUG(self_y);
-    DEBUG(self_heading);
+    // DEBUG(self_x);
+    // DEBUG(self_y);
+    // DEBUG(self_heading);
+}
+
+void setLED(int first, int last, uint32_t color){
+    for (int i=first; i<=last; i++){
+        strip.setPixelColor(i, color);
+    }
+    strip.show();
 }
 
 void getTopCamData(){
@@ -102,10 +126,56 @@ void getTopCamData(){
     }
 }
 
+void printLidarReadings(int16_t arr[]){
+    // print readings inverted (reflects reality)
+    Serial.println("==================================================================");
+    for (int y = 0; y <= SENSOR_WIDTH * (SENSOR_WIDTH - 1); y += SENSOR_WIDTH){
+        Serial.print("||");
+        for (int x = SENSOR_WIDTH - 1; x >= 0; x--){
+            if(arr[x+y] < 10) Serial.print("   ");
+            else if(arr[x+y] < 1000) Serial.print("  ");
+            else Serial.print(" ");
+            Serial.print(arr[x+y]);
+            if(arr[x+y] < 100) Serial.print("  ");
+            else Serial.print(" ");
+            Serial.print("||");
+        }
+        Serial.println();
+        Serial.println("==================================================================");
+    }
+    Serial.println();
+}
+
+void readAllLidars(){
+    for (int i=0; i<NUM_LIDARS; i++){
+        bool status = vlLidar[i].updateData();
+        if(status){
+            setLED(i, i, strip.Color(0, 15, 0));
+            Serial.printf("%d:\n", i+1);
+            printLidarReadings(vlLidar[i].data.distance_mm);
+        }
+        else setLED(i, i, strip.Color(15, 0, 0));
+    }
+}
+
 void setup(){
     Serial.begin(115200);
     topCamUART.init();
     frontCamUART.init();
+
+    strip.begin();
+    strip.setBrightness(STRIP_LED_BRIGHTNESS);
+    setLED(0, STRIP_LED_COUNT-1, strip.Color(0, 0, 15));
+
+    for (uint8_t i=0; i<NUM_LIDARS; i++){
+        vlLidar.emplace_back(VL_SCL_PIN, VL_SDA_PIN, lpin[i], addr[i], SENSOR_WIDTH, SENSOR_FREQ, Wire1);
+        pinMode(lpin[i], OUTPUT);
+        digitalWrite(lpin[i], LOW);
+    }
+
+    vlLidar[0].initWire();
+
+    for (uint8_t i=0; i<NUM_LIDARS; i++) vlLidar[i].init();
 
     Wire.setSDA(ESP_SDA_PIN);
     Wire.setSCL(ESP_SCL_PIN);
@@ -147,4 +217,6 @@ void loop(){
     data_ready = true;
 
     memcpy(&lastBuffer, (const uint8_t*) espSendBuffer, ESP_SEND_DATA_LEN);
+
+    readAllLidars();
 }
