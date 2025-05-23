@@ -2,14 +2,14 @@
 #include <Adafruit_NeoPixel.h>
 #include <SparkFun_VL53L5CX_Library.h> //http://librarymanager/All#SparkFun_VL53L5CX
 
-#define SCL_PIN 5
-#define SDA_PIN 4
+#define SCL_PIN 7
+#define SDA_PIN 6
 
 #define ADDR1 0x30
 #define ADDR2 0x31
 
-#define XSHUT1 1
-#define XSHUT2 2
+#define LPIN1 2
+#define LPIN2 3
 
 #define SENSOR_WIDTH 8
 #define SENSOR_FREQ 15
@@ -24,7 +24,7 @@ VL53L5CX_ResultsData measurementData1; // Result data class structure, 1356 byes
 SparkFun_VL53L5CX sensor2;
 VL53L5CX_ResultsData measurementData2;
 
-#define DELAY_TIME 0
+#define DELAY_TIME 50
 
 int lastReadTime = 0;
 
@@ -56,53 +56,53 @@ void setup(){
     strip.setPixelColor(0, strip.Color(0, 0, 15));
     strip.show();
 
-    Wire.setSCL(SCL_PIN);
-    Wire.setSDA(SDA_PIN);
-    Wire.begin();
-    Wire.setClock(400000);
+    Wire1.setSCL(SCL_PIN);
+    Wire1.setSDA(SDA_PIN);
+    Wire1.begin();
+    Wire1.setClock(400000);
 
-    pinMode(XSHUT1, OUTPUT);
-    pinMode(XSHUT2, OUTPUT);
-    digitalWrite(XSHUT1, LOW);
-    digitalWrite(XSHUT2, LOW);
+    pinMode(LPIN1, OUTPUT);
+    pinMode(LPIN2, OUTPUT);
+    digitalWrite(LPIN1, LOW);
+    digitalWrite(LPIN2, LOW);
 
     strip.setPixelColor(0, strip.Color(0, 15, 0));
     strip.show();
 
-    digitalWrite(XSHUT1, HIGH);
-    // delay(DELAY_TIME);
-    while(sensor1.begin() == false){
+    digitalWrite(LPIN1, HIGH);
+    delay(DELAY_TIME);
+    while(sensor1.begin((byte)41U, Wire1) == false){
         Serial.println("Sensor 1 not found");
         // while(1) Serial.println("Sensor 1 not found");
     }
-    // delay(DELAY_TIME);
+    delay(DELAY_TIME);
     strip.setPixelColor(0, strip.Color(15, 15, 15));
     strip.show();
     sensor1.setAddress(ADDR1);
-    // delay(DELAY_TIME);
-    // digitalWrite(XSHUT1, LOW);
+    delay(DELAY_TIME);
+    // digitalWrite(LPIN1, LOW);
 
     strip.setPixelColor(0, strip.Color(15, 0, 0));
     strip.show();
 
-    digitalWrite(XSHUT2, HIGH);
-    // delay(DELAY_TIME);
-    while(sensor2.begin() == false){
+    digitalWrite(LPIN2, HIGH);
+    delay(DELAY_TIME);
+    while(sensor2.begin((byte)41U, Wire1) == false){
         Serial.println("Sensor 2 not found");
         // while(1) Serial.println("Sensor 2 not found");
     }
-    // delay(DELAY_TIME);
+    delay(DELAY_TIME);
     strip.setPixelColor(0, strip.Color(15, 15, 15));
     strip.show();
     sensor2.setAddress(ADDR2);
-    // delay(DELAY_TIME);
-    // digitalWrite(XSHUT2, LOW);
+    delay(DELAY_TIME);
+    // digitalWrite(LPIN2, LOW);
 
     strip.setPixelColor(0, strip.Color(0, 15, 15));
     strip.show();
 
-    digitalWrite(XSHUT1, HIGH);
-    digitalWrite(XSHUT2, HIGH);
+    digitalWrite(LPIN1, HIGH);
+    digitalWrite(LPIN2, HIGH);
 
     sensor1.setWireMaxPacketSize(128);
     // if(sensor1.begin() == false){
