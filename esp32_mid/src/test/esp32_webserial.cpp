@@ -7,6 +7,7 @@
 #include <esp_task_wdt.h>
 
 #define NO_SERIAL
+#define AP_MODE
 
 #define TX_PIN 8
 #define RX_PIN 9
@@ -18,10 +19,21 @@ int counter = 0, total = 0;
 
 AsyncWebServer server(80);
 
+#ifdef AP_MODE
+const char* ssid = "WSLDemo"; // WiFi AP SSID
+const char* password = ""; // WiFi AP Password
+#else
 const char* ssid = "heeheehaahaaheeheehaahaa"; // WiFi SSID
 const char* password = "lipofire"; // WiFi Password
+#endif
 
 void initWiFi() {
+    #ifdef AP_MODE
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(ssid, password);
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.softAPIP());
+    #else
     WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
     Serial.print("Connecting to WiFi ..");
@@ -31,6 +43,7 @@ void initWiFi() {
     }
     WiFi.setTxPower(WIFI_POWER_8_5dBm);
     Serial.println(WiFi.localIP());
+    #endif
 }
 
 #define PRINT_DELAY 100
@@ -43,17 +56,15 @@ void setup(){
     // while(!Serial.available()) ;
     // while(Serial.available()) Serial.read();
     Serial.println("started");
-    esp_task_wdt_init(1, true); // timeout in seconds
-    enableLoopWDT();
-    // WiFi.softAP(ssid, password);
-    // // Once connected, print IP
-    // Serial.print("IP Address: ");
-    // Serial.println(WiFi.softAPIP());
+
     initWiFi();
 
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        // request->send(200, "text/plain", "Webserial interface at http://" + WiFi.softAPIP().toString() + "/webserial");
+        #ifdef AP_MODE
+        request->send(200, "text/plain", "Webserial interface at http://" + WiFi.softAPIP().toString() + "/webserial");
+        #else
         request->send(200, "text/plain", "Webserial interface at http://" + WiFi.localIP().toString() + "/webserial");
+        #endif
     });
 
     // WebSerial is accessible at "<IP Address>/webserial" in browser
