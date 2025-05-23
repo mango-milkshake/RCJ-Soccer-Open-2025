@@ -142,7 +142,7 @@ float ball_vx = 0, ball_vy = 0;
 float relative_ball_x = 0, relative_ball_y = 0;
 float absolute_ball_x = 0, absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
-bool noBall = false, ballCap = false, topOff = false, isOnLine = false;
+bool noBall = false, ballCap = false, topOff = true, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
 float speed_xdir, speed_ydir, rotation;
 
