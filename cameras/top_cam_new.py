@@ -15,11 +15,8 @@ sensor.set_framesize(sensor.QVGA)
 sensor.set_gainceiling(32)
 sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False)
-sensor.set_contrast(0)
 sensor.set_auto_exposure(False, exposure_us=6000)
-sensor.set_auto_gain(False, gain_db=-8)
-sensor.set_auto_whitebal(False)
-sensor.set_contrast(3)
+sensor.set_auto_gain(False, gain_db=4)
 
 sensor.skip_frames(time=200)
 
@@ -31,18 +28,18 @@ led2 = pyb.LED(2)
 led2.on()
 #led3.on()
 
-window_x = 195
-window_y = 143
-window_width = 160
+window_x = 145
+window_y = 116
+window_width = 260
 mask_radius = 100
 roi_width=280
 
 sensor.set_windowing(window_x - int((window_width/2)), window_y - int((window_width/2)), window_width, window_width)
 
-centre_x = 78
-centre_y = 81
+centre_x = 130
+centre_y = 111
 
-thresh_ball = (29, 71, 8, 50, 4, 33)
+thresh_ball = (54, 84, 12, 75, 23, 57)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72) # old
 thresh_blue_goal = (46, 58, -27, -7, -34, -17) # old
 
@@ -59,7 +56,8 @@ while True:
     led2.on()
     img = sensor.snapshot()  # Take a picture and return the image.
     # ball = img.find_blobs([thresh_ball], roi=(centre_x-int(0.5*roi_width), centre_y-int(0.5*roi_width), roi_width, roi_width), pixel_threshold=0, area_threshold=0, merge=True)
-    ball = img.find_blobs([thresh_ball], pixel_threshold=10, area_threshold=10, merge=True)
+    # ball = img.find_blobs([thresh_ball], pixel_threshold=2, area_threshold=2, merge=True)
+    ball = img.find_blobs([thresh_ball], merge=True)
     img.draw_cross(centre_x, centre_y)
 
     if len(ball)>0:
