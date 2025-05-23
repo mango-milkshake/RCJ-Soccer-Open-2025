@@ -121,7 +121,7 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define GRADUAL_CHANGE 250.0f
 #define ALIGN_DURATION 2000
 #define ALIGN_THRESHOLD 3000
-#define BALLCAP_DISTANCE -0.10f
+#define BALLCAP_DISTANCE 0.014f
 #define BALLCAP_WIDTH 0.0335f
 #define CLEARANCE_X 0.20f
 #define CLEARANCE_Y 0.15f
@@ -280,6 +280,18 @@ void movement(float target_x, float target_y, float target_rotation){
     bottomUART.uartWrite();
 }
 
+void ballTrack(){
+    float xToBall = absolute_ball_x - self_x, yToBall = absolute_ball_y - self_y;
+    float distToBall = sqrt(xToBall * xToBall + yToBall * yToBall);
+    float new_x = self_x + xToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
+    float new_y = self_y + yToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
+
+    float absBallAngle = atan2(yToBall, xToBall);
+    LIM_ANGLE_180(absBallAngle);
+
+    movement(new_x, new_y, 90-DEG(absBallAngle));
+}
+
 //// ** TESTING ** ////
 
 void moveForward(){
@@ -353,5 +365,5 @@ void loop(){
     sendMidPlateData();
 
     if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    else movement(absolute_ball_x, absolute_ball_y, 0);
+    else ballTrack();
 }
