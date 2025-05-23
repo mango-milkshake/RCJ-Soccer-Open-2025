@@ -4,6 +4,7 @@
 #include <RotatingCalipers.h>
 #include <CommonUtils.h>
 #include <IMU.h>
+#include <UARTComms.h>
 
 #define DEBUG(x) Serial.print(#x); Serial.print(": "); Serial.println(x);
 
@@ -54,6 +55,9 @@ float imu_angle_weight = DEFAULT_IMU_ANGLE_WEIGHT;
 
 #define TX_PIN 0
 #define RX_PIN 1
+#define DATA_LEN 9
+uint8_t buffer[DATA_LEN];
+UARTComms espUART(TX_PIN, RX_PIN, buffer, DATA_LEN, Serial1);
 
 #define CS0_PIN 5
 #define MISO0_PIN 4 // RX
@@ -107,9 +111,7 @@ void setup(){
         Analog_IIC_Init(scl[i], sda[i]);
     }
 
-    Serial1.setRX(RX_PIN);
-    Serial1.setTX(TX_PIN);
-    Serial1.begin(115200);
+    espUART.init();
 
     imuLock = spin_lock_instance(0);
 
@@ -342,19 +344,21 @@ void loop(){
     int rounded_coord_y = floor(cur_coords.y * 128);
     int uart_heading = floor(abs(final_heading) * 128);
 
-    Serial1.write(5);
-    Serial1.write(rounded_coord_x & 0xFF);
-    Serial1.write((rounded_coord_x >> 8) & 0xFF);
-    Serial1.write(rounded_coord_y & 0xFF);
-    Serial1.write((rounded_coord_y >> 8) & 0xFF);
+    buffer[0] = 5;
+    buffer[1] = rounded_coord_x & 0xFF;
+    buffer[2] = (rounded_coord_x >> 8) & 0xFF;
+    buffer[3] = rounded_coord_y & 0xFF;
+    buffer[4] = (rounded_coord_y >> 8) & 0xFF;
 
-    if(copysign(1, final_heading)==1) Serial1.write(1);
-    else Serial1.write((uint8_t)0);
-    Serial1.write(uart_heading & 0xFF);
-    Serial1.write((uart_heading >> 8) & 0xFF);
+    if(copysign(1, final_heading)==1) buffer[5] = 1;
+    else buffer[5] = 0;
+    buffer[6] = uart_heading & 0xFF;
+    buffer[7] = (uart_heading >> 8) & 0xFF;
 
-    if(tilt_state) Serial1.write(1);
-    else Serial1.write((uint8_t)0);
+    if(tilt_state) buffer[8] = 1;
+    else buffer[8] = 0;
+
+    espUART.uartWrite();
 
     Serial.println();
 }
