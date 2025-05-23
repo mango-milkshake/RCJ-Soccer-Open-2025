@@ -149,6 +149,21 @@ float speed_xdir, speed_ydir, rotation;
 //// ** FUNCTIONS ** ////
 
 void sendMidPlateData(){
+    int rounded_coord_x = floor(self_x * 128);
+    int rounded_coord_y = floor(self_y * 128);
+    int uart_heading = floor(abs(self_heading) * 128);
+
+    midSendBuffer[0] = 5;
+    midSendBuffer[1] = rounded_coord_x & 0xFF;
+    midSendBuffer[2] = (rounded_coord_x >> 8) & 0xFF;
+    midSendBuffer[3] = rounded_coord_y & 0xFF;
+    midSendBuffer[4] = (rounded_coord_y >> 8) & 0xFF;
+
+    if(copysign(1, self_heading)==1) midSendBuffer[5] = 1;
+    else midSendBuffer[5] = 0;
+    midSendBuffer[6] = uart_heading & 0xFF;
+    midSendBuffer[7] = (uart_heading >> 8) & 0xFF;
+    
     Wire.beginTransmission(MID_I2C_ADDR);
     Wire.write(midSendBuffer, MID_I2C_SEND_DATA_LEN);
     Wire.endTransmission();
@@ -335,21 +350,6 @@ void loop(){
 
     getTopPlateData();
     getMidPlateData();
-
-    int rounded_coord_x = floor(self_x * 128);
-    int rounded_coord_y = floor(self_y * 128);
-    int uart_heading = floor(abs(self_heading) * 128);
-
-    midSendBuffer[0] = 5;
-    midSendBuffer[1] = rounded_coord_x & 0xFF;
-    midSendBuffer[2] = (rounded_coord_x >> 8) & 0xFF;
-    midSendBuffer[3] = rounded_coord_y & 0xFF;
-    midSendBuffer[4] = (rounded_coord_y >> 8) & 0xFF;
-
-    if(copysign(1, self_heading)==1) midSendBuffer[5] = 1;
-    else midSendBuffer[5] = 0;
-    midSendBuffer[6] = uart_heading & 0xFF;
-    midSendBuffer[7] = (uart_heading >> 8) & 0xFF;
     sendMidPlateData();
 
     if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
