@@ -14,7 +14,6 @@
 */
 
 #include <Wire.h>
-
 #include <SparkFun_VL53L5CX_Library.h> //http://librarymanager/All#SparkFun_VL53L5CX
 
 SparkFun_VL53L5CX sensor;
@@ -25,6 +24,47 @@ int imageWidth = 0;      // Used to pretty print output
 
 long measurements = 0;         // Used to calculate actual output rate
 long measurementStartTime = 0; // Used to calculate actual output rate
+
+// void printReadingsGrid(int16_t arr[], int width) {
+//   Serial.println("==================================================================");
+//   for (int y = 0; y <= width * (width - 1); y += width) {
+//     Serial.print("||");
+//     for (int x = width - 1; x >= 0; x--) {
+//       int val = arr[x + y];
+//       if(val < 10) Serial.print("   ");
+//       else if(val < 1000) Serial.print("  ");
+//       else Serial.print(" ");
+//       Serial.print(val);
+//       if(val < 100) Serial.print("  ");
+//       else Serial.print(" ");
+//       Serial.print("||");
+//     }
+//     Serial.println();
+//     Serial.println("==================================================================");
+//   }
+//   Serial.println();
+// }
+void printReadingsGrid(int16_t arr[], int width, bool flipVertical, bool flipHorizontal) {
+  Serial.println("==================================================================");
+  for (int row = 0; row < width; row++) {
+    int r = flipVertical ? (width - 1 - row) : row;
+    Serial.print("||");
+    for (int col = 0; col < width; col++) {
+      int c = flipHorizontal ? (width - 1 - col) : col;
+      int val = arr[r * width + c];
+      if(val < 10) Serial.print("   ");
+      else if(val < 1000) Serial.print("  ");
+      else Serial.print(" ");
+      Serial.print(val);
+      if(val < 100) Serial.print("  ");
+      else Serial.print(" ");
+      Serial.print("||");
+    }
+    Serial.println();
+    Serial.println("==================================================================");
+  }
+  Serial.println();
+}
 
 void setup()
 {
@@ -54,7 +94,9 @@ void setup()
 
   // Using 4x4, min frequency is 1Hz and max is 60Hz
   // Using 8x8, min frequency is 1Hz and max is 15Hz
-  sensor.setRangingFrequency(15);
+  sensor.setRangingFrequency(10);
+  // sensor.setIntegrationTime(1000);
+  sensor.setTargetOrder(SF_VL53L5CX_TARGET_ORDER::CLOSEST);
 
   sensor.startRanging();
 
@@ -68,17 +110,8 @@ void loop()
   {
     if (sensor.getRangingData(&measurementData)) // Read distance data into array
     {
-      // The ST library returns the data transposed from zone mapping shown in datasheet
-      // Pretty-print data with increasing y, decreasing x to reflect reality
-      for (int y = 0; y <= imageWidth * (imageWidth - 1); y += imageWidth)
-      {
-        for (int x = imageWidth - 1; x >= 0; x--)
-        {
-          Serial.print(measurementData.distance_mm[x + y]);
-          Serial.print(",");
-        }
-      }
-      Serial.println();
+      // Pretty-print as an inverted grid (like your earlier Arduino code)
+      printReadingsGrid(measurementData.distance_mm, imageWidth, true, false);
 
       // Uncomment to display actual measurement rate
       measurements++;
