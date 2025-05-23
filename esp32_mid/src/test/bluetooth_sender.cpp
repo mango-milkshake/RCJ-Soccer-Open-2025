@@ -9,7 +9,7 @@ Serial not updating: hold down reset, hold and release boot, wait 1 second, rele
 #include <WiFi.h>
 
 //put RECEIVER mac address here
-uint8_t broadcastAddress[] = {0x3c, 0x84, 0x27, 0x26, 0x03, 0x14};
+uint8_t broadcastAddress[] = {0x28, 0x37, 0x2f, 0x86, 0xce, 0x4c};
 
 // Must match the receiver structure!!
 typedef struct struct_message {

@@ -8,10 +8,20 @@
 Adafruit_NeoPixel pixels(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // Must match the sender structure!!
+// typedef struct struct_message {
+//   int a;
+//   int b;
+//   int c;
+// } struct_message;
 typedef struct struct_message {
-  int a;
-  int b;
-  int c;
+  int isPresent;
+  bool def;
+  float xpos; 
+  float ypos;
+  bool hasBall; 
+  bool inField;
+
+  int botID_comm;
 } struct_message;
 
 // Create a struct_message called myData
@@ -23,10 +33,12 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.print("Bytes received: ");
   Serial.println(len);
 
-  //Serial.println(myData.a);
-  //Serial.println();
+  Serial.println(myData.isPresent);
+  Serial.println(myData.def);
+  Serial.println(myData.hasBall);
+  //Serial.println();+
 
-  pixels.setPixelColor(0, pixels.Color(myData.a, myData.b, myData.c)); 
+  // pixels.setPixelColor(0, pixels.Color(myData.a, myData.b, myData.c)); 
   pixels.show();
  
 }
