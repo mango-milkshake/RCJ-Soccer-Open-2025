@@ -40,7 +40,7 @@ float lastLED = 0;
 // Switches
 // Motor software switch
 #define TURN_OFF_SW 38
-bool turnOff = false;
+bool turnOff = true;
 
 // UART Comms with top plate
 #define TOP_TX_PIN 16
@@ -195,8 +195,8 @@ void getMidPlateData(){
         noBall = false;
         lastSeenBall = millis();
     }
-    // DEBUG(ball_angle);
-    // DEBUG(ball_dist);
+    DEBUG(ball_angle);
+    DEBUG(ball_dist);
 
     float relative_angle = 90 - (ball_angle + self_heading); 
     relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
