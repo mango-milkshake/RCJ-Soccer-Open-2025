@@ -39,7 +39,7 @@ sensor.set_windowing(window_x - int((window_width/2)), window_y - int((window_wi
 centre_x = 130
 centre_y = 111
 
-thresh_ball = (54, 84, 12, 75, 23, 57)
+thresh_ball = (41, 79, 12, 58, 8, 46)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72) # old
 thresh_blue_goal = (46, 58, -27, -7, -34, -17) # old
 
