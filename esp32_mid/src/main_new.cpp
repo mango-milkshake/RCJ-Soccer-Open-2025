@@ -218,6 +218,10 @@ void getTopPlateData(){
     }
 }
 
+void sendMotorData(){ // fill bottomSendBuffer with desired data before calling this function
+    bottomUART.uartWrite();
+}
+
 void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.20, FIELD_WIDTH - 0.20);
     if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
@@ -277,7 +281,7 @@ void movement(float target_x, float target_y, float target_rotation){
         bottomSendBuffer[5] = rotation_sign;
         bottomSendBuffer[6] = rounded_rotation;
     }
-    bottomUART.uartWrite();
+    sendMotorData();
 }
 
 void ballTrack(){
