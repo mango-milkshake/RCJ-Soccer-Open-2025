@@ -10,7 +10,7 @@
 
 #define LPIN1 2
 #define LPIN2 14
-
+//pins: clockwise pin for each lidar 2, 3, 10, 11, 14, 15
 #define SENSOR_WIDTH 8
 #define SENSOR_FREQ 15
 

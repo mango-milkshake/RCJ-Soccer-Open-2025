@@ -40,7 +40,7 @@ float lastLED = 0;
 // Switches
 // Motor software switch
 #define TURN_OFF_SW 38
-bool turnOff = false;
+bool turnOff = true;
 
 // UART Comms with top plate
 #define TOP_TX_PIN 16
@@ -121,7 +121,7 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define GRADUAL_CHANGE 250.0f
 #define ALIGN_DURATION 2000
 #define ALIGN_THRESHOLD 3000
-#define BALLCAP_DISTANCE -0.10f
+#define BALLCAP_DISTANCE 0.014f
 #define BALLCAP_WIDTH 0.0335f
 #define CLEARANCE_X 0.20f
 #define CLEARANCE_Y 0.15f
@@ -142,7 +142,7 @@ float ball_vx = 0, ball_vy = 0;
 float relative_ball_x = 0, relative_ball_y = 0;
 float absolute_ball_x = 0, absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
-bool noBall = false, ballCap = false, topOff = false, isOnLine = false;
+bool noBall = false, ballCap = false, topOff = true, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
 float speed_xdir, speed_ydir, rotation;
 
@@ -195,8 +195,8 @@ void getMidPlateData(){
         noBall = false;
         lastSeenBall = millis();
     }
-    // DEBUG(ball_angle);
-    // DEBUG(ball_dist);
+    DEBUG(ball_angle);
+    DEBUG(ball_dist);
 
     float relative_angle = 90 - (ball_angle + self_heading); 
     relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
@@ -216,6 +216,10 @@ void getTopPlateData(){
         if(topBuffer[8]==1) topOff = true;
         else topOff = false;
     }
+}
+
+void sendMotorData(){ // fill bottomSendBuffer with desired data before calling this function
+    bottomUART.uartWrite();
 }
 
 void movement(float target_x, float target_y, float target_rotation){
@@ -277,7 +281,19 @@ void movement(float target_x, float target_y, float target_rotation){
         bottomSendBuffer[5] = rotation_sign;
         bottomSendBuffer[6] = rounded_rotation;
     }
-    bottomUART.uartWrite();
+    sendMotorData();
+}
+
+void ballTrack(){
+    float xToBall = absolute_ball_x - self_x, yToBall = absolute_ball_y - self_y;
+    float distToBall = sqrt(xToBall * xToBall + yToBall * yToBall);
+    float new_x = self_x + xToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
+    float new_y = self_y + yToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
+
+    float absBallAngle = atan2(yToBall, xToBall);
+    LIM_ANGLE_180(absBallAngle);
+
+    movement(new_x, new_y, 90-DEG(absBallAngle));
 }
 
 //// ** TESTING ** ////
@@ -353,5 +369,5 @@ void loop(){
     sendMidPlateData();
 
     if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    else movement(absolute_ball_x, absolute_ball_y, 0);
+    else ballTrack();
 }
