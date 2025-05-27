@@ -312,6 +312,8 @@ void movement(float target_x, float target_y, float target_rotation){
     bottomSendBuffer[0] = 5;
     if(turnOff || topOff){
         for (int i=1; i<BOTTOM_DATA_LEN; i++) bottomSendBuffer[i] = 0;
+        DEBUG(turnOff);
+        DEBUG(topOff);
     }
     else{
         bottomSendBuffer[1] = speed_x_sign;
