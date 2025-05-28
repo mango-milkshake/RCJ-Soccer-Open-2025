@@ -2,7 +2,7 @@
 #define LINE_H
 
 #include <Arduino.h>
-#define LINE_THRESH 900
+#define LINE_THRESH 300
 
 class Line {
     public:
@@ -30,6 +30,11 @@ class Line {
                 if(value >= LINE_THRESH) res += (1 << i);
             }
             return res;
+        }
+
+        int readRawValue(uint8_t pin){
+            selectMuxPin(pin);
+            return analogRead(_inputPin);
         }
 
     private:
