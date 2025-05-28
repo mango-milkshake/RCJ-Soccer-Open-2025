@@ -11,6 +11,7 @@
 #define led_count 1
 #define brightness 50
 Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
+uint32_t colour;
 
 #define KICKER_LOGIC_PIN 3
 
@@ -77,6 +78,11 @@ void loop(){
     sendBuffer[1] = (uint8_t) getLidarGateData();
     sendBuffer[2] = getLineData();
     data_ready = true;
+
+    colour = (15<<8) + 15;
+    if(ballCap) colour += (15<<8);
+    if(lineValue > 0) colour += (15<<16);
+    strip.setPixelColor(0, colour);
     strip.show();
 
     #ifdef DEBUGGING
