@@ -56,18 +56,6 @@ UARTComms topUART(TOP_TX_PIN, TOP_RX_PIN, topBuffer, TOP_DATA_LEN, Serial2);
 byte bottomSendBuffer[BOTTOM_DATA_LEN];
 UARTComms bottomUART(BOTTOM_TX_PIN, BOTTOM_RX_PIN, bottomSendBuffer, BOTTOM_DATA_LEN, Serial1);
 
-// I2C Comms with bottom plate (sensor RP2040)
-#define BOTTOM_SDA_PIN 40
-#define BOTTOM_SCL_PIN 39
-#define BOTTOM_I2C_DATA_LEN 18
-#define BOTTOM_I2C_ADDRESS 0x08
-
-#define FRONT_CAM_DATA_POS 1
-#define LIDAR_GATE_POS 13
-#define LINE_DATA_POS 14
-
-byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN+1];
-
 // I2C Comms with middle plate RP2040
 #define MID_SDA_PIN 1
 #define MID_SCL_PIN 2
@@ -78,9 +66,15 @@ byte midSendBuffer[MID_I2C_SEND_DATA_LEN];
 byte midRcvBuffer[MID_I2C_RCV_DATA_LEN];
 byte firstbyte = 5;
 
+// I2C Comms with bottom plate (sensor RP2040)
+#define BOTTOM_SDA_PIN 40
+#define BOTTOM_SCL_PIN 39
+#define BOTTOM_I2C_DATA_LEN 3
+#define BOTTOM_I2C_ADDR 0x08
+byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN];
+
 // Line Sensors
-#define NUM_LINE_MUX 4
-float line_status[NUM_LINE_MUX];
+byte line_status = 0;
 
 // PID
 float pid_def_rotate_default[3] = {0.7, 0, 0};
@@ -142,7 +136,7 @@ float ball_vx = 0, ball_vy = 0;
 float relative_ball_x = 0, relative_ball_y = 0;
 float absolute_ball_x = 0, absolute_ball_y = 0;
 float last_ball_x = 0, last_ball_y = 0;
-bool noBall = false, ballCap = false, topOff = true, isOnLine = false;
+bool noBall = false, ballCap = false, topOff = true, onLine = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
 float speed_xdir, speed_ydir, rotation;
 
@@ -172,10 +166,10 @@ void sendMidPlateData(){
 void getMidPlateData(){
     byte num_bytes = Wire.requestFrom(MID_I2C_ADDR, MID_I2C_RCV_DATA_LEN);
     if(num_bytes != MID_I2C_RCV_DATA_LEN){
-        Serial.print("Received bad data: ");
+        // Serial.print("Received bad data: ");
         return;
     }
-    else Serial.print("Received: ");
+    // else Serial.print("Received: ");
     for (int i=0; i<MID_I2C_RCV_DATA_LEN; i++) {
         if (Wire.available()) {
             midRcvBuffer[i] = Wire.read();
@@ -195,8 +189,8 @@ void getMidPlateData(){
         noBall = false;
         lastSeenBall = millis();
     }
-    DEBUG(ball_angle);
-    DEBUG(ball_dist);
+    // DEBUG(ball_angle);
+    // DEBUG(ball_dist);
 
     float relative_angle = 90 - (ball_angle + self_heading); 
     relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
@@ -216,6 +210,32 @@ void getTopPlateData(){
         if(topBuffer[8]==1) topOff = true;
         else topOff = false;
     }
+}
+
+void getBottomPlateData(){
+    byte num_bytes = Wire1.requestFrom(BOTTOM_I2C_ADDR, BOTTOM_I2C_DATA_LEN);
+    if(num_bytes != BOTTOM_I2C_DATA_LEN){
+        Serial.print("Received bad data: ");
+        return;
+    }
+    else Serial.print("Received: ");
+    for (int i=0; i<BOTTOM_I2C_DATA_LEN; i++) {
+        if (Wire1.available()) {
+            bottomRcvBuffer[i] = Wire1.read();
+        }
+    }
+    if(bottomRcvBuffer[0]!=firstbyte) {
+        Serial.print("Received bad data");
+        return;
+    }   
+
+    ballCap = (bool) bottomRcvBuffer[1];
+    line_status = bottomRcvBuffer[2];
+    if(line_status > 0) onLine = true;
+    else onLine = false;
+
+    DEBUG(ballCap);
+    DEBUG(onLine);
 }
 
 void sendMotorData(){ // fill bottomSendBuffer with desired data before calling this function
@@ -306,7 +326,7 @@ void moveForward(){
     bottomSendBuffer[4] = 255;
     bottomSendBuffer[5] = 1;
     bottomSendBuffer[6] = 0;
-    bottomUART.uartWrite();
+    sendMotorData();
 }
 
 //// ** LOOPS ** ////
@@ -367,6 +387,7 @@ void loop(){
     getTopPlateData();
     getMidPlateData();
     sendMidPlateData();
+    getBottomPlateData();
 
     if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     else ballTrack();
