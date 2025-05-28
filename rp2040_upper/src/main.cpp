@@ -190,6 +190,11 @@ void setup(){
     topCamUART.init();
     frontCamUART.init();
 
+    pico_led.begin();
+    pico_led.setBrightness(PICO_LED_BRIGHTNESS);
+    pico_led.setPixelColor(0, pico_led.Color(15, 15, 0));
+    pico_led.show();
+
     strip.begin();
     strip.setBrightness(STRIP_LED_BRIGHTNESS);
     setLED(0, STRIP_LED_COUNT-1, strip.Color(0, 0, 15));
@@ -213,11 +218,6 @@ void setup(){
     lastBuffer[0] = 5;
     for (int i=1; i<ESP_SEND_DATA_LEN; i++) lastBuffer[i] = 0;
     espSendBuffer[0] = 5;
-
-    pico_led.begin();
-    pico_led.setBrightness(PICO_LED_BRIGHTNESS);
-    pico_led.setPixelColor(0, pico_led.Color(15, 15, 0));
-    pico_led.show();
 }
 
 void loop(){
