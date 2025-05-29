@@ -1,0 +1,123 @@
+import sensor, time, image, pyb
+from pyb import UART
+
+def sendUART(x, sign):
+    if sign:
+        if x<0:
+            uart.writechar(0)
+        else:
+            uart.writechar(1)
+    multiplied_x = round((abs(x)) * 128)
+    uart.writechar(multiplied_x & 0xFF)
+    uart.writechar((multiplied_x >> 8) & 0xFF)
+
+def rgb_to_hsv(rgb):
+    r = rgb[0] / 255
+    g = rgb[1] / 255
+    b = rgb[2] / 255
+    cmax = max(r,g,b)
+    cmin = min(r,g,b)
+    diff = cmax-cmin
+
+    if cmax == cmin:
+        h = 0
+    elif cmax == r:
+        h = (g-b)/diff
+    elif cmax == g:
+        h = 2 + (b-r)/diff
+    elif cmax == b:
+        h = 4 + (r-g)/diff
+    h *= 60
+    if (h < 0):
+        h  += 360
+
+    if cmax == 0:
+        s = 0
+    else:
+        s = (diff/cmax)*100
+
+    v = cmax*100
+
+    return (h,s,v)
+
+
+threshold = (0, 100, 9, 76, 5, 76) # orange ball
+threshold_field = (0, 84, -50, -14, -33, 44)
+threshold_goal_blue = (0, 100, -20, 6, -29, -5)
+x = 0
+y = 0
+
+sensor.reset()  # Reset and initialize the sensor.
+sensor.set_pixformat(sensor.RGB565)  # Set pixel format to RGB565 (or GRAYSCALE)
+sensor.set_framesize(sensor.QVGA)  # Set frame size to QVGA (320x240)
+clock = time.clock()  # Create a clock object to track the FPS.
+sensor.set_auto_whitebal(False, rgb_gain_db =(1,0,1))
+sensor.set_auto_exposure(False, exposure_us=3000)  # Disable auto exposure
+sensor.set_auto_gain(False, gain_db = 2) # must be turned off for colour tracking
+sensor.skip_frames(time=200)  # Wait for settings take effect.
+
+led2 = pyb.LED(2)
+no_ball = False
+uart = UART(3, 115200)
+shoot_ball = True
+
+while True:
+    clock.tick()  # Update the FPS clock.
+    led2.on()
+    img = sensor.snapshot()  # Take a picture and return the image.
+    blobs = img.find_blobs([threshold], area_threshold = 150, merge=True)
+   # blobs2 = img.find_blobs([threshold_goal_blue], area_threshold=200, merge = True)
+   # if len(blobs2)>0:
+    #    img.draw_rectangle(max(blobs2, key=lambda b: b.area()).rect())
+    if len(blobs)>0:
+        ball = max(blobs, key=lambda b: b.area())
+        no_ball = False
+        img.draw_rectangle(ball.rect(), color=(0,255,0))
+        img.draw_cross(ball.cx(), ball.cy())
+        #print(ball.cx(), ball.cy())
+        x = ball.cx()
+        y = ball.cy()
+        x2 = 2.34678e-7* x**3 - 6.93269e-7* x**2 * y + 0.0000184518 * x**2 + 4.94946e-9 *x * y**2 + 0.000340658*x*y - 0.0405575*x + 1.26915e-7 * y**3 - 0.0000321536*y**2 - 0.0783178*y + 9.3546
+        y2 = -2.17938e-6 * x**3 - 3.57085e-8 * x**2 * y + 0.00129718 * x**2 - 3.14209e-7 * x * y**2 + 0.0000760482 * x * y - 0.27871*x + 6.65652e-7 * y**3 - 0.0001672 * y**2 + 0.00840698*y + 33.1509
+
+        dist = (x2**2 + y2**2)**0.5
+
+        #print("dist = ", dist)
+        #print("x = ", x) #image coordinates
+        #print("y = ", y)
+       # print("x2 = ", x2) #actual coordinates
+      #  print("y2 = ", y2)
+    else:
+        no_ball = True
+    shoot_ball = True
+    rows = 5
+    columns = 20
+    y_separation = 10
+    for i in range(columns):
+       for j in range(rows):
+            pixel_x = int(i*(320/columns)+10)
+            pixel_y = int((120-y_separation*rows/2)+y_separation*j)
+            rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple= True)
+            lab = image.rgb_to_lab(rgb)
+
+            #hsv = rgb_to_hsv(rgb)
+            #print(rgb)
+            #print(hsv)
+            if(lab[1] > -15):
+                shoot_ball = False
+                img.draw_cross(pixel_x, pixel_y, color=(255,0,0))
+            else:
+                img.draw_cross(pixel_x, pixel_y, color=(255,255,255))
+
+
+
+    uart.writechar(5)
+    if(no_ball==False):
+        sendUART(x2, True)
+        sendUART(y2, False)
+    else:
+        for i in range(5):
+            uart.writechar(0)
+    uart.sendbreak()
+
+    print("fps", clock.fps())
