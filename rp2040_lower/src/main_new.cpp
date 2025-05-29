@@ -6,6 +6,13 @@
 #include <Drive.h>
 #include <UARTComms.h>
 
+#define DEBUGGING
+#ifdef DEBUGGING
+#define DEBUG(x) Serial.println(String(#x) + String(": ") + String(x) + String('\r')); 
+#else
+#define DEBUG(x) 123;
+#endif
+
 #define TX_PIN 4
 #define RX_PIN 5
 #define DATA_LEN 7
@@ -111,4 +118,8 @@ void loop(){
     }
     bot.setDrive(speedX, speedY, rotation);
     // bot.setDrive(speed_xdir, speed_ydir, rotation);
+
+    // DEBUG(speedX);
+    // DEBUG(speedY);
+    // DEBUG(rotation);
 }
