@@ -59,7 +59,8 @@ sensor.skip_frames(time=200)  # Wait for settings take effect.
 led2 = pyb.LED(2)
 no_ball = False
 uart = UART(3, 115200)
-shoot_ball = True
+blocked_pixels = 0
+open_goal = []
 
 while True:
     clock.tick()  # Update the FPS clock.
@@ -85,29 +86,45 @@ while True:
         #print("dist = ", dist)
         #print("x = ", x) #image coordinates
         #print("y = ", y)
-       # print("x2 = ", x2) #actual coordinates
-      #  print("y2 = ", y2)
+        #print("x2 = ", x2) #actual coordinates
+        #print("y2 = ", y2)
     else:
         no_ball = True
-    shoot_ball = True
+    blocked_pixels = 0
     rows = 5
     columns = 20
     y_separation = 10
-    for i in range(columns):
+    goal_width = 2
+    for i in range(columns - goal_width): #check path to goal
        for j in range(rows):
-            pixel_x = int(i*(320/columns)+10)
+            pixel_x = int((i+goal_width)*(320/columns)+10)
             pixel_y = int((120-y_separation*rows/2)+y_separation*j)
-            rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple= True)
+            rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
             lab = image.rgb_to_lab(rgb)
 
             #hsv = rgb_to_hsv(rgb)
             #print(rgb)
             #print(hsv)
             if(lab[1] > -15):
-                shoot_ball = False
+                blocked_pixels += 1
                 img.draw_cross(pixel_x, pixel_y, color=(255,0,0))
             else:
                 img.draw_cross(pixel_x, pixel_y, color=(255,255,255))
+    if (blocked_pixels != 0): #check for open goal regions
+        for i in range(int(240/y_separation)):
+            for j in range(goal_width):
+                pixel_x = int(i*(320/columns)+10)
+                pixel_y = int(i*y_separation)
+                rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
+                lab = image.rgb_to_lab(rgb)
+                if(lab[2] < 5):
+                    img.draw_cross(pixel_x, pixel_y, color=(0,255,0))
+                    open_goal.append((pixel_x, pixel_y))
+                else:
+                    img.draw_cross(pixel_x, pixel_y, color=(255,0,0))
+
+    open_goal = []
+
 
 
 
