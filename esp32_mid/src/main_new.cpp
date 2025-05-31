@@ -357,4 +357,16 @@ void loop(){
     } 
     else state.curType = 1; // ball track
 
+    // decide specific strategy
+    if(state.curType != state.lastType){
+        state.curStratIdx = 0;
+        state.lastChange = millis();
+    }
+    else if(millis() - state.lastChange > CHANGE_TIME){
+        state.curStratIdx++;
+        state.curStratIdx %= stratTypes[state.curType];
+        state.lastChange = millis();
+    }
+    state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
+
 }
