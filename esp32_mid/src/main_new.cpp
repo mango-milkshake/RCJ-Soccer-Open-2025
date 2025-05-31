@@ -88,44 +88,15 @@ PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000
 PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000);
 float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 
-// Dimensions
-#define FIELD_WIDTH 1.82
-#define FIELD_HEIGHT 2.43
-#define SELF_GOAL_LEFT_X 0.61
-#define SELF_GOAL_RIGHT_X 1.21
-#define SELF_GOAL_Y 0.12
-#define OPP_GOAL_CENTRE_X 0.91
-#define OPP_GOAL_CENTRE_Y 2.384
-#define OPP_GOAL_MIDDLE_X 0.91
-#define OPP_GOAL_MIDDLE_Y 2.06
-#define OPP_GOAL_LEFT_X 0.61
-#define OPP_GOAL_RIGHT_X 1.21
-#define OPP_GOAL_Y 2.31
-#define BOT_RADIUS_CM 8.5 // in cm
-#define BOT_RADIUS_M 0.085 // in metres
-#define Y_BOUND 1.50 
-
-// Thresholds
-#define BALLCAP_DURATION 250
-#define ALIGNED_THRESHOLD 0.015f
-#define MOVING_BACK_DURATION 200
-#define INITIAL_CHANGE 35.0f
-#define GRADUAL_CHANGE 250.0f
-#define ALIGN_DURATION 2000
-#define ALIGN_THRESHOLD 3000
-#define BALLCAP_DISTANCE 0.014f
-#define BALLCAP_WIDTH 0.0335f
-#define CLEARANCE_X 0.20f
-#define CLEARANCE_Y 0.15f
-#define FIELD_MARGIN 0.12f
-#define FIELD_MARGIN_X 0.51f
-#define FIELD_MARGIN_Y 0.37f
-#define LAST_SEEN_BALL_TIME 1000
-#define SCORING_WAIT_TIME 500
-#define DEFENDER_WAIT_TIME 1500
-#define DEFENDER_MAX_YPOS 0.70
-#define ATTACKER_MIN_BALL_YPOS 0.70
-#define OSCILLATE_WAIT_TIME 2000
+// Strategies
+#define CHANGE_TIME 5000
+#define NUM_STRAT_TYPES 3
+#define NUM_NO_BALL_STRAT 2
+#define NUM_BALL_STRAT 2
+#define NUM_SCORE_STRAT 2
+#define MAX_NUM_STRATS 2
+int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
+int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {5, 3}, {6, 8}};
 
 // Variables
 float lastLoopTime = 0;
