@@ -369,6 +369,29 @@ void loop(){
     }
     state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
+    // carry out the strategy
+    switch (state.strategies){
+        case State::Strategies::MOVE_TO_POINT:
+            Serial.println("move to centre");
+            bot.moveToPoint(FIELD_WIDTH/2, 0.80 /* FIELD_HEIGHT/2 */, 0);
+            break;
+        
+        case State::Strategies::OSCILLATE_ABOUT_POINT:
+            Serial.println("oscillate");
+            bot.oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.50);
+            break;
+
+        case State::Strategies::NO_DRIBBLER_BALL_TRACK:
+            Serial.println("no dribbler ball track");
+            bot.ballTrack();
+            break;
+        
+        case State::Strategies::DRIBBLER_BALL_TRACK:
+            Serial.println("dribbler ball track");
+            bot.dribblerBallTrack();
+            break;
+    }
+
     // update last type
     state.lastType = state.curType;
 }
