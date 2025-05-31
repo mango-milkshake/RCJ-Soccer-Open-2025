@@ -350,4 +350,11 @@ void loop(){
     //     bot.dribblerBallTrack();
     //     movement(move.x, move.y, move.rotation);
     // }
+
+    // decide strategy type
+    if(ball.noBall){
+        state.curType = 0; // no ball
+    } 
+    else state.curType = 1; // ball track
+
 }
