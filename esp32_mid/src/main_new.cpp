@@ -314,6 +314,12 @@ void setup(){
     // strip.setBrightness(LED_BRIGHTNESS);
     // strip.show();
 
+    state.lastType = 0;
+    state.curType = 0;
+    state.strategies = static_cast<State::Strategies>(strats[0][0]);
+    state.curStratIdx = 0;
+    state.lastChange = millis();
+
     esp_led.begin();
     esp_led.setBrightness(ESP_BRIGHTNESS);
     esp_led.show();
