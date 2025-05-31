@@ -369,4 +369,6 @@ void loop(){
     }
     state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
+    // update last type
+    state.lastType = state.curType;
 }
