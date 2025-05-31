@@ -392,6 +392,9 @@ void loop(){
             break;
     }
 
+    // send moving command to motors
+    movement(move.x, move.y, move.rotation);
+
     // update last type
     state.lastType = state.curType;
 }
