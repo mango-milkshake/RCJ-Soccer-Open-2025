@@ -40,6 +40,25 @@ def rgb_to_hsv(rgb):
 
     return (h,s,v)
 
+def longest_consecutive_subarray(arr):
+    max_len = 1
+    cur_len = 1
+    max_idx = 0
+    cur_idx = 0
+    for i in range(len(arr)-1):
+        if (arr[i] == arr[i+1]-1):
+            cur_len += 1
+        else:
+            if (cur_len > max_len):
+                max_len = cur_len
+                max_idx = cur_idx
+            cur_len = 1
+            cur_idx = i + 1
+    if cur_len > max_len:
+            max_len = cur_len
+            max_idx = cur_idx
+    return(arr[max_idx:max_idx+max_len])
+
 
 threshold = (0, 100, 9, 76, 5, 76) # orange ball
 threshold_field = (0, 84, -50, -14, -33, 44)
@@ -92,12 +111,12 @@ while True:
         no_ball = True
     blocked_pixels = 0
     rows = 5
-    columns = 20
+    columns = 24
     y_separation = 10
-    goal_width = 2
-    for i in range(columns - goal_width): #check path to goal
+    goal_width = 4
+    for i in range(columns): #check path to goal
        for j in range(rows):
-            pixel_x = int((i+goal_width)*(320/columns)+10)
+            pixel_x = int((i)*(280/columns)+50)
             pixel_y = int((120-y_separation*rows/2)+y_separation*j)
             rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
             lab = image.rgb_to_lab(rgb)
@@ -110,18 +129,42 @@ while True:
                 img.draw_cross(pixel_x, pixel_y, color=(255,0,0))
             else:
                 img.draw_cross(pixel_x, pixel_y, color=(255,255,255))
+
     if (blocked_pixels != 0): #check for open goal regions
         for i in range(int(240/y_separation)):
             for j in range(goal_width):
-                pixel_x = int(i*(320/columns)+10)
+                #make sure these pixels dont overlap with previous ones, they will detect the drawn white cross
+                pixel_x = int(j*(320/columns)+55)
                 pixel_y = int(i*y_separation)
                 rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
                 lab = image.rgb_to_lab(rgb)
-                if(lab[2] < 5):
-                    img.draw_cross(pixel_x, pixel_y, color=(0,255,0))
-                    open_goal.append((pixel_x, pixel_y))
-                else:
+                if(lab[1] > -15):
                     img.draw_cross(pixel_x, pixel_y, color=(255,0,0))
+                    open_goal.append(0) #pixel blocked
+                else:
+                    img.draw_cross(pixel_x, pixel_y)
+                    open_goal.append(1) #pixel clear
+
+        open_rows = []
+        for i in range(int(240/y_separation)):
+            row_blocked = False
+            if(open_goal[(i+1)*goal_width-1] == 1): #check if last pixel of row is blocked
+                open_rows.append(i)
+                for j in range(goal_width-1):
+                    if(open_goal[i*goal_width+j] == 0): #if last pixel is clear, check entire row
+                        row_blocked = True
+                if(row_blocked):
+                    open_rows.pop() #remove row if entire row is not clear
+        for i in range(len(open_rows)):
+            img.draw_circle(100,open_rows[i]*y_separation,3, fill=True)
+
+        #print(open_rows)
+        open_rows = longest_consecutive_subarray(open_rows)
+        #print(open_rows)
+        if(len(open_rows) > 1):
+            img.draw_arrow(320,120,100,int(0.5*y_separation*(open_rows[0]+open_rows[-1])),color=(0,0,255), thickness=5)
+    else:
+        img.draw_arrow(320,120,100,120,color=(0,0,255), thickness=5)
 
     open_goal = []
 
