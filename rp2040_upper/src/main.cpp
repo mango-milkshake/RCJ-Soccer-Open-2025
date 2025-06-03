@@ -3,6 +3,7 @@
 #include <UARTComms.h>
 #include <VL53L5CX.h>
 #include <Adafruit_NeoPixel.h>
+#include <CommonUtils.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -50,12 +51,12 @@ float topLastSeenBall = 0;
 // UART Comms with front camera
 #define FRONT_CAM_TX_PIN 12
 #define FRONT_CAM_RX_PIN 13
-#define FRONT_CAM_DATA_LEN 9
+#define FRONT_CAM_DATA_LEN 6
 byte frontCamBuffer[FRONT_CAM_DATA_LEN];
 UARTComms frontCamUART(FRONT_CAM_TX_PIN, FRONT_CAM_RX_PIN, frontCamBuffer, FRONT_CAM_DATA_LEN, Serial1);
-float front_ball_angle, front_ball_dist;
+float front_ball_x, front_ball_y, front_ball_angle, front_ball_dist;
 bool frontNoBall = false;
-float fronLastSeenBall = 0;
+float frontLastSeenBall = 0;
 
 // NeoPixel LED Strip
 #define STRIP_LED_PIN 26
@@ -74,10 +75,10 @@ void send(){
 
 void receive(int num_bytes){
     if(num_bytes != ESP_RCV_DATA_LEN){
-        Serial.print("Received bad data length");
+        // Serial.print("Received bad data length");
         return;
     }
-    else Serial.print("Received: ");
+    // else Serial.print("Received: ");
     for (int i=0; i<ESP_RCV_DATA_LEN; i++){
         if(Wire.available()){
             espRcvBuffer[i] = Wire.read();
@@ -126,6 +127,32 @@ void getTopCamData(){
     }
 }
 
+void getFrontCamData(){
+    bool status = frontCamUART.uartRead((byte)5);
+    if(status){
+        front_ball_x = (float)(frontCamBuffer[2] + (frontCamBuffer[3]<<8)) / 128;
+        if(frontCamBuffer[1]==0) front_ball_x *= -1;
+        front_ball_y = (float)(frontCamBuffer[4] + (frontCamBuffer[5]<<8)) / 128;
+
+        if(front_ball_x==0 && front_ball_y==0) {
+            frontNoBall = true;
+            front_ball_angle = 0;
+            front_ball_dist = 0;
+        }
+        else {
+            frontNoBall = false;
+            frontLastSeenBall = millis();
+            front_ball_dist = sqrt((front_ball_x * front_ball_x) + (front_ball_y * front_ball_y));
+            front_ball_angle = DEG(PI/2 - atan2(front_ball_y, front_ball_x));
+            front_ball_angle = LIM_ANGLE_360(front_ball_angle);
+        }
+        // DEBUG(front_ball_x);
+        // DEBUG(front_ball_y);
+        // DEBUG(front_ball_angle);
+        // DEBUG(front_ball_dist);
+    }
+}
+
 void printLidarReadings(int16_t arr[]){
     // print readings inverted (reflects reality)
     Serial.println("==================================================================");
@@ -163,6 +190,11 @@ void setup(){
     topCamUART.init();
     frontCamUART.init();
 
+    pico_led.begin();
+    pico_led.setBrightness(PICO_LED_BRIGHTNESS);
+    pico_led.setPixelColor(0, pico_led.Color(15, 15, 0));
+    pico_led.show();
+
     strip.begin();
     strip.setBrightness(STRIP_LED_BRIGHTNESS);
     setLED(0, STRIP_LED_COUNT-1, strip.Color(0, 0, 15));
@@ -186,21 +218,15 @@ void setup(){
     lastBuffer[0] = 5;
     for (int i=1; i<ESP_SEND_DATA_LEN; i++) lastBuffer[i] = 0;
     espSendBuffer[0] = 5;
-
-    pico_led.begin();
-    pico_led.setBrightness(PICO_LED_BRIGHTNESS);
-    pico_led.setPixelColor(0, pico_led.Color(15, 15, 0));
-    pico_led.show();
 }
 
 void loop(){
     pico_led.setPixelColor(0, pico_led.Color(15, 0, 15));
     pico_led.show();
     getTopCamData();
+    getFrontCamData();
 
     data_ready = false;
-    espSendBuffer[0] = 5;
-    frontNoBall = true;
     if(!frontNoBall){
         rounded_ball_angle = floor(front_ball_angle * 128);
         rounded_ball_dist = floor(front_ball_dist * 128);
