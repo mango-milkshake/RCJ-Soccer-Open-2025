@@ -35,25 +35,87 @@ void setLED(int first, int last, uint32_t color){
     strip.show();
 }
 
-void printReadings(int16_t arr[]){
-    // print readings inverted (reflects reality)
-    Serial.println("==================================================================");
-    for (int y = 0; y <= SENSOR_WIDTH * (SENSOR_WIDTH - 1); y += SENSOR_WIDTH){
-        Serial.print("||");
-        for (int x = SENSOR_WIDTH - 1; x >= 0; x--){
-            if(arr[x+y] < 10) Serial.print("   ");
-            else if(arr[x+y] < 1000) Serial.print("  ");
-            else Serial.print(" ");
-            Serial.print(arr[x+y]);
-            if(arr[x+y] < 100) Serial.print("  ");
-            else Serial.print(" ");
-            Serial.print("||");
-        }
-        Serial.println();
-        Serial.println("==================================================================");
+void printReadingsGrid(int16_t arr[], int width, bool flipVertical, bool flipHorizontal) {
+  Serial.println("==================================================================");
+  for (int row = 0; row < width; row++) {
+    int r = flipVertical ? (width - 1 - row) : row;
+    Serial.print("||");
+    for (int col = 0; col < width; col++) {
+      int c = flipHorizontal ? (width - 1 - col) : col;
+      int val = arr[r * width + c];
+      if(val < 10) Serial.print("   ");
+      else if(val < 1000) Serial.print("  ");
+      else Serial.print(" ");
+      Serial.print(val);
+      if(val < 100) Serial.print("  ");
+      else Serial.print(" ");
+      Serial.print("||");
     }
     Serial.println();
-}
+    Serial.println("==================================================================");
+  }
+  Serial.println();
+}void printReadingsGrid(int16_t arr[], int width, bool flipVertical, bool flipHorizontal) {
+  Serial.println("==================================================================");
+  for (int row = 0; row < width; row++) {
+    int r = flipVertical ? (width - 1 - row) : row;
+    Serial.print("||");
+    for (int col = 0; col < width; col++) {
+      int c = flipHorizontal ? (width - 1 - col) : col;
+      int val = arr[r * width + c];
+      if(val < 10) Serial.print("   ");
+      else if(val < 1000) Serial.print("  ");
+      else Serial.print(" ");
+      Serial.print(val);
+      if(val < 100) Serial.print("  ");
+      else Serial.print(" ");
+      Serial.print("||");
+    }
+    Serial.println();
+    Serial.println("==================================================================");
+  }
+  Serial.println();
+}void printReadingsGrid(int16_t arr[], int width, bool flipVertical, bool flipHorizontal) {
+  Serial.println("==================================================================");
+  for (int row = 0; row < width; row++) {
+    int r = flipVertical ? (width - 1 - row) : row;
+    Serial.print("||");
+    for (int col = 0; col < width; col++) {
+      int c = flipHorizontal ? (width - 1 - col) : col;
+      int val = arr[r * width + c];
+      if(val < 10) Serial.print("   ");
+      else if(val < 1000) Serial.print("  ");
+      else Serial.print(" ");
+      Serial.print(val);
+      if(val < 100) Serial.print("  ");
+      else Serial.print(" ");
+      Serial.print("||");
+    }
+    Serial.println();
+    Serial.println("==================================================================");
+  }
+  Serial.println();
+}void printReadingsGrid(int16_t arr[], int width, bool flipVertical, bool flipHorizontal) {
+    Serial.println("==================================================================");
+    for (int row = 0; row < width; row++) {
+      int r = flipVertical ? (width - 1 - row) : row;
+      Serial.print("||");
+      for (int col = 0; col < width; col++) {
+        int c = flipHorizontal ? (width - 1 - col) : col;
+        int val = arr[r * width + c];
+        if(val < 10) Serial.print("   ");
+        else if(val < 1000) Serial.print("  ");
+        else Serial.print(" ");
+        Serial.print(val);
+        if(val < 100) Serial.print("  ");
+        else Serial.print(" ");
+        Serial.print("||");
+      }
+      Serial.println();
+      Serial.println("==================================================================");
+    }
+    Serial.println();
+  }
 
 void setup(){
     Serial.begin(115200);

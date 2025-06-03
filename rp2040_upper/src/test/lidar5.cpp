@@ -96,7 +96,7 @@ void setup()
   // Using 8x8, min frequency is 1Hz and max is 15Hz
   sensor.setRangingFrequency(10);
   // sensor.setIntegrationTime(1000);
-  sensor.setTargetOrder(SF_VL53L5CX_TARGET_ORDER::CLOSEST);
+  sensor.setTargetOrder(SF_VL53L5CX_TARGET_ORDER::STRONGEST);
 
   sensor.startRanging();
 
