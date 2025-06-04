@@ -12,13 +12,13 @@ sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QVGA)
 
-sensor.set_gainceiling(128)
+sensor.set_gainceiling(32)
 sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False)
-sensor.set_auto_exposure(False, exposure_us=6000)
-sensor.set_auto_gain(False, gain_db=5)
+sensor.set_auto_exposure(False, exposure_us=4000)
+sensor.set_auto_gain(False, gain_db=-2)
 sensor.set_auto_whitebal(False)
-sensor.set_contrast(3)
+sensor.set_contrast(1)
 
 sensor.skip_frames(time=200)
 
@@ -41,7 +41,7 @@ sensor.set_windowing(window_x - int((window_width/2)), window_y - int((window_wi
 centre_x = 130
 centre_y = 111
 
-thresh_ball = (41, 79, 12, 58, 8, 46)
+thresh_ball = (0, 100, 16, 72, 40, 78)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72) # old
 thresh_blue_goal = (46, 58, -27, -7, -34, -17) # old
 
