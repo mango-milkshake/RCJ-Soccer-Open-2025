@@ -69,11 +69,11 @@ UARTComms bottomUART(BOTTOM_TX_PIN, BOTTOM_RX_PIN, bottomSendBuffer, BOTTOM_DATA
 
 byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN+1];
 
-// I2C Comms with middle plate RP2040
+// I2C Comms wit    h middle plate RP2040
 #define MID_SDA_PIN 1
 #define MID_SCL_PIN 2
 #define MID_I2C_SEND_DATA_LEN 8
-#define MID_I2C_RCV_DATA_LEN 5
+#define MID_I2C_RCV_DATA_LEN 8
 #define MID_I2C_ADDR 0x09
 byte midSendBuffer[MID_I2C_SEND_DATA_LEN];
 byte midRcvBuffer[MID_I2C_RCV_DATA_LEN];
@@ -174,6 +174,8 @@ void getMidPlateData(){
     }
     ball_angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
     ball_dist = (float)(midRcvBuffer[3] + (midRcvBuffer[4]<<8)) / 128;
+    DEBUG(ball_angle);
+    DEBUG(ball_dist);
 
     if(ball_angle==0 && ball_dist==0) {
         noBall = true;
@@ -507,10 +509,11 @@ void setup(){
 float lastLookAhead = millis();
 float targetballposx_current = 0;
 float targetballposy_current = 0;
+float ballAngle_LA = 0;
 #define LOOK_AHEAD_THRESHOLD_T 0
 #define LOOK_AHEAD_THRESHOLD_DMIN 0
 #define LOOK_AHEAD_THRESHOLD_DMAX 2
-bool rotateBot_LA = true;
+bool rotateBot_LA = false;
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
@@ -546,8 +549,8 @@ void loop(){
     DEBUG(pbvx[pbvx_size-2]);
     DEBUG(pbvy[pbvx_size]);
     DEBUG(pbvy[pbvx_size-1]);
-    DEBUG(pbvy[pbvx_size-2]);
-    DEBUG(noBall);*/
+    DEBUG(pbvy[pbvx_size-2]);*/
+    DEBUG(noBall);
     updateSelfVelocityEWMA(RAD(self_heading), self_x, self_y); 
     if(ballCap){
         turnOff = true;
@@ -579,6 +582,8 @@ void loop(){
             // sendI2C(zeroBuffer);
             // esp_led.show();
             // lookAhead(); //delete this later if needed
+            targetballposx = self_x;
+            targetballposy = self_y;
         }  
         // else if (sqrtf(ball_vx*ball_vx + ball_vy*ball_vy) < 0.15){} //don't look ahead if velocity is too small
         else if (!moveToGoal && !noBall && checkv(4, 200)){ // if last n values are within x of each other, update look ahead target
@@ -593,39 +598,33 @@ void loop(){
         } 
 
         if (moveToGoal){
-            if(targetballposx != FIELD_WIDTH/2 && targetballposy != 0.5){
-                // sendI2C(zeroBuffer)
-            }
+            Serial.println("MOVING TO GOAL");
             targetballposx = FIELD_WIDTH/2;
             targetballposy = 0.5;
-
-            movement(targetballposx, targetballposy, 0);
+            // movement(targetballposx, targetballposy, 0);
         }
-        // DEBUG(moveToGoal);
+        //DEBUG(moveToGoal);
         DEBUG(targetballposx);
         DEBUG(targetballposy);
-        // DEBUG(targetballposx_current);
-        // DEBUG(targetballposy_current);
-        // DEBUG(self_x);
-        // DEBUG(self_y);
-        float ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(relative_ball_y, relative_ball_x)) : 0;
+
+       
         float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
-        //call movement at least once every loop
+        //call movement exactly once every loop
         if(!moveToGoal && (targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT)){
             targetballposx = targetballposx_current;
             targetballposy = targetballposy_current;
-            // targetheadinglookahead = 0;
-            movement(targetballposx, targetballposy, ballAngle_LA);
+            // movement(targetballposx, targetballposy, ballAngle_LA);
             // sendI2C(zeroBuffer);
         }
         else if (!moveToGoal && abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
             //switches target only if new target is far away from current target 
             targetballposx_current = targetballposx;
             targetballposy_current = targetballposy; 
-            // targetheadinglookahead = 0;
-            movement(targetballposx, targetballposy, ballAngle_LA);
+            // movement(targetballposx, targetballposy, ballAngle_LA);
         }
     }   
+    ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(relative_ball_y, relative_ball_x)) : 0;
+    movement(targetballposx, targetballposy, ballAngle_LA);
     /* //code from main.cpp
     // int rounded_coord_x = floor(self_x * 128);
     // int rounded_coord_y = floor(self_y * 128);
