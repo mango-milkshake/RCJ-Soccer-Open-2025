@@ -519,12 +519,13 @@ float ballAngle_LA = 0;
 #define LOOK_AHEAD_THRESHOLD_T 0
 #define LOOK_AHEAD_THRESHOLD_DMIN 0
 #define LOOK_AHEAD_THRESHOLD_DMAX 2
+bool rotateBot_LA = true;
 bool tooklastball = false;
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
-    //Serial.print("time: ");
-    //Serial.println(curTime - lastLoopTime);
+    // Serial.print("time: ");
+    // Serial.println(curTime - lastLoopTime);
     lastLoopTime = millis();
     if(millis() - lastLED >= BLINK_TIME){
         esp_led_state = !esp_led_state;
@@ -634,6 +635,8 @@ void loop(){
         // DEBUG(targetballposx);
         // DEBUG(targetballposy);
     }   
+    if(moveToGoal) ballAngle_LA = 0;
+    else ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(absolute_ball_y - self_y, absolute_ball_x - self_x)) : 0;
     movement(targetballposx, targetballposy, ballAngle_LA);
 
     lastLAtargetx = targetballposx;
