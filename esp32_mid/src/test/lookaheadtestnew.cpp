@@ -129,7 +129,7 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define FIELD_MARGIN 0.12f
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
-#define LAST_SEEN_BALL_TIME 1000
+#define LAST_SEEN_BALL_TIME 200
 #define SCORING_WAIT_TIME 500
 #define DEFENDER_WAIT_TIME 1500
 #define DEFENDER_MAX_YPOS 0.70
@@ -232,10 +232,10 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
     float inst_vy = (current_self_y - last_self_y) / dt; 
     float inst_ball_vx = (absolute_ball_x - last_top_absolute_ball_x) / dt;
     float inst_ball_vy = (absolute_ball_y - last_top_absolute_ball_y) / dt;
-    DEBUG(inst_ball_vx);
-    DEBUG(inst_ball_vy);
-    DEBUG(absolute_ball_x);
-    DEBUG(absolute_ball_y);
+    // DEBUG(inst_ball_vx);
+    // DEBUG(inst_ball_vy);
+    // DEBUG(absolute_ball_x);
+    // DEBUG(absolute_ball_y);
 
     // Exponential Weighted Moving Average update, beta parameter used = 0.8
     self_velocityw = 0.2f * inst_vw + (0.8f) * self_velocityw;    
@@ -245,9 +245,9 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
         ball_vx = 0.2f * inst_ball_vx + (0.8f) * ball_vx;
         ball_vy = 0.2f * inst_ball_vy + (0.8f) * ball_vy;
     }
-    else{
-        Serial.println("data cancelled");
-    }
+    // else{
+    //     Serial.println("data cancelled");
+    // }
 
     // Save current data for next iteration
     last_self_w = current_self_w;
@@ -331,6 +331,7 @@ void movement(float target_x, float target_y, float target_rotation){
 
 float targetballposx = FIELD_WIDTH/2;
 float targetballposy = 0.80;
+float lastLAtargetx = 0, lastLAtargety = 0, lastLAtargetAngle = 0;
 float targetheadinglookahead = 0;
 void lookAhead(){
     float v = 3;
@@ -406,13 +407,13 @@ void lookAhead(){
     targetballposx += self_x; 
     targetballposy += self_y;
 
-    DEBUG(targetballposx);
-    DEBUG(targetballposy);
+    // DEBUG(targetballposx);
+    // DEBUG(targetballposy);
     // DEBUG(LAball_vx);
     // DEBUG(LAball_vy);
     // DEBUG(self_x);
     // DEBUG(self_y);
-    DEBUG(t);
+    // DEBUG(t);
     // DEBUG(lookAheadConfirm);
 
     if (lookAheadConfirm){
@@ -499,6 +500,11 @@ void setup(){
     // strip.setBrightness(LED_BRIGHTNESS);
     // strip.show();
 
+    for (int i=0; i<pbvx_size; i++){
+        pbvx[i] = 0;
+        pbvy[i] = 0;
+    }
+
     esp_led.begin();
     esp_led.setBrightness(ESP_BRIGHTNESS);
     esp_led.show();
@@ -513,7 +519,7 @@ float ballAngle_LA = 0;
 #define LOOK_AHEAD_THRESHOLD_T 0
 #define LOOK_AHEAD_THRESHOLD_DMIN 0
 #define LOOK_AHEAD_THRESHOLD_DMAX 2
-bool rotateBot_LA = false;
+bool tooklastball = false;
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
@@ -530,6 +536,14 @@ void loop(){
 
     getTopPlateData();
     getMidPlateData();
+
+    if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
+        absolute_ball_x = last_ball_x;
+        absolute_ball_y = last_ball_y;
+        // noBall = false;
+        tooklastball = true;
+    }
+    else tooklastball = false;
 
     for (int i  = 0; i < pbvx_size; i++){ //stores the last 50 values
         pbvx[i] = pbvx[i+1];
@@ -550,7 +564,7 @@ void loop(){
     DEBUG(pbvy[pbvx_size]);
     DEBUG(pbvy[pbvx_size-1]);
     DEBUG(pbvy[pbvx_size-2]);*/
-    DEBUG(noBall);
+    // DEBUG(noBall);
     updateSelfVelocityEWMA(RAD(self_heading), self_x, self_y); 
     if(ballCap){
         turnOff = true;
@@ -559,16 +573,24 @@ void loop(){
     else{
         turnOff = false;
         if(noBall){
-            if(noBallTimer == 0){ //substitute for remembering last ball location in main code
-                noBallTimer = millis(); 
-            }
-            else if(abs(millis() - noBallTimer) < 2000){
-                absolute_ball_x = last_ball_x;
-                absolute_ball_y = last_ball_y;
-            }
-            else{
-                moveToGoal = true;
-            }
+            // if(noBallTimer == 0){ //substitute for remembering last ball location in main code
+            //     noBallTimer = millis(); 
+            // }
+            // else if(abs(millis() - noBallTimer) < 2000){
+            //     absolute_ball_x = last_ball_x;
+            //     absolute_ball_y = last_ball_y;
+            // }
+            // if(millis() - lastSeenBall <= 1000){
+            //     absolute_ball_x = last_ball_x;
+            //     absolute_ball_y = last_ball_y;
+            //     noBall = false;
+            //     moveToGoal = false;
+            // }
+            // else{
+            //     moveToGoal = true;
+            // }
+            if(tooklastball) moveToGoal = false;
+            else moveToGoal = true;
         }
         else{
             last_ball_x = absolute_ball_x;
@@ -577,7 +599,12 @@ void loop(){
             moveToGoal = false;
         }
         
-        if(!moveToGoal && noBall && checkzero(10)){ // if no ball, stop bot
+        if(tooklastball){
+            targetballposx = lastLAtargetx;
+            targetballposy = lastLAtargety;
+            ballAngle_LA = lastLAtargetAngle;
+        }
+        else if(!moveToGoal && noBall && checkzero(10)){ // if no ball, stop bot
             // esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
             // sendI2C(zeroBuffer);
             // esp_led.show();
@@ -604,27 +631,18 @@ void loop(){
             // movement(targetballposx, targetballposy, 0);
         }
         //DEBUG(moveToGoal);
-        DEBUG(targetballposx);
-        DEBUG(targetballposy);
-
-       
-        float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
-        //call movement exactly once every loop
-        if(!moveToGoal && (targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT)){
-            targetballposx = targetballposx_current;
-            targetballposy = targetballposy_current;
-            // movement(targetballposx, targetballposy, ballAngle_LA);
-            // sendI2C(zeroBuffer);
-        }
-        else if (!moveToGoal && abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
-            //switches target only if new target is far away from current target 
-            targetballposx_current = targetballposx;
-            targetballposy_current = targetballposy; 
-            // movement(targetballposx, targetballposy, ballAngle_LA);
-        }
+        // DEBUG(targetballposx);
+        // DEBUG(targetballposy);
     }   
-    ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(relative_ball_y, relative_ball_x)) : 0;
     movement(targetballposx, targetballposy, ballAngle_LA);
+
+    lastLAtargetx = targetballposx;
+    lastLAtargety = targetballposy;
+    lastLAtargetAngle = ballAngle_LA;
+    DEBUG(targetballposx);
+    DEBUG(targetballposy);
+    // DEBUG(ballAngle_LA);
+
     /* //code from main.cpp
     // int rounded_coord_x = floor(self_x * 128);
     // int rounded_coord_y = floor(self_y * 128);
