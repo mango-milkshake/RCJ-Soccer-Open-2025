@@ -241,7 +241,6 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
     float inst_vw = (current_self_w - last_self_w) / dt;
     float inst_vx = (current_self_x - last_self_x) / dt;  
     float inst_vy = (current_self_y - last_self_y) / dt; 
-<<<<<<< HEAD
     if((absolute_ball_x == 0 && absolute_ball_y == 0) || (absolute_ball_x != last_top_absolute_ball_x || absolute_ball_y != last_top_absolute_ball_y)) {   
         inst_ball_vx = (absolute_ball_x - last_top_absolute_ball_x) / dt_ball;
         inst_ball_vy = (absolute_ball_y - last_top_absolute_ball_y) / dt_ball;
@@ -254,14 +253,6 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
     DEBUG(absolute_ball_y);
     DEBUG(updatedBallV);
     DEBUG(dt_ball);
-=======
-    float inst_ball_vx = (absolute_ball_x - last_top_absolute_ball_x) / dt;
-    float inst_ball_vy = (absolute_ball_y - last_top_absolute_ball_y) / dt;
-    // DEBUG(inst_ball_vx);
-    // DEBUG(inst_ball_vy);
-    // DEBUG(absolute_ball_x);
-    // DEBUG(absolute_ball_y);
->>>>>>> df36d468692b9c85e195e403357b8c0dddec7904
 
     // Exponential Weighted Moving Average update, beta parameter used = 0.8
     self_velocityw = 0.2f * inst_vw + (0.8f) * self_velocityw;    
@@ -271,18 +262,12 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
         ball_vx = 0.5f * inst_ball_vx + (0.5f) * ball_vx;
         ball_vy = 0.5f * inst_ball_vy + (0.5f) * ball_vy;
     }
-<<<<<<< HEAD
     else if(abs(pow((inst_ball_vx*inst_ball_vx+inst_ball_vy*inst_ball_vy),0.5)) > 4){
         Serial.println("anomalous data cancelled");
     }
     // DEBUG(noBall);
     // DEBUG(absolute_ball_x);
     // DEBUG(absolute_ball_y);
-=======
-    // else{
-    //     Serial.println("data cancelled");
-    // }
->>>>>>> df36d468692b9c85e195e403357b8c0dddec7904
 
     // Save current data for next iteration
     last_self_w = current_self_w;
@@ -435,27 +420,12 @@ void lookAhead(){
         lookAheadConfirm = false;        
     } 
 } 
-<<<<<<< HEAD
     t += 0.3;
     targetballposx = LAball_x + LAball_vx*t;
     targetballposy = LAball_y + LAball_vy*t;
     targetballposx += self_x; 
     targetballposy += self_y;
     targetheadinglookahead = atan2(targetballposy,targetballposx);
-=======
-   
-    if(lookAheadConfirm){
-        targetballposx = LAball_x + LAball_vx*t;
-        targetballposy = LAball_y + LAball_vy*t;
-        targetheadinglookahead = atan2(targetballposy,targetballposx);
-        targetballposx += self_x; 
-        targetballposy += self_y;
-    }
-    else{
-        
-    }
-
->>>>>>> df36d468692b9c85e195e403357b8c0dddec7904
     // DEBUG(targetballposx);
     // DEBUG(targetballposy);
     // DEBUG(LAball_vx);
@@ -565,10 +535,7 @@ float ballAngle_LA = 0;
 #define LOOK_AHEAD_THRESHOLD_DMIN 0
 #define LOOK_AHEAD_THRESHOLD_DMAX 2
 bool rotateBot_LA = true;
-<<<<<<< HEAD
-=======
 bool tooklastball = false;
->>>>>>> df36d468692b9c85e195e403357b8c0dddec7904
 void loop(){
     // Serial.println("running main code");
     float curTime = millis();
@@ -622,18 +589,6 @@ void loop(){
     else{
         turnOff = false;
         if(noBall){
-<<<<<<< HEAD
-            if(noBallTimer == 0){ //substitute for remembering last ball location in main code
-                noBallTimer = millis(); 
-            }
-            else if(abs(millis() - noBallTimer) < 500){
-                absolute_ball_x = last_ball_x;
-                absolute_ball_y = last_ball_y;
-            }
-            else{
-                moveToGoal = true;
-            }
-=======
             // if(noBallTimer == 0){ //substitute for remembering last ball location in main code
             //     noBallTimer = millis(); 
             // }
@@ -652,7 +607,6 @@ void loop(){
             // }
             if(tooklastball) moveToGoal = false;
             else moveToGoal = true;
->>>>>>> df36d468692b9c85e195e403357b8c0dddec7904
         }
         else{
             last_ball_x = absolute_ball_x;
@@ -695,7 +649,6 @@ void loop(){
         //DEBUG(moveToGoal);
         // DEBUG(targetballposx);
         // DEBUG(targetballposy);
-<<<<<<< HEAD
 
        
         float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
@@ -719,11 +672,8 @@ void loop(){
     if (moveToGoal){
         ballAngle_LA = 0;
     }
-=======
-    }   
-    if(moveToGoal) ballAngle_LA = 0;
+    
     else ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(absolute_ball_y - self_y, absolute_ball_x - self_x)) : 0;
->>>>>>> df36d468692b9c85e195e403357b8c0dddec7904
     movement(targetballposx, targetballposy, ballAngle_LA);
 
     lastLAtargetx = targetballposx;
