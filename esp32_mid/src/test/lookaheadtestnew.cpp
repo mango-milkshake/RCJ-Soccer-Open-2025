@@ -399,12 +399,17 @@ void lookAhead(){
         lookAheadConfirm = false;        
     } 
 } 
-    
-    targetballposx = LAball_x + LAball_vx*t;
-    targetballposy = LAball_y + LAball_vy*t;
-    targetheadinglookahead = atan2(targetballposy,targetballposx);
-    targetballposx += self_x; 
-    targetballposy += self_y;
+   
+    if(lookAheadConfirm){
+        targetballposx = LAball_x + LAball_vx*t;
+        targetballposy = LAball_y + LAball_vy*t;
+        targetheadinglookahead = atan2(targetballposy,targetballposx);
+        targetballposx += self_x; 
+        targetballposy += self_y;
+    }
+    else{
+        
+    }
 
     DEBUG(targetballposx);
     DEBUG(targetballposy);
@@ -414,11 +419,7 @@ void lookAhead(){
     // DEBUG(self_y);
     DEBUG(t);
     // DEBUG(lookAheadConfirm);
-
-    if (lookAheadConfirm){
-        // movement(targetballposx, targetballposy, 0);
-        Serial.println("Moving to new target");
-    }    
+ 
 }
 
 int LA_ball_seen;
