@@ -98,6 +98,7 @@ class Bot{
                     else new_x = ball.absolute_x - (CLEARANCE_X/2 + 0.05);
                     new_y = (abs(self.x - ball.absolute_x) > CLEARANCE_X/2 + 0.03) ? ball.absolute_y - CLEARANCE_Y/2 - 0.10 : self.y;
                     balltrack.moving_back = true;
+                    Serial.println("moving back");
             }
             else{
                 if(balltrack.moving_back) {
@@ -106,16 +107,26 @@ class Bot{
                 }
                 balltrack.aligning_time = millis() - balltrack.last_aligning;
                 new_x = ball.absolute_x;
-                if((balltrack.aligning_time > ALIGN_DURATION && balltrack.aligning_time < ALIGN_THRESHOLD) || abs(self.x - ball.absolute_x) < BALLCAP_WIDTH/2)
+                if((balltrack.aligning_time > ALIGN_DURATION && balltrack.aligning_time < ALIGN_TIME_THRESHOLD) || abs(self.x - ball.absolute_x) < BALLCAP_WIDTH/2){
                     new_y = fmax(ball.absolute_y - BALLCAP_DISTANCE, self.y + 0.03);
-                else{
-                    if(balltrack.aligning_time > ALIGN_THRESHOLD) balltrack.last_aligning = millis();
-                    new_y = ball.absolute_y - BALLCAP_DISTANCE;
+                    Serial.println("aligning 1");
                 }
+                else{
+                    if(balltrack.aligning_time > ALIGN_TIME_THRESHOLD) balltrack.last_aligning = millis();
+                    new_y = ball.absolute_y - BALLCAP_DISTANCE;
+                    Serial.println("aligning 2");
+                }
+                new_y = ball.absolute_y; // testing, remove me later idk
             }
+
+            float xToBall = ball.absolute_x - self.x, yToBall = ball.absolute_y - self.y;
+            float absBallAngle = atan2(yToBall, xToBall);
+            LIM_ANGLE_180(absBallAngle);
+ 
             move.x = new_x;
             move.y = new_y;
-            move.rotation = 0.0;
+            move.rotation = 90-DEG(absBallAngle);
+        }
         }
 
         void dribblerBallTrack(){
