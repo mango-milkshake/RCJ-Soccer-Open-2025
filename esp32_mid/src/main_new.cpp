@@ -303,7 +303,7 @@ void setup(){
     bottomUART.init();
     topUART.init();
 
-    // pinMode(TURN_OFF_SW, INPUT);
+    pinMode(TURN_OFF_SW, INPUT);
     // pinMode(VOLTAGE_PIN, INPUT);
     // pinMode(PAUSE_SW1, INPUT);
     // pinMode(PAUSE_SW2, INPUT);
