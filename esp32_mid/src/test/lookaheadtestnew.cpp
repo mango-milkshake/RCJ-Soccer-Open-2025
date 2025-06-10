@@ -530,10 +530,13 @@ void setup(){
 float lastLookAhead = millis();
 float targetballposx_current = 0;
 float targetballposy_current = 0;
-float ballAngle_LA = 0;
+float rotateAngle_LA = 0;
+float weightedX = 0, weightedY = 0;
+float posWeight = 1, ballWeight = 0;
 #define LOOK_AHEAD_THRESHOLD_T 0
 #define LOOK_AHEAD_THRESHOLD_DMIN 0
 #define LOOK_AHEAD_THRESHOLD_DMAX 2
+#define TARGET_ANGLE_CONST 4
 bool rotateBot_LA = true;
 bool tooklastball = false;
 void loop(){
@@ -618,7 +621,7 @@ void loop(){
         if(tooklastball){
             targetballposx = lastLAtargetx;
             targetballposy = lastLAtargety;
-            ballAngle_LA = lastLAtargetAngle;
+            rotateAngle_LA = lastLAtargetAngle;
         }
         else if(!moveToGoal && noBall && checkzero(10)){ // if no ball, stop bot
             // esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
@@ -656,32 +659,39 @@ void loop(){
         if(!moveToGoal && (targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT)){
             targetballposx = targetballposx_current;
             targetballposy = targetballposy_current;
-            // movement(targetballposx, targetballposy, ballAngle_LA);
+            // movement(targetballposx, targetballposy, rotateAngle_LA);
             // sendI2C(zeroBuffer);
         }
         else if (!moveToGoal && abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
             //switches target only if new target is far away from current target 
             targetballposx_current = targetballposx;
             targetballposy_current = targetballposy; 
-            // movement(targetballposx, targetballposy, ballAngle_LA);
+            // movement(targetballposx, targetballposy, rotateAngle_LA);
         }
     }   
-    ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(relative_ball_y, relative_ball_x)) : 0;
-    // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(absolute_ball_y, absolute_ball_x)) : 0;
+    rotateAngle_LA = rotateBot_LA ? 90-DEG(atan2(relative_ball_y, relative_ball_x)) : 0;
+    // rotateAngle_LA = rotateBot_LA ? 90-DEG(atan2(absolute_ball_y, absolute_ball_x)) : 0;
 
     if (moveToGoal){
-        ballAngle_LA = 0;
+        rotateAngle_LA = 0;
     }
     
-    else ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(absolute_ball_y - self_y, absolute_ball_x - self_x)) : 0;
-    movement(targetballposx, targetballposy, ballAngle_LA);
+    else {
+        float distToTarget = sqrt(targetballposx * targetballposx + targetballposy * targetballposy);
+        posWeight = max(1.0f, distToTarget * TARGET_ANGLE_CONST);
+        ballWeight = 1.0f - posWeight;
+        weightedX = targetballposx * posWeight + absolute_ball_x * ballWeight;
+        weightedY = targetballposy * posWeight + absolute_ball_y * ballWeight;
+        rotateAngle_LA = rotateBot_LA ? 90-DEG(atan2(weightedY - self_y, weightedX - self_x)) : 0;
+    }
+    movement(targetballposx, targetballposy, rotateAngle_LA);
 
     lastLAtargetx = targetballposx;
     lastLAtargety = targetballposy;
-    lastLAtargetAngle = ballAngle_LA;
+    lastLAtargetAngle = rotateAngle_LA;
     DEBUG(targetballposx);
     DEBUG(targetballposy);
-    // DEBUG(ballAngle_LA);
+    // DEBUG(rotateAngle_LA);
 
     /* //code from main.cpp
     // int rounded_coord_x = floor(self_x * 128);
