@@ -174,6 +174,22 @@ class Bot{
             move.rotation = 90-DEG(absBallAngle);
         }
 
+        void dribblerAim(){
+            float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self.y, OPP_GOAL_CENTRE_X - self.x);
+            move.x = OPP_GOAL_MIDDLE_X;
+            move.y = OPP_GOAL_MIDDLE_Y;
+            move.rotation = 90-DEG(angleToFace);
+            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
+            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - self.x));
+            LIM_ANGLE_180(minAngleFace);
+            LIM_ANGLE_180(maxAngleFace);
+            if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
+            if(ball.ballCap && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
+                move.kick = true;
+                move.dribblerSpeed = -1.0;
+            }
+        }
+
     private:
 } bot;
 
