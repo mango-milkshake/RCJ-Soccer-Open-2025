@@ -465,4 +465,7 @@ void loop(){
 
     // update last type
     state.lastType = state.curType;
+
+    ball.last_x = ball.absolute_x;
+    ball.last_y = ball.absolute_y;
 }
