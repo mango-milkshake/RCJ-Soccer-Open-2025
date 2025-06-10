@@ -115,11 +115,11 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define CHANGE_TIME 5000
 #define NUM_STRAT_TYPES 3
 #define NUM_NO_BALL_STRAT 2
-#define NUM_BALL_STRAT 2
-#define NUM_SCORE_STRAT 2
+#define NUM_BALL_STRAT 1
+#define NUM_SCORE_STRAT 1
 #define MAX_NUM_STRATS 2
 int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
-int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {5, 3}, {6, 8}};
+int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {3}, {4}};
 
 // Variables
 float lastLoopTime = 0;
@@ -412,10 +412,26 @@ void loop(){
     // }
 
     // decide strategy type
-    if(ball.noBall){
+    if(ball.ballCap) {
+        state.curType = 2; // score
+        esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
+    }
+    else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
+        // Serial.println("using last ball pos");
+        ball.absolute_x = ball.last_x;
+        ball.absolute_y = ball.last_y;
+        state.curType = 1;
+        esp_led.setPixelColor(0, esp_led.Color(50, 50, 50));
+    }
+    else if(ball.noBall) {
         state.curType = 0; // no ball
-    } 
-    else state.curType = 1; // ball track
+        esp_led.setPixelColor(0, esp_led.Color(0, 0, 50));
+    }
+    else {
+        state.curType = 1; // ball track
+        esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+    }
+    esp_led.show();
 
     // decide specific strategy
     if(state.curType != state.lastType){
@@ -450,7 +466,21 @@ void loop(){
             Serial.println("dribbler ball track");
             bot.dribblerBallTrack();
             break;
+        
+        case State::Strategies::NO_DRIBBLER_SCORE:
+            Serial.println("no dribbler score");
+            bot.aim();
+            break;
+        
+        case State::Strategies::DRIBBLER_SCORE:
+            Serial.println("dribbler score");
+            bot.dribblerAim();
     }
+
+    DEBUG(self.x);
+    DEBUG(self.y);
+    DEBUG(move.x);
+    DEBUG(move.y);
 
     // send moving command to motors
     movement(move.x, move.y, move.rotation);
