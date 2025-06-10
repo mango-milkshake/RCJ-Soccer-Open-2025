@@ -43,6 +43,9 @@ float lastLED = 0;
 // Motor software switch
 #define TURN_OFF_SW 38
 
+// Motor testing switch
+#define MOTOR_TEST_SW 4
+
 // UART Comms with top plate
 #define TOP_TX_PIN 16
 #define TOP_RX_PIN 17
@@ -284,6 +287,17 @@ void movement(float target_x, float target_y, float target_rotation){
 
 //// ** TESTING ** ////
 
+void motorTest(){
+    bottomSendBuffer[0] = 5;
+    bottomSendBuffer[1] = 1;
+    bottomSendBuffer[2] = 0;
+    bottomSendBuffer[3] = 1;
+    bottomSendBuffer[4] = 0;
+    bottomSendBuffer[5] = 1;
+    bottomSendBuffer[6] = 255;
+    sendMotorData();
+}
+
 void moveForward(){
     bottomSendBuffer[0] = 5;
     bottomSendBuffer[1] = 1;
@@ -304,6 +318,7 @@ void setup(){
     topUART.init();
 
     pinMode(TURN_OFF_SW, INPUT);
+    pinMode(MOTOR_TEST_SW, INPUT);
     // pinMode(VOLTAGE_PIN, INPUT);
     // pinMode(PAUSE_SW1, INPUT);
     // pinMode(PAUSE_SW2, INPUT);
@@ -361,6 +376,11 @@ void loop(){
     getMidPlateData();
     sendMidPlateData();
     getBottomPlateData();
+
+    if(digitalRead(MOTOR_TEST_SW)==HIGH){
+        motorTest();
+        return;
+    }
 
     // if(ball.noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     // else {
