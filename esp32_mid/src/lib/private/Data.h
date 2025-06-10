@@ -17,7 +17,7 @@ struct Ball{
 } ball;
 
 struct Switches{
-    float topOff = true, turnOff = false;
+    bool topOff = true, turnOff = false;
 } switches;
 
 struct Movement{
