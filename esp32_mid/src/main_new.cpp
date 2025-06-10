@@ -394,6 +394,17 @@ void loop(){
 
     move.kick = false;
 
+    // temp ball cap via cam
+    if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
+        ball.ballCap = true;
+        ball.lastBallCap = millis();
+    }
+    else if(millis() - ball.lastBallCap <= 1000) ball.ballCap = true;
+    else {
+        ball.ballCap = false; 
+        ball.lastNoBallCap = millis();
+    }
+
     // if(ball.noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     // else {
     //     bot.dribblerBallTrack();
