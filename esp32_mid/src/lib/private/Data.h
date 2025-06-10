@@ -20,6 +20,11 @@ struct Switches{
     bool topOff = true, turnOff = false;
 } switches;
 
+struct Times{
+    int lastDribblerRev = 0;
+    int lastFault = 0;
+} times;
+
 struct Movement{
     float x = 0, y = 0, rotation = 0;
     bool kick = false;
