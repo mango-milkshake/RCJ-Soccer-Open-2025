@@ -161,7 +161,7 @@ void getMidPlateData(){
         }
     }
     if(midRcvBuffer[0]!=firstbyte) {
-        Serial.print("Received bad data");
+        Serial.print("Received mid bad data");
         return;
     }
     ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
@@ -183,6 +183,9 @@ void getMidPlateData(){
 
     ball.absolute_x = ball.relative_x + self.x;
     ball.absolute_y = ball.relative_y + self.y;
+
+    // DEBUG(ball.absolute_x);
+    // DEBUG(ball.absolute_y);
 }
 
 void getTopPlateData(){
@@ -200,7 +203,7 @@ void getTopPlateData(){
 void getBottomPlateData(){
     byte num_bytes = Wire1.requestFrom(BOTTOM_I2C_ADDR, BOTTOM_I2C_DATA_LEN);
     if(num_bytes != BOTTOM_I2C_DATA_LEN){
-        Serial.print("Received bad data: ");
+        Serial.print("Received bottom bad data: ");
         return;
     }
     else Serial.print("Received: ");
@@ -366,17 +369,18 @@ void setup(){
 
 void loop(){
     // Serial.println("running main code");
-    float curTime = millis();
-    //Serial.print("time: ");
-    //Serial.println(curTime - lastLoopTime);
-    lastLoopTime = millis();
-    if(millis() - lastLED >= BLINK_TIME){
-        esp_led_state = !esp_led_state;
-        lastLED = millis();
-    }
-    if(esp_led_state) esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
-    else esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
-    esp_led.show();
+    // float curTime = millis();
+    // Serial.print("time: ");
+    // Serial.println(curTime - lastLoopTime);
+    // lastLoopTime = millis();
+
+    // if(millis() - lastLED >= BLINK_TIME){
+    //     esp_led_state = !esp_led_state;
+    //     lastLED = millis();
+    // }
+    // if(esp_led_state) esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+    // else esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
+    // esp_led.show();
 
     getTopPlateData();
     getMidPlateData();
