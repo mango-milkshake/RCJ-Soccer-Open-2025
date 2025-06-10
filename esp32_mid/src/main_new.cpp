@@ -3,7 +3,7 @@
 #include <PID.h>
 #include <CommonUtils.h>
 #include <Adafruit_NeoPixel.h>
-#include <Dribbler.h>
+#include <DribblerNew.h>
 #include <Motor.h>
 #include <Kicker.h>
 #include <UARTComms.h>
@@ -73,6 +73,22 @@ byte firstbyte = 5;
 #define BOTTOM_I2C_DATA_LEN 3
 #define BOTTOM_I2C_ADDR 0x08
 byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN];
+
+// Dribbler
+#define MOSI_PIN 12
+#define MISO_PIN 13
+#define SCK_PIN 14
+#define CS_PIN 15
+#define DRIBBLER_IN1 47
+#define DRIBBLER_IN2 48
+#define DRIBBLER_NFAULT 21
+#define NSLEEP_PIN 6
+#define DRVOFF_PIN 7
+#define IPROPI_PIN 5
+MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN, IPROPI_PIN);
+uint8_t dribbler_maxspeed = 100;
+Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
+
 
 // PID
 float pid_def_rotate_default[3] = {0.7, 0, 0};
@@ -300,8 +316,8 @@ void setup(){
     Wire.begin(MID_SDA_PIN, MID_SCL_PIN, 400000);
     Wire1.begin(BOTTOM_SDA_PIN, BOTTOM_SCL_PIN, 400000);
 
-    // dribblerMD.init();
-    // dribblerMD.setMode();
+    dribblerMD.init();
+    dribblerMD.setMode();
 
     // startWebSerial();
     // readMacAddress();
@@ -394,6 +410,10 @@ void loop(){
 
     // send moving command to motors
     movement(move.x, move.y, move.rotation);
+    // dribbler
+    if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
+    else move.dribblerSpeed = 1.0;
+    dribbler.setSpeed(move.dribblerSpeed);
 
     // update last type
     state.lastType = state.curType;
