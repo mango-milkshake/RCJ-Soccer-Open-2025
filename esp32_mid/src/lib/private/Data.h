@@ -22,6 +22,8 @@ struct Switches{
 
 struct Movement{
     float x = 0, y = 0, rotation = 0;
+    bool kick = false;
+    float dribblerSpeed = 0;
 } move;
 
 struct State{
