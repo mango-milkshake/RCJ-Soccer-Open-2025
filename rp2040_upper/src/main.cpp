@@ -29,7 +29,7 @@ std::vector<VL53L5CX> vlLidar;
 // I2C Comms with ESP
 #define ESP_SDA_PIN 4
 #define ESP_SCL_PIN 5
-#define ESP_SEND_DATA_LEN 5
+#define ESP_SEND_DATA_LEN 8
 #define ESP_RCV_DATA_LEN 8
 #define I2C_ADDR 0x09
 volatile byte espSendBuffer[ESP_SEND_DATA_LEN];
@@ -51,11 +51,13 @@ float topLastSeenBall = 0;
 // UART Comms with front camera
 #define FRONT_CAM_TX_PIN 12
 #define FRONT_CAM_RX_PIN 13
-#define FRONT_CAM_DATA_LEN 6
+#define FRONT_CAM_DATA_LEN 9
 byte frontCamBuffer[FRONT_CAM_DATA_LEN];
 UARTComms frontCamUART(FRONT_CAM_TX_PIN, FRONT_CAM_RX_PIN, frontCamBuffer, FRONT_CAM_DATA_LEN, Serial1);
 float front_ball_x, front_ball_y, front_ball_angle, front_ball_dist;
 bool frontNoBall = false;
+byte front_open = 0;
+int open_rows_start = 0, open_rows_end = 0;
 float frontLastSeenBall = 0;
 
 // NeoPixel LED Strip
@@ -146,6 +148,9 @@ void getFrontCamData(){
             front_ball_angle = DEG(PI/2 - atan2(front_ball_y, front_ball_x));
             front_ball_angle = LIM_ANGLE_360(front_ball_angle);
         }
+        front_open = frontCamBuffer[6];
+        open_rows_start = frontCamBuffer[7];
+        open_rows_end = frontCamBuffer[8];
         // DEBUG(front_ball_x);
         // DEBUG(front_ball_y);
         // DEBUG(front_ball_angle);
@@ -240,6 +245,9 @@ void loop(){
     espSendBuffer[2] = (rounded_ball_angle >> 8) & 0xFF;
     espSendBuffer[3] = rounded_ball_dist & 0xFF;
     espSendBuffer[4] = (rounded_ball_dist >> 8) & 0xFF;
+    espSendBuffer[5] = front_open;
+    espSendBuffer[6] = open_rows_start;
+    espSendBuffer[7] = open_rows_end;
     data_ready = true;
 
     memcpy(&lastBuffer, (const uint8_t*) espSendBuffer, ESP_SEND_DATA_LEN);

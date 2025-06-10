@@ -473,9 +473,9 @@ void getTopPlateData(){
             if(uartBufferPico[8]==1) isTilted = true;
             else isTilted = false;
             setLED(1, 2, strip.Color(15, 0, 15));
-            DEBUG(self_x);
-            DEBUG(self_y);
-            DEBUG(self_heading);
+            // DEBUG(self_x);
+            // DEBUG(self_y);
+            // DEBUG(self_heading);
         }
     }
     else setLED(1, 2, strip.Color(0, 15, 15));
@@ -542,10 +542,10 @@ void getTopCamData(){
             // ball_vy -= top_ball_dist*self_velocityw*sinf((3.1415/2)-atan2f(top_relative_ball_y,top_relative_ball_x));
             
             
-            DEBUG(pow((top_relative_ball_x*top_relative_ball_x + top_relative_ball_y*top_relative_ball_y),0.5))
+            // DEBUG(pow((top_relative_ball_x*top_relative_ball_x + top_relative_ball_y*top_relative_ball_y),0.5))
             // DEBUG(ball_vx)
             // DEBUG(ball_vy)
-            DEBUG(self_velocityw)
+            // DEBUG(self_velocityw)
             top_absolute_ball_x = top_relative_ball_x + self_x;
             top_absolute_ball_y = top_relative_ball_y + self_y;
 
@@ -978,13 +978,13 @@ while(!lookAheadConfirm && lookahead_n < 5){
     targetballposx += self_x; 
     targetballposy += self_y;
 
-    DEBUG(targetballposx);
-    DEBUG(targetballposy);
+    // DEBUG(targetballposx);
+    // DEBUG(targetballposy);
     // DEBUG(LAball_vx);
     // DEBUG(LAball_vy);
     // DEBUG(self_x);
     // DEBUG(self_y);
-    DEBUG(t);
+    // DEBUG(t);
     // DEBUG(lookAheadConfirm);
 
     if (lookAheadConfirm){
@@ -1016,10 +1016,10 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
     float inst_vy = (current_self_y - last_self_y) / dt; 
     float inst_ball_vx = (top_absolute_ball_x - last_top_absolute_ball_x) / dt;
     float inst_ball_vy = (top_absolute_ball_y - last_top_absolute_ball_y) / dt;
-    DEBUG(inst_ball_vx);
-    DEBUG(inst_ball_vy);
-    DEBUG(top_absolute_ball_x);
-    DEBUG(top_absolute_ball_y);
+    // DEBUG(inst_ball_vx);
+    // DEBUG(inst_ball_vy);
+    // DEBUG(top_absolute_ball_x);
+    // DEBUG(top_absolute_ball_y);
 
     // Exponential Weighted Moving Average update, beta parameter used = 0.8
     self_velocityw = 0.2f * inst_vw + (0.8f) * self_velocityw;    
@@ -1040,10 +1040,10 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
     last_top_absolute_ball_x = top_absolute_ball_x;
     last_top_absolute_ball_y = top_absolute_ball_y;
     last_vel_time = now;
-    DEBUG(self_velocityx);
-    DEBUG(self_velocityy);
-    DEBUG(ball_vx);
-    DEBUG(ball_vy);
+    // DEBUG(self_velocityx);
+    // DEBUG(self_velocityy);
+    // DEBUG(ball_vx);
+    // DEBUG(ball_vy);
 }
 
 void defend(){
@@ -1158,7 +1158,7 @@ float targetballposy_current = 0;
 #define LOOK_AHEAD_THRESHOLD_T 0
 #define LOOK_AHEAD_THRESHOLD_DMIN 0
 #define LOOK_AHEAD_THRESHOLD_DMAX 2
-bool rotateBot_LA = true;
+bool rotateBot_LA = false;
 
 void loop(){
     // Serial.println("running main code");
@@ -1403,8 +1403,8 @@ void loop(){
             movement(targetballposx, targetballposy, 0);
         }
         // DEBUG(moveToGoal);
-        DEBUG(targetballposx);
-        DEBUG(targetballposy);
+        // DEBUG(targetballposx);
+        // DEBUG(targetballposy);
         // DEBUG(targetballposx_current);
         // DEBUG(targetballposy_current);
         // DEBUG(self_x);

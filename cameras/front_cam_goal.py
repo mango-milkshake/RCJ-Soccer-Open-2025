@@ -82,6 +82,7 @@ blocked_pixels = 0
 open_goal = []
 
 while True:
+    open_rows  = []
     clock.tick()  # Update the FPS clock.
     led2.on()
     img = sensor.snapshot()  # Take a picture and return the image.
@@ -126,9 +127,9 @@ while True:
             #print(hsv)
             if(lab[1] > -15):
                 blocked_pixels += 1
-                img.draw_cross(pixel_x, pixel_y, color=(255,0,0))
+                img.draw_cross(pixel_x, pixel_y, color=(255,0,0), size=5)
             else:
-                img.draw_cross(pixel_x, pixel_y, color=(255,255,255))
+                img.draw_cross(pixel_x, pixel_y, color=(255,255,255), size=5)
 
     if (blocked_pixels != 0): #check for open goal regions
         for i in range(int(240/y_separation)):
@@ -139,10 +140,10 @@ while True:
                 rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
                 lab = image.rgb_to_lab(rgb)
                 if(lab[1] > -15):
-                    img.draw_cross(pixel_x, pixel_y, color=(255,0,0))
+                    img.draw_cross(pixel_x, pixel_y, color=(255,0,0), size = 5)
                     open_goal.append(0) #pixel blocked
                 else:
-                    img.draw_cross(pixel_x, pixel_y)
+                    img.draw_cross(pixel_x, pixel_y, color=(255,255,255), size = 5)
                     open_goal.append(1) #pixel clear
 
         open_rows = []
@@ -162,13 +163,12 @@ while True:
         open_rows = longest_consecutive_subarray(open_rows)
         #print(open_rows)
         if(len(open_rows) > 1):
+            print(open_rows[0])
             img.draw_arrow(320,120,100,int(0.5*y_separation*(open_rows[0]+open_rows[-1])),color=(0,0,255), thickness=5)
     else:
         img.draw_arrow(320,120,100,120,color=(0,0,255), thickness=5)
 
     open_goal = []
-
-
 
 
     uart.writechar(5)
@@ -178,6 +178,17 @@ while True:
     else:
         for i in range(5):
             uart.writechar(0)
+    if (blocked_pixels != 0):
+        uart.writechar(0) #blocked
+    else:
+        uart.writechar(1)
+    if(len(open_rows) > 1):
+        uart.writechar(open_rows[0])
+        uart.writechar(open_rows[-1])
+    else:
+        for i in range(4):
+            uart.writechar(0)
+
     uart.sendbreak()
 
     print("fps", clock.fps())
