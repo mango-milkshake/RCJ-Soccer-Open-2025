@@ -246,14 +246,14 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_x_dist = total_dist * sinf(total_angle);
     float shifted_y_dist = total_dist * cosf(total_angle);
 
-    if(ball.ballCap){
-        max_translation_pid_value = 0.5;
-        max_rotation_pid_value = 0.25;
-    }
-    else {
-        max_translation_pid_value = 1;
-        max_rotation_pid_value = 1;
-    }
+    // if(ball.ballCap){
+    //     max_translation_pid_value = 0.5;
+    //     max_rotation_pid_value = 0.25;
+    // }
+    // else {
+    //     max_translation_pid_value = 1;
+    //     max_rotation_pid_value = 1;
+    // }
 
     speed_xdir = pid_x.compute(0, shifted_x_dist);
     speed_ydir = pid_y.compute(0, shifted_y_dist);
