@@ -92,6 +92,10 @@ MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_P
 uint8_t dribbler_maxspeed = 100;
 Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
 
+// Kicker
+#define KICKER_PIN 11
+#define KICKER_SW 8
+Kicker kicker(KICKER_PIN);
 
 // PID
 float pid_def_rotate_default[3] = {0.7, 0, 0};
@@ -335,6 +339,8 @@ void setup(){
     dribblerMD.init();
     dribblerMD.setMode();
 
+    pinMode(KICKER_SW, INPUT);
+
     // startWebSerial();
     // readMacAddress();
     // set_up_esp_now();
@@ -381,6 +387,8 @@ void loop(){
         motorTest();
         return;
     }
+
+    move.kick = false;
 
     // if(ball.noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     // else {
@@ -431,6 +439,10 @@ void loop(){
 
     // send moving command to motors
     movement(move.x, move.y, move.rotation);
+
+    // kicker
+    // if(move.kick) kicker.kick();
+
     // dribbler
     if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
     else move.dribblerSpeed = 1.0;
