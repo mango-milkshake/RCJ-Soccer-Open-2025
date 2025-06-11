@@ -26,17 +26,20 @@
 // Thresholds
 #define OSCILLATE_WAIT_TIME 2000
 #define MOVING_BACK_DURATION 200
-#define BALLCAP_DISTANCE 0.014f
+#define BALLCAP_DISTANCE 0.065f
 #define BALLCAP_WIDTH 0.0355f
 #define CLEARANCE_X 0.20f
-#define CLEARANCE_Y 0.15f
+#define CLEARANCE_Y 0.35f
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
 #define ALIGN_DURATION 2000
-#define ALIGN_THRESHOLD 3000
+#define ALIGN_TIME_THRESHOLD 3000
+#define ALIGN_THRESHOLD 0.10f
 #define INITIAL_CHANGE 35.0f
 #define GRADUAL_CHANGE 250.0f
-#define BALLCAP_DURATION 250
+#define BALLCAP_DURATION 2504
+#define LAST_SEEN_BALL_TIME 200
+
 
 class Bot{
     public:
@@ -97,6 +100,7 @@ class Bot{
                     else new_x = ball.absolute_x - (CLEARANCE_X/2 + 0.05);
                     new_y = (abs(self.x - ball.absolute_x) > CLEARANCE_X/2 + 0.03) ? ball.absolute_y - CLEARANCE_Y/2 - 0.10 : self.y;
                     balltrack.moving_back = true;
+                    Serial.println("moving back");
             }
             else{
                 if(balltrack.moving_back) {
@@ -105,16 +109,57 @@ class Bot{
                 }
                 balltrack.aligning_time = millis() - balltrack.last_aligning;
                 new_x = ball.absolute_x;
-                if((balltrack.aligning_time > ALIGN_DURATION && balltrack.aligning_time < ALIGN_THRESHOLD) || abs(self.x - ball.absolute_x) < BALLCAP_WIDTH/2)
+                if((balltrack.aligning_time > ALIGN_DURATION && balltrack.aligning_time < ALIGN_TIME_THRESHOLD) || abs(self.x - ball.absolute_x) < BALLCAP_WIDTH/2){
                     new_y = fmax(ball.absolute_y - BALLCAP_DISTANCE, self.y + 0.03);
-                else{
-                    if(balltrack.aligning_time > ALIGN_THRESHOLD) balltrack.last_aligning = millis();
-                    new_y = ball.absolute_y - BALLCAP_DISTANCE;
+                    Serial.println("aligning 1");
                 }
+                else{
+                    if(balltrack.aligning_time > ALIGN_TIME_THRESHOLD) balltrack.last_aligning = millis();
+                    new_y = ball.absolute_y - BALLCAP_DISTANCE;
+                    Serial.println("aligning 2");
+                }
+                new_y = ball.absolute_y; // testing, remove me later idk
             }
+
+            float xToBall = ball.absolute_x - self.x, yToBall = ball.absolute_y - self.y;
+            float absBallAngle = atan2(yToBall, xToBall);
+            LIM_ANGLE_180(absBallAngle);
+ 
             move.x = new_x;
             move.y = new_y;
-            move.rotation = 0.0;
+            move.rotation = 90-DEG(absBallAngle);
+        }
+
+        void aim(){
+            if(!balltrack.aligned){
+                if(abs(self.x - ball.absolute_x) < ALIGN_THRESHOLD) balltrack.aligned = true;
+                move.x = ball.absolute_x;
+                move.y = self.y;
+                move.rotation = 0;
+            }
+            else{
+                float xToGoal = OPP_GOAL_CENTRE_X - self.x, yToGoal = OPP_GOAL_CENTRE_Y - self.y;
+                float distToGoal = sqrt(xToGoal * xToGoal + yToGoal * yToGoal);
+                float angleToGoal = PI/2 - atan2(yToGoal, xToGoal);
+                if(balltrack.initial_change == 0){
+                    balltrack.initial_magnitude = distToGoal;
+                    balltrack.initial_change = max(0.0f, cosf(angleToGoal)) * INITIAL_CHANGE;
+                }
+                float change = balltrack.initial_change + max(0.0f, balltrack.initial_magnitude - distToGoal) 
+                    / balltrack.initial_magnitude * GRADUAL_CHANGE;
+                change = min(change, max(0.0f, (self.y + FIELD_MARGIN_Y)*100/cosf(angleToGoal)));
+                move.x = self.x + change * sinf(angleToGoal) / 100;
+                move.y = self.y + change * cosf(angleToGoal) / 100;
+                move.rotation = DEG(angleToGoal);
+            }
+            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
+            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - self.x));
+            LIM_ANGLE_180(minAngleFace);
+            LIM_ANGLE_180(maxAngleFace);
+            if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
+            if(ball.ballCap && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
+                move.kick = true;
+            }
         }
 
         void dribblerBallTrack(){
@@ -131,7 +176,187 @@ class Bot{
             move.rotation = 90-DEG(absBallAngle);
         }
 
-    private:
-} bot;
+        void dribblerAim(){
+            float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self.y, OPP_GOAL_CENTRE_X - self.x);
+            move.x = OPP_GOAL_MIDDLE_X;
+            move.y = OPP_GOAL_MIDDLE_Y;
+            move.rotation = 90-DEG(angleToFace);
+            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
+            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - self.x));
+            LIM_ANGLE_180(minAngleFace);
+            LIM_ANGLE_180(maxAngleFace);
+            if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
+            if(ball.ballCap && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
+                move.kick = true;
+                move.dribblerSpeed = -1.0;
+            }
+        }
 
-#endif
+        void lookAhead(){
+            float v = 1.2;
+            float latency = 0.2;
+            bool validt = false;
+            bool useFrontCam = false;
+            bool lookAheadConfirm = false;
+            float t;
+            float LAball_x, LAball_y, LAball_vx, LAball_vy;
+            float targetballposx, targetballposy;
+        
+            LAball_x = ball.relative_x;
+            LAball_y = ball.relative_y;
+            LAball_vx = ball.vx;
+            LAball_vy = ball.vy;
+        
+        
+            int lookahead_n = 0;
+            while(!lookAheadConfirm && lookahead_n < 5){ 
+            lookahead_n++;
+            float C = LAball_x*LAball_x + LAball_y*LAball_y;
+            float B = 2*(LAball_x*LAball_vx + LAball_y*LAball_vy);
+            float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
+            lookAheadConfirm = false;
+        
+            if (abs(A) > pow(10, -8) && (B*B - 4*A*C) >= 0){ //we get two solutions for time, so we want to find the minimum time that is not negative
+                float t1 = (-1*B - pow((B*B - 4*A*C), 0.5))/(2*A); 
+                float t2 = (-1*B + pow((B*B - 4*A*C), 0.5))/(2*A); 
+                if (t1 >= 0 && t2 >= 0){
+                    t = min(t1, t2);
+                    lookAheadConfirm = true;
+                }
+                else if (t1 >= 0){
+                    t = t1;
+                    lookAheadConfirm = true;
+                }
+                else if (t2 >= 0){
+                    t = t2;
+                    lookAheadConfirm = true;
+                }  
+            }
+        
+            if(!lookAheadConfirm){ //ball is too fast
+                LAball_vx *= 0.75;
+                LAball_vy *= 0.75; 
+                lookAheadConfirm = false;        
+            } 
+        } 
+            targetballposx = LAball_x + LAball_vx*t;
+            targetballposy = LAball_y + LAball_vy*t;
+            targetballposx += self.x + 0.075*sin(self.heading); 
+            targetballposy += self.y + 0.075*cos(self.heading);
+         
+        }
+        
+        void triggerLookAhead(){
+        
+            if(ball.noBall && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME){
+                absolute_ball_x = last_ball_x;
+                absolute_ball_y = last_ball_y;
+                // noBall = false;
+                tooklastball = true;
+            }
+            else tooklastball = false;
+
+            for (int i  = 0; i < pbvx_size; i++){ //stores the last 50 values
+                pbvx[i] = pbvx[i+1];
+                pbvy[i] = pbvy[i+1];
+            }
+            if (!noBall){
+                pbvx[pbvx_size] = ball_vx;
+                pbvy[pbvx_size] = ball_vy;
+            }
+            else{
+                pbvx[pbvx_size] = 0;
+                pbvy[pbvx_size] = 0;  
+            }
+
+            updateSelfVelocityEWMA(RAD(self_heading), self_x, self_y); 
+            if(ballCap){
+                turnOff = true;
+                noBallTimer = 0;
+            }
+            else{
+                turnOff = false;
+                if(noBall){
+
+                    if(tooklastball) moveToGoal = false;
+                    else moveToGoal = true;
+                }
+                else{
+                    last_ball_x = absolute_ball_x;
+                    last_ball_y = absolute_ball_y;
+                    noBallTimer = 0;
+                    moveToGoal = false;
+                }
+                
+                if(tooklastball){
+                    targetballposx = lastLAtargetx;
+                    targetballposy = lastLAtargety;
+                    ballAngle_LA = lastLAtargetAngle;
+                }
+                else if(!moveToGoal && noBall && checkzero(10)){ // if no ball, stop bot
+                    // esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
+                    // sendI2C(zeroBuffer);
+                    // esp_led.show();
+                    // lookAhead(); //delete this later if needed
+                    targetballposx = self_x;
+                    targetballposy = self_y;
+                }  
+                // else if (sqrtf(ball_vx*ball_vx + ball_vy*ball_vy) < 0.15){} //don't look ahead if velocity is too small
+                else if (!moveToGoal && !noBall && checkv(5, 200)){ // if last n values are within x of each other, update look ahead target
+                    if(abs(curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
+                        //switches target only if last switch target was sufficiently long ago
+                        esp_led.setPixelColor(0, esp_led.Color(0, 20, 0));
+                        esp_led.show();
+                        // Serial.println("look ahead called////////////////////////////////////////////////////////////");
+                        lookAhead();
+                        lastLookAhead = millis();
+                    }
+                } 
+
+                if (moveToGoal){
+                    // Serial.println("MOVING TO GOAL");
+                    targetballposx = FIELD_WIDTH/2;
+                    targetballposy = 0.5;
+                    // movement(targetballposx, targetballposy, 0);
+                }
+                //DEBUG(moveToGoal);
+                // DEBUG(targetballposx);
+                // DEBUG(targetballposy);
+
+            
+                float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
+                //call movement exactly once every loop
+                if(!moveToGoal && (targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT)){
+                    targetballposx = targetballposx_current;
+                    targetballposy = targetballposy_current;
+                    // movement(targetballposx, targetballposy, ballAngle_LA);
+                    // sendI2C(zeroBuffer);
+                }
+                else if (!moveToGoal && abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
+                    //switches target only if new target is far away from current target 
+                    targetballposx_current = targetballposx;
+                    targetballposy_current = targetballposy; 
+                    // movement(targetballposx, targetballposy, ballAngle_LA);
+                }
+            }   
+            ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(relative_ball_y, relative_ball_x)) : 0;
+            // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(absolute_ball_y, absolute_ball_x)) : 0;
+
+            if (moveToGoal){
+                ballAngle_LA = 0;
+            }
+            
+            else ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(absolute_ball_y - self_y, absolute_ball_x - self_x)) : 0;
+            movement(targetballposx, targetballposy, ballAngle_LA);
+
+            lastLAtargetx = targetballposx;
+            lastLAtargety = targetballposy;
+            lastLAtargetAngle = ballAngle_LA;
+            DEBUG(targetballposx);
+            DEBUG(targetballposy);
+            // DEBUG(ballAngle_LA);
+            }
+    private:
+        } bot;
+
+        #endif

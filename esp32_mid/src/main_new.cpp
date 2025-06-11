@@ -3,7 +3,7 @@
 #include <PID.h>
 #include <CommonUtils.h>
 #include <Adafruit_NeoPixel.h>
-#include <Dribbler.h>
+#include <DribblerNew.h>
 #include <Motor.h>
 #include <Kicker.h>
 #include <UARTComms.h>
@@ -43,6 +43,9 @@ float lastLED = 0;
 // Motor software switch
 #define TURN_OFF_SW 38
 
+// Motor testing switch
+#define MOTOR_TEST_SW 4
+
 // UART Comms with top plate
 #define TOP_TX_PIN 16
 #define TOP_RX_PIN 17
@@ -74,6 +77,26 @@ byte firstbyte = 5;
 #define BOTTOM_I2C_ADDR 0x08
 byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN];
 
+// Dribbler
+#define MOSI_PIN 12
+#define MISO_PIN 13
+#define SCK_PIN 14
+#define CS_PIN 15
+#define DRIBBLER_IN1 47
+#define DRIBBLER_IN2 48
+#define DRIBBLER_NFAULT 21
+#define NSLEEP_PIN 6
+#define DRVOFF_PIN 7
+#define IPROPI_PIN 5
+MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN, IPROPI_PIN);
+uint8_t dribbler_maxspeed = 100;
+Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
+
+// Kicker
+#define KICKER_PIN 11
+#define KICKER_SW 8
+Kicker kicker(KICKER_PIN);
+
 // PID
 float pid_def_rotate_default[3] = {0.7, 0, 0};
 float pid_def_x_default[3] = {3.5, 0, 0};
@@ -92,11 +115,11 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define CHANGE_TIME 5000
 #define NUM_STRAT_TYPES 3
 #define NUM_NO_BALL_STRAT 2
-#define NUM_BALL_STRAT 2
-#define NUM_SCORE_STRAT 2
+#define NUM_BALL_STRAT 1
+#define NUM_SCORE_STRAT 1
 #define MAX_NUM_STRATS 2
 int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
-int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {5, 3}, {6, 8}};
+int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {3}, {4}};
 
 // Variables
 float lastLoopTime = 0;
@@ -138,7 +161,7 @@ void getMidPlateData(){
         }
     }
     if(midRcvBuffer[0]!=firstbyte) {
-        Serial.print("Received bad data");
+        Serial.print("Received mid bad data");
         return;
     }
     ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
@@ -160,6 +183,9 @@ void getMidPlateData(){
 
     ball.absolute_x = ball.relative_x + self.x;
     ball.absolute_y = ball.relative_y + self.y;
+
+    // DEBUG(ball.absolute_x);
+    // DEBUG(ball.absolute_y);
 }
 
 void getTopPlateData(){
@@ -177,7 +203,7 @@ void getTopPlateData(){
 void getBottomPlateData(){
     byte num_bytes = Wire1.requestFrom(BOTTOM_I2C_ADDR, BOTTOM_I2C_DATA_LEN);
     if(num_bytes != BOTTOM_I2C_DATA_LEN){
-        Serial.print("Received bad data: ");
+        Serial.print("Received bottom bad data: ");
         return;
     }
     else Serial.print("Received: ");
@@ -220,14 +246,14 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_x_dist = total_dist * sinf(total_angle);
     float shifted_y_dist = total_dist * cosf(total_angle);
 
-    if(ball.ballCap){
-        max_translation_pid_value = 0.5;
-        max_rotation_pid_value = 0.25;
-    }
-    else {
-        max_translation_pid_value = 1;
-        max_rotation_pid_value = 1;
-    }
+    // if(ball.ballCap){
+    //     max_translation_pid_value = 0.5;
+    //     max_rotation_pid_value = 0.25;
+    // }
+    // else {
+    //     max_translation_pid_value = 1;
+    //     max_rotation_pid_value = 1;
+    // }
 
     speed_xdir = pid_x.compute(0, shifted_x_dist);
     speed_ydir = pid_y.compute(0, shifted_y_dist);
@@ -268,6 +294,17 @@ void movement(float target_x, float target_y, float target_rotation){
 
 //// ** TESTING ** ////
 
+void motorTest(){
+    bottomSendBuffer[0] = 5;
+    bottomSendBuffer[1] = 1;
+    bottomSendBuffer[2] = 0;
+    bottomSendBuffer[3] = 1;
+    bottomSendBuffer[4] = 0;
+    bottomSendBuffer[5] = 1;
+    bottomSendBuffer[6] = 255;
+    sendMotorData();
+}
+
 void moveForward(){
     bottomSendBuffer[0] = 5;
     bottomSendBuffer[1] = 1;
@@ -287,12 +324,14 @@ void setup(){
     bottomUART.init();
     topUART.init();
 
-    // pinMode(TURN_OFF_SW, INPUT);
+    pinMode(TURN_OFF_SW, INPUT);
+    pinMode(MOTOR_TEST_SW, INPUT);
     // pinMode(VOLTAGE_PIN, INPUT);
     // pinMode(PAUSE_SW1, INPUT);
     // pinMode(PAUSE_SW2, INPUT);
     // pinMode(STATE_SW, INPUT);
     analogSetAttenuation(ADC_11db);
+    analogWriteFrequency(100000);
 
     esp_task_wdt_init(2, true); // timeout in seconds
     enableLoopWDT();
@@ -300,8 +339,10 @@ void setup(){
     Wire.begin(MID_SDA_PIN, MID_SCL_PIN, 400000);
     Wire1.begin(BOTTOM_SDA_PIN, BOTTOM_SCL_PIN, 400000);
 
-    // dribblerMD.init();
-    // dribblerMD.setMode();
+    dribblerMD.init();
+    dribblerMD.setMode();
+
+    pinMode(KICKER_SW, INPUT);
 
     // startWebSerial();
     // readMacAddress();
@@ -328,22 +369,41 @@ void setup(){
 
 void loop(){
     // Serial.println("running main code");
-    float curTime = millis();
-    //Serial.print("time: ");
-    //Serial.println(curTime - lastLoopTime);
-    lastLoopTime = millis();
-    if(millis() - lastLED >= BLINK_TIME){
-        esp_led_state = !esp_led_state;
-        lastLED = millis();
-    }
-    if(esp_led_state) esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
-    else esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
-    esp_led.show();
+    // float curTime = millis();
+    // Serial.print("time: ");
+    // Serial.println(curTime - lastLoopTime);
+    // lastLoopTime = millis();
+
+    // if(millis() - lastLED >= BLINK_TIME){
+    //     esp_led_state = !esp_led_state;
+    //     lastLED = millis();
+    // }
+    // if(esp_led_state) esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+    // else esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
+    // esp_led.show();
 
     getTopPlateData();
     getMidPlateData();
     sendMidPlateData();
     getBottomPlateData();
+
+    if(digitalRead(MOTOR_TEST_SW)==HIGH){
+        motorTest();
+        return;
+    }
+
+    move.kick = false;
+
+    // temp ball cap via cam
+    if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
+        ball.ballCap = true;
+        ball.lastBallCap = millis();
+    }
+    else if(millis() - ball.lastBallCap <= 1000) ball.ballCap = true;
+    else {
+        ball.ballCap = false; 
+        ball.lastNoBallCap = millis();
+    }
 
     // if(ball.noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
     // else {
@@ -352,10 +412,26 @@ void loop(){
     // }
 
     // decide strategy type
-    if(ball.noBall){
+    if(ball.ballCap) {
+        state.curType = 2; // score
+        esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
+    }
+    else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
+        // Serial.println("using last ball pos");
+        ball.absolute_x = ball.last_x;
+        ball.absolute_y = ball.last_y;
+        state.curType = 1;
+        esp_led.setPixelColor(0, esp_led.Color(50, 50, 50));
+    }
+    else if(ball.noBall) {
         state.curType = 0; // no ball
-    } 
-    else state.curType = 1; // ball track
+        esp_led.setPixelColor(0, esp_led.Color(0, 0, 50));
+    }
+    else {
+        state.curType = 1; // ball track
+        esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+    }
+    esp_led.show();
 
     // decide specific strategy
     if(state.curType != state.lastType){
@@ -390,11 +466,36 @@ void loop(){
             Serial.println("dribbler ball track");
             bot.dribblerBallTrack();
             break;
+        
+        case State::Strategies::NO_DRIBBLER_SCORE:
+            Serial.println("no dribbler score");
+            bot.aim();
+            break;
+        
+        case State::Strategies::DRIBBLER_SCORE:
+            Serial.println("dribbler score");
+            bot.dribblerAim();
     }
+
+    DEBUG(self.x);
+    DEBUG(self.y);
+    DEBUG(move.x);
+    DEBUG(move.y);
 
     // send moving command to motors
     movement(move.x, move.y, move.rotation);
 
+    // kicker
+    // if(move.kick) kicker.kick();
+
+    // dribbler
+    if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
+    else move.dribblerSpeed = 1.0;
+    dribbler.setSpeed(move.dribblerSpeed);
+
     // update last type
     state.lastType = state.curType;
+
+    ball.last_x = ball.absolute_x;
+    ball.last_y = ball.absolute_y;
 }
