@@ -10,8 +10,8 @@
 #define brightness 50
 Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 
-#define LIDAR_GATE_SDA_PIN 8
-#define LIDAR_GATE_SCL_PIN 9
+#define LIDAR_GATE_SDA_PIN 28
+#define LIDAR_GATE_SCL_PIN 29
 #define LIDAR_GATE_ID 0
 LidarGate lidargate(LIDAR_GATE_SCL_PIN, LIDAR_GATE_SDA_PIN, LIDAR_GATE_ID);
 
@@ -32,7 +32,7 @@ void loop(){
 
     #ifdef PRINT_RAW_DIST
     float dist = lidargate.readRaw();
-    Serial.println(dist);
+    Serial.println(dist, 3);
     #endif
 
     #ifdef PRINT_STATUS
