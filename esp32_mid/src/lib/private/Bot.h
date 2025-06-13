@@ -135,18 +135,12 @@ class Bot{
             float absBallAngle = atan2(yToBall, xToBall);
             LIM_ANGLE_180(absBallAngle);
  
-
-            float xToBall = ball.absolute_x - self.x, yToBall = ball.absolute_y - self.y;
-            float absBallAngle = atan2(yToBall, xToBall);
-            LIM_ANGLE_180(absBallAngle);
- 
             move.x = new_x;
             move.y = new_y;
             move.rotation = 90-DEG(absBallAngle);
         }
 
         void aim(){
-
             if(!balltrack.aligned){
                 if(abs(self.x - ball.absolute_x) < ALIGN_THRESHOLD) balltrack.aligned = true;
                 move.x = ball.absolute_x;
@@ -179,38 +173,6 @@ class Bot{
             float xToBall = ball.absolute_x - self.x, yToBall = ball.absolute_y - self.y;
             float absBallAngle = atan2(yToBall, xToBall);
             move.rotation = 90-DEG(absBallAngle);
-        }
-
-        void aim(){
-            if(!balltrack.aligned){
-                if(abs(self.x - ball.absolute_x) < ALIGN_THRESHOLD) balltrack.aligned = true;
-                move.x = ball.absolute_x;
-                move.y = self.y;
-                move.rotation = 0;
-            }
-            else{
-                float xToGoal = OPP_GOAL_CENTRE_X - self.x, yToGoal = OPP_GOAL_CENTRE_Y - self.y;
-                float distToGoal = sqrt(xToGoal * xToGoal + yToGoal * yToGoal);
-                float angleToGoal = PI/2 - atan2(yToGoal, xToGoal);
-                if(balltrack.initial_change == 0){
-                    balltrack.initial_magnitude = distToGoal;
-                    balltrack.initial_change = max(0.0f, cosf(angleToGoal)) * INITIAL_CHANGE;
-                }
-                float change = balltrack.initial_change + max(0.0f, balltrack.initial_magnitude - distToGoal) 
-                    / balltrack.initial_magnitude * GRADUAL_CHANGE;
-                change = min(change, max(0.0f, (self.y + FIELD_MARGIN_Y)*100/cosf(angleToGoal)));
-                move.x = self.x + change * sinf(angleToGoal) / 100;
-                move.y = self.y + change * cosf(angleToGoal) / 100;
-                move.rotation = DEG(angleToGoal);
-            }
-            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
-            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - self.x));
-            LIM_ANGLE_180(minAngleFace);
-            LIM_ANGLE_180(maxAngleFace);
-            if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
-            if(ball.ballCap && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
-                move.kick = true;
-            }
         }
 
         void dribblerBallTrack(){
