@@ -13,9 +13,9 @@ class PID {
 
         float compute(float goal, float actual) {
             unsigned long now = micros();
-            if (now - lastTime > _timeStep) {
-                double dt = (now - lastTime) / 1000;
-                lastTime  = now;
+            if (now - _lastTime > _timeStep) {
+                double dt = (now - _lastTime) / 1000;
+                _lastTime  = now;
 
                 double error = actual - goal; // Floats are not precise enough
 
@@ -33,7 +33,16 @@ class PID {
                 };
 
                 if (_kd) { // Derivative component
-                    output += _kd * (error - _lastError) / dt;
+                    if(error == _lastError){
+                        output += _lastD;
+                    }
+                    else {
+                        double ddt = (now - _lastDTime) / 1000;
+                        double curD = _kd * (error - _lastError) / ddt;
+                        output += curD;
+                        _lastDTime = now;
+                        _lastD = curD;
+                    }
                     _lastError = error;
                 };
 
@@ -54,17 +63,15 @@ class PID {
             _integral = 0;
             _lastError = 0;
             _lastOutput = 0;
+            _lastD = 0;
         }
 
     private:
-        float         _kp;
-        float         _ki;
-        float         _kd;
-        float         _integral;
-        double        _lastError;
-        unsigned long lastTime;
-        float         _lastOutput;
-        const float   _timeStep;
+        float _kp, _ki, _kd, _integral;
+        double _lastError, _lastD;
+        unsigned long _lastTime, _lastDTime;
+        float _lastOutput;
+        const float _timeStep;
 };
 
 #endif
