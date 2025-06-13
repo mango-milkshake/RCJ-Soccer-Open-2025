@@ -28,7 +28,7 @@
 //// ** DEFINITIONS ** ////
 
 // ESP NeoPixel LED
-#define ESP_LED 48
+#define ESP_LED 21
 int ESP_BRIGHTNESS = 50;
 #define BLINK_TIME 50
 Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
