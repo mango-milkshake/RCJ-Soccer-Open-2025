@@ -107,18 +107,18 @@ void loop(){
         bool speed_x_sign = buffer[1]==1 ? true : false;
         bool speed_y_sign = buffer[3]==1 ? true : false;
         bool rotationsign = buffer[5]==1 ? true : false;
-        speed_xdir = (float)(buffer[2]) / 255;
+        speed_xdir = buffer[2];
         if(!speed_x_sign) speed_xdir *= -1;
-        speed_ydir = (float)(buffer[4]) / 255;
+        speed_ydir = buffer[4];
         if(!speed_y_sign) speed_ydir *= -1;
-        rotation = (float)(buffer[6]) / 255;
+        rotation = buffer[6];
         if(!rotationsign) rotation *= -1;
 
-        speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
-        speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
+        // speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
+        // speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
     }
-    bot.setDrive(speedX, speedY, rotation);
-    // bot.setDrive(speed_xdir, speed_ydir, rotation);
+    // bot.setDrive(speedX, speedY, rotation);
+    bot.setDrive(speed_xdir, speed_ydir, rotation);
 
     // DEBUG(speed_xdir);
     // DEBUG(speed_ydir);
