@@ -120,7 +120,7 @@ void loop(){
     bot.setDrive(speedX, speedY, rotation);
     // bot.setDrive(speed_xdir, speed_ydir, rotation);
 
-    // DEBUG(speedX);
-    // DEBUG(speedY);
+    // DEBUG(speed_xdir);
+    // DEBUG(speed_ydir);
     // DEBUG(rotation);
 }
