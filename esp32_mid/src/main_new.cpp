@@ -98,13 +98,13 @@ Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1
 Kicker kicker(KICKER_PIN);
 
 // PID
-float pid_def_rotate_default[3] = {0.7, 0, 0};
-float pid_def_x_default[3] = {3.5, 0, 0};
-float pid_def_y_default[3] = {3.5, 0, 0};
+float pid_def_rotate_default[3] = {12, 0, 0}; // 0.7
+float pid_def_x_default[3] = {120, 0, 0}; // 3.5
+float pid_def_y_default[3] = {120, 0, 0}; // 3.5
 
-float pid_att_rotate_default[3] = {0.3, 0, 0};
-float pid_att_x_default[3] = {2.2, 0, 0};
-float pid_att_y_default[3] = {2.2, 0, 0};
+float pid_att_rotate_default[3] = {12, 0, 0};
+float pid_att_x_default[3] = {120, 0, 0};
+float pid_att_y_default[3] = {120, 0, 0};
 
 PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
 PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000);
@@ -236,7 +236,8 @@ void movement(float target_x, float target_y, float target_rotation){
 
     float x_dist = target_x - self.x, y_dist = target_y - self.y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
-    float total_angle = PI/2 - atan2(y_dist, x_dist) - RAD(self.heading); // in radians
+    // float total_angle = PI/2 - atan2(y_dist, x_dist) - RAD(self.heading); // in radians
+    float total_angle = atan2(y_dist, x_dist) + RAD(self.heading) - PI/4; // in radians
 
     float rotation_dist = self.heading - target_rotation;
     while(rotation_dist > 180) rotation_dist -= 360;
@@ -272,9 +273,9 @@ void movement(float target_x, float target_y, float target_rotation){
     else speed_x_sign = 0;
     if(copysign(1, speed_ydir)==1) speed_y_sign = 1;
     else speed_y_sign = 0;
-    uint8_t rounded_rotation = floor(abs(rotation) * 255);
-    uint8_t rounded_speed_x = floor(abs(speed_xdir) * 255);
-    uint8_t rounded_speed_y = floor(abs(speed_ydir) * 255);
+    uint8_t rounded_rotation = ((int)floor(abs(rotation))) & 0xFF;
+    uint8_t rounded_speed_x = ((int)floor(abs(speed_xdir))) & 0xFF;
+    uint8_t rounded_speed_y = ((int)floor(abs(speed_ydir))) & 0xFF;
 
     bottomSendBuffer[0] = 5;
     if(switches.turnOff || switches.topOff){
