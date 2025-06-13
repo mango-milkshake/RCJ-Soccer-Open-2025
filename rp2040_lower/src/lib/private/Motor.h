@@ -21,6 +21,8 @@ class Motor {
             // _speed = constrain(_speed, -1, 1);
             // _speedToSet = _speed * _maxspeed;
             _speedToSet = constrain(_speed, -_maxspeed, _maxspeed);
+            if(abs(_speedToSet) > 2){
+                _speedToSet += copysign(27, _speedToSet);
             }
             // _speedToSet = constrain(_speedToSet, _lastSpeed-MAX_CHANGE, _lastSpeed+MAX_CHANGE);
             if (_speedToSet > 0) {
