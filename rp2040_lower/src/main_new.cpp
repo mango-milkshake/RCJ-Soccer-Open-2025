@@ -80,6 +80,7 @@ void setup(){
     
     motor_driver.init();
     motor_driver.setMode();
+    analogWriteFreq(100000);
 
     strip.begin();
     strip.setBrightness(brightness);
