@@ -3,7 +3,7 @@
 #include <PID.h>
 #include <CommonUtils.h>
 #include <Adafruit_NeoPixel.h>
-#include <DribblerNew.h>
+#include <Dribbler.h>
 #include <Motor.h>
 #include <Kicker.h>
 #include <UARTComms.h>
@@ -489,9 +489,9 @@ void loop(){
     // if(move.kick) kicker.kick();
 
     // dribbler
-    if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
-    else move.dribblerSpeed = 1.0;
-    dribbler.setSpeed(move.dribblerSpeed);
+    // if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
+    // else move.dribblerSpeed = 1.0;
+    // dribbler.setSpeed(move.dribblerSpeed);
 
     // update last type
     state.lastType = state.curType;
