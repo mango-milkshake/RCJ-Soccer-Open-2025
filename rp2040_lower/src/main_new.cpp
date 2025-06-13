@@ -46,7 +46,7 @@ uint8_t IN2_pin[NUM_DRIVERS] = {6, 8, 10, 12};
 uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29};
 #endif
 
-uint8_t maxspeed = 80;
+uint8_t maxspeed = 130;
 
 Motor motorFL(IN1_pin[0], IN2_pin[0], NFAULT_pin[0], maxspeed, 1.0);
 Motor motorFR(IN1_pin[3], IN2_pin[3], NFAULT_pin[3], maxspeed, 1.0);
@@ -54,8 +54,8 @@ Motor motorBL(IN1_pin[1], IN2_pin[1], NFAULT_pin[1], maxspeed, 1.0);
 Motor motorBR(IN1_pin[2], IN2_pin[2], NFAULT_pin[2], maxspeed, 1.0);
 float lastFault = 0;
 
-Drive bot(motorFR, motorBR, motorBL, motorFL);
-float speedX = 0.0, speedY = 0.0, speed_xdir = 0.0, speed_ydir = 0.0, moveAngle = 0.0, rotation = 0.0;
+Drive bot(motorFR, motorBR, motorBL, motorFL, maxspeed);
+int speedX = 0, speedY = 0, speed_xdir = 0, speed_ydir = 0, moveAngle = 0, rotation = 0;
 
 void checkFault(){
     bool faulted = false;
@@ -80,6 +80,7 @@ void setup(){
     
     motor_driver.init();
     motor_driver.setMode();
+    analogWriteFreq(100000);
 
     strip.begin();
     strip.setBrightness(brightness);
@@ -106,20 +107,20 @@ void loop(){
         bool speed_x_sign = buffer[1]==1 ? true : false;
         bool speed_y_sign = buffer[3]==1 ? true : false;
         bool rotationsign = buffer[5]==1 ? true : false;
-        speed_xdir = (float)(buffer[2]) / 255;
+        speed_xdir = buffer[2];
         if(!speed_x_sign) speed_xdir *= -1;
-        speed_ydir = (float)(buffer[4]) / 255;
+        speed_ydir = buffer[4];
         if(!speed_y_sign) speed_ydir *= -1;
-        rotation = (float)(buffer[6]) / 255;
+        rotation = buffer[6];
         if(!rotationsign) rotation *= -1;
 
-        speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
-        speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
+        // speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
+        // speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
     }
-    bot.setDrive(speedX, speedY, rotation);
-    // bot.setDrive(speed_xdir, speed_ydir, rotation);
+    // bot.setDrive(speedX, speedY, rotation);
+    bot.setDrive(speed_xdir, speed_ydir, rotation);
 
-    // DEBUG(speedX);
-    // DEBUG(speedY);
+    // DEBUG(speed_xdir);
+    // DEBUG(speed_ydir);
     // DEBUG(rotation);
 }

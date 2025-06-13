@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 
+#define MAX_CHANGE 10
+
 class Motor {
     public:
         const uint8_t nfault;
@@ -16,28 +18,23 @@ class Motor {
         }
 
         void setSpeed(float speed) {
-            // _speed = constrain(speed, max(-1, _lastSpeed-0.1), min(_lastSpeed+0.1, 1));
-            // _lastSpeed = _speed;
-            // _speed = _speed * _multiplier;
             _speed = speed * _multiplier;
             _speed = constrain(_speed, -1, 1);
-            if (_speed >= 0) {
+            _speedToSet = _speed * _maxspeed;
+            _speedToSet = constrain(_speedToSet, _lastSpeed-MAX_CHANGE, _lastSpeed+MAX_CHANGE);
+            if (_speedToSet >= 0) {
                 analogWrite(_pin2, 0);
-                analogWrite(_pin1, abs(_speed)*_maxspeed);
+                analogWrite(_pin1, abs(_speedToSet));
             } else {
                 analogWrite(_pin1, 0);
-                analogWrite(_pin2, abs(_speed)*_maxspeed);
+                analogWrite(_pin2, abs(_speedToSet));
             }
-            // Serial.print(_pin1);
-            // Serial.print(": ");
-            // Serial.print(abs(speed)*_maxspeed);
-            // Serial.print(" ");
-            // Serial.println(abs(_speed)*_maxspeed);
+            _lastSpeed = _speedToSet;
         }
 
     private:
         const uint8_t _pin1, _pin2, _maxspeed;
-        float _speed, _multiplier, _lastSpeed = 0;
+        float _speed, _multiplier, _lastSpeed = 0, _speedToSet;
 };
 
 #endif

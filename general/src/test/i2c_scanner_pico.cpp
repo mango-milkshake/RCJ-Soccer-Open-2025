@@ -10,7 +10,7 @@ void setup() {
     //Wire.setTimeout(1); // set timeout to 1 ms
     Wire.begin();
 
-    Serial.begin(9600);
+    Serial.begin(115200);
     while (!Serial);
     Serial.println("\nI2C Scanner");
 }

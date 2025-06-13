@@ -3,7 +3,7 @@
 #include <PID.h>
 #include <CommonUtils.h>
 #include <Adafruit_NeoPixel.h>
-#include <DribblerNew.h>
+#include <Dribbler.h>
 #include <Motor.h>
 #include <Kicker.h>
 #include <UARTComms.h>
@@ -24,6 +24,8 @@
 #define DEBUG(x) 123;
 #endif
 
+#define TESTING
+
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
 // #define NO_DRIBBLER
@@ -34,7 +36,7 @@
 #define ESP_LED 48
 int ESP_BRIGHTNESS = 20;
 #define BLINK_TIME 50
-Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
+// Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 // to check if code is running
 bool esp_led_state = true;
 float lastLED = 0;
@@ -64,7 +66,7 @@ UARTComms bottomUART(BOTTOM_TX_PIN, BOTTOM_RX_PIN, bottomSendBuffer, BOTTOM_DATA
 #define MID_SDA_PIN 1
 #define MID_SCL_PIN 2
 #define MID_I2C_SEND_DATA_LEN 8
-#define MID_I2C_RCV_DATA_LEN 5
+#define MID_I2C_RCV_DATA_LEN 8
 #define MID_I2C_ADDR 0x09
 byte midSendBuffer[MID_I2C_SEND_DATA_LEN];
 byte midRcvBuffer[MID_I2C_RCV_DATA_LEN];
@@ -98,18 +100,17 @@ Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1
 Kicker kicker(KICKER_PIN);
 
 // PID
-float pid_def_rotate_default[3] = {0.7, 0, 0};
-float pid_def_x_default[3] = {3.5, 0, 0};
-float pid_def_y_default[3] = {3.5, 0, 0};
+float pid_def_rotate_default[3] = {12, 0, 0}; // 0.7
+float pid_def_x_default[3] = {120, 0, 0}; // 3.5
+float pid_def_y_default[3] = {120, 0, 0}; // 3.5
 
-float pid_att_rotate_default[3] = {0.3, 0, 0};
-float pid_att_x_default[3] = {2.2, 0, 0};
-float pid_att_y_default[3] = {2.2, 0, 0};
+float pid_att_rotate_default[3] = {12, 0, 0};
+float pid_att_x_default[3] = {120, 0, 0};
+float pid_att_y_default[3] = {120, 0, 0};
 
 PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
 PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000);
 PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000);
-float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 
 // Strategies
 #define CHANGE_TIME 5000
@@ -237,7 +238,8 @@ void movement(float target_x, float target_y, float target_rotation){
 
     float x_dist = target_x - self.x, y_dist = target_y - self.y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
-    float total_angle = PI/2 - atan2(y_dist, x_dist) - RAD(self.heading); // in radians
+    // float total_angle = PI/2 - atan2(y_dist, x_dist) - RAD(self.heading); // in radians
+    float total_angle = atan2(y_dist, x_dist) + RAD(self.heading) - PI/4; // in radians
 
     float rotation_dist = self.heading - target_rotation;
     while(rotation_dist > 180) rotation_dist -= 360;
@@ -247,21 +249,21 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_y_dist = total_dist * cosf(total_angle);
 
     // if(ball.ballCap){
-    //     max_translation_pid_value = 0.5;
-    //     max_rotation_pid_value = 0.25;
+    //     move.max_translation = 0.5;
+    //     move.max_rotation = 0.25;
     // }
     // else {
-    //     max_translation_pid_value = 1;
-    //     max_rotation_pid_value = 1;
+    //     move.max_translation = 1;
+    //     move.max_rotation = 1;
     // }
 
     speed_xdir = pid_x.compute(0, shifted_x_dist);
     speed_ydir = pid_y.compute(0, shifted_y_dist);
-    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), -max_rotation_pid_value, max_rotation_pid_value);
+    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), move.min_rotation, move.max_rotation);
 
     float maxPID = max(abs(speed_xdir), abs(speed_ydir));
-    if(maxPID > max_translation_pid_value){
-        float k = max_translation_pid_value/maxPID;
+    if(maxPID > move.max_translation){
+        float k = move.max_translation/maxPID;
         speed_xdir *= k;
         speed_ydir *= k;
     }
@@ -273,9 +275,9 @@ void movement(float target_x, float target_y, float target_rotation){
     else speed_x_sign = 0;
     if(copysign(1, speed_ydir)==1) speed_y_sign = 1;
     else speed_y_sign = 0;
-    uint8_t rounded_rotation = floor(abs(rotation) * 255);
-    uint8_t rounded_speed_x = floor(abs(speed_xdir) * 255);
-    uint8_t rounded_speed_y = floor(abs(speed_ydir) * 255);
+    uint8_t rounded_rotation = ((int)floor(abs(rotation))) & 0xFF;
+    uint8_t rounded_speed_x = ((int)floor(abs(speed_xdir))) & 0xFF;
+    uint8_t rounded_speed_y = ((int)floor(abs(speed_ydir))) & 0xFF;
 
     bottomSendBuffer[0] = 5;
     if(switches.turnOff || switches.topOff){
@@ -361,9 +363,9 @@ void setup(){
     state.curStratIdx = 0;
     state.lastChange = millis();
 
-    esp_led.begin();
-    esp_led.setBrightness(ESP_BRIGHTNESS);
-    esp_led.show();
+    // esp_led.begin();
+    // esp_led.setBrightness(ESP_BRIGHTNESS);
+    // esp_led.show();
 
 }
 
@@ -414,24 +416,24 @@ void loop(){
     // decide strategy type
     if(ball.ballCap) {
         state.curType = 2; // score
-        esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
+        // esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
     }
     else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
         // Serial.println("using last ball pos");
         ball.absolute_x = ball.last_x;
         ball.absolute_y = ball.last_y;
         state.curType = 1;
-        esp_led.setPixelColor(0, esp_led.Color(50, 50, 50));
+        // esp_led.setPixelColor(0, esp_led.Color(50, 50, 50));
     }
     else if(ball.noBall) {
         state.curType = 0; // no ball
-        esp_led.setPixelColor(0, esp_led.Color(0, 0, 50));
+        // esp_led.setPixelColor(0, esp_led.Color(0, 0, 50));
     }
     else {
         state.curType = 1; // ball track
-        esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+        // esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
     }
-    esp_led.show();
+    // esp_led.show();
 
     // decide specific strategy
     if(state.curType != state.lastType){
@@ -445,8 +447,16 @@ void loop(){
     }
     state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
+    #ifdef TESTING
+    state.strategies = State::Strategies::NONE;
+    #endif
+
     // carry out the strategy
     switch (state.strategies){
+        case State::Strategies::NONE:
+            // any testing code
+            bot.moveToPoint(0.60, 0.80, 0);
+            break;
         case State::Strategies::MOVE_TO_POINT:
             Serial.println("move to centre");
             bot.moveToPoint(FIELD_WIDTH/2, 0.80 /* FIELD_HEIGHT/2 */, 0);
@@ -477,11 +487,6 @@ void loop(){
             bot.dribblerAim();
     }
 
-    DEBUG(self.x);
-    DEBUG(self.y);
-    DEBUG(move.x);
-    DEBUG(move.y);
-
     // send moving command to motors
     movement(move.x, move.y, move.rotation);
 
@@ -489,9 +494,9 @@ void loop(){
     // if(move.kick) kicker.kick();
 
     // dribbler
-    if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
-    else move.dribblerSpeed = 1.0;
-    dribbler.setSpeed(move.dribblerSpeed);
+    // if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
+    // else move.dribblerSpeed = 1.0;
+    // dribbler.setSpeed(move.dribblerSpeed);
 
     // update last type
     state.lastType = state.curType;

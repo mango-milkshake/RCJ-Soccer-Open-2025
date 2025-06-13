@@ -55,7 +55,7 @@ float topLastSeenBall = 0;
 byte frontCamBuffer[FRONT_CAM_DATA_LEN];
 UARTComms frontCamUART(FRONT_CAM_TX_PIN, FRONT_CAM_RX_PIN, frontCamBuffer, FRONT_CAM_DATA_LEN, Serial1);
 float front_ball_x, front_ball_y, front_ball_angle, front_ball_dist;
-bool frontNoBall = false;
+bool frontNoBall = true;
 byte front_open = 0;
 int open_rows_start = 0, open_rows_end = 0;
 float frontLastSeenBall = 0;
