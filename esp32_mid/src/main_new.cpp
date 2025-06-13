@@ -24,6 +24,8 @@
 #define DEBUG(x) 123;
 #endif
 
+#define TESTING
+
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
 // #define NO_DRIBBLER
@@ -445,8 +447,16 @@ void loop(){
     }
     state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
+    #ifdef TESTING
+    state.strategies = State::Strategies::NONE;
+    #endif
+
     // carry out the strategy
     switch (state.strategies){
+        case State::Strategies::NONE:
+            // any testing code
+            bot.moveToPoint(0.60, 0.80, 0);
+            break;
         case State::Strategies::MOVE_TO_POINT:
             Serial.println("move to centre");
             bot.moveToPoint(FIELD_WIDTH/2, 0.80 /* FIELD_HEIGHT/2 */, 0);
