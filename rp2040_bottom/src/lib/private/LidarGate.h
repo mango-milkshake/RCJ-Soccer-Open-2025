@@ -23,6 +23,8 @@ class LidarGate{
             return readRaw() <= LIDAR_BALLCAP_THRESH; 
             // if distance detected less than threshold, ball is in ballcap, return true
             // else ball is not in ballcap, return false
+
+            // 0.16 to 0.20 is left, 0.20 to 0.28 is middle, 0.28 to 0.32 is right
         }
     
     private:
