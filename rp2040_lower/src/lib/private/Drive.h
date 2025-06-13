@@ -7,8 +7,8 @@
 
 class Drive {
     public:
-        Drive(Motor &motorFR, Motor &motorBR, Motor &motorBL, Motor &motorFL) :
-            _motorFR(motorFR), _motorBR(motorBR), _motorBL(motorBL), _motorFL(motorFL) {
+        Drive(Motor &motorFR, Motor &motorBR, Motor &motorBL, Motor &motorFL, int maxspeed) :
+            _motorFR(motorFR), _motorBR(motorBR), _motorBL(motorBL), _motorFL(motorFL), _maxspeed(maxspeed) {
         }
 
         void setDriveOld(float speed, int angle, float rotationRate) {
@@ -56,21 +56,25 @@ class Drive {
             Serial.println();
         };
 
-        void setDrive(float speedX, float speedY, float rotationRate) {
+        void setDrive(int speedX, int speedY, int rotationRate) {
             // DEBUG(speedX);
             // DEBUG(speedY);
             // DEBUG(rotationRate);
 
             float speedFL, speedFR, speedBL, speedBR; 
-            speedFR = 0.6 * speedX + 0.4 * rotationRate;
-            speedBR = 0.6 * speedY + 0.4 * rotationRate;
-            speedFL = 0.6 * (-speedY) + 0.4 * rotationRate;
-            speedBL = 0.6 * (-speedX) + 0.4 * rotationRate;
+            speedFR = speedX + rotationRate;
+            speedBR = speedY + rotationRate;
+            speedFL = (-speedY) + rotationRate;
+            speedBL = (-speedX) + rotationRate;
+            // speedFR = 0.6 * speedX + 0.4 * rotationRate;
+            // speedBR = 0.6 * speedY + 0.4 * rotationRate;
+            // speedFL = 0.6 * (-speedY) + 0.4 * rotationRate;
+            // speedBL = 0.6 * (-speedX) + 0.4 * rotationRate;
 
             float maxSpeed = max(max(abs(speedFR), abs(speedFL)), max(abs(speedBR), abs(speedBL)));
             // DEBUG(maxSpeed);
-            if (maxSpeed > 1) {
-                float k = 1 / maxSpeed;
+            if (maxSpeed > _maxspeed) {
+                float k = _maxspeed / maxSpeed;
                 speedFR *= k;
                 speedFL *= k;
                 speedBR *= k;
@@ -94,6 +98,7 @@ class Drive {
 
     private:
         Motor _motorFL, _motorFR, _motorBL, _motorBR;
+        int _maxspeed;
 };
 
 #endif
