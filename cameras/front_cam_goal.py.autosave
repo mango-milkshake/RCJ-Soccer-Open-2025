@@ -59,6 +59,12 @@ def longest_consecutive_subarray(arr):
             max_idx = cur_idx
     return(arr[max_idx:max_idx+max_len])
 
+def pixel_blocked(lab):
+    if (lab[1] < -15 or lab[0] > 60):
+    #if (lab[1] < -15):
+        return False
+    else:
+        return True
 
 threshold = (0, 100, 9, 76, 5, 76) # orange ball
 threshold_field = (0, 84, -50, -14, -33, 44)
@@ -115,9 +121,10 @@ while True:
     columns = 24
     y_separation = 10
     goal_width = 7
+    central_bar_start = 80
     for i in range(columns): #check path to goal
        for j in range(rows):
-            pixel_x = int((i)*(280/columns)+50)
+            pixel_x = int((i)*((320-central_bar_start)/columns)+central_bar_start)
             pixel_y = int((120-y_separation*rows/2)+y_separation*j)
             rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
             lab = image.rgb_to_lab(rgb)
@@ -125,7 +132,7 @@ while True:
             #hsv = rgb_to_hsv(rgb)
             #print(rgb)
             #print(hsv)
-            if(lab[1] > -15):
+            if(pixel_blocked(lab)):
                 blocked_pixels += 1
                 img.draw_cross(pixel_x, pixel_y, color=(255,0,0), size=5)
             else:
@@ -139,7 +146,7 @@ while True:
                 pixel_y = int(i*y_separation)
                 rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
                 lab = image.rgb_to_lab(rgb) 
-                if(lab[1] > -15):
+                if(pixel_blocked(lab)):
                     img.draw_cross(pixel_x, pixel_y, color=(255,0,0), size = 5)
                     open_goal.append(0) #pixel blocked
                 else:

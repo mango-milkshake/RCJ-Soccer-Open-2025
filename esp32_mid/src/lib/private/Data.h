@@ -14,6 +14,7 @@ struct Ball{
     float last_x = 0, last_y = 0;
     bool noBall = false, ballCap = false;
     int lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = 0;
+    
 } ball;
 
 struct Switches{
@@ -23,6 +24,7 @@ struct Switches{
 struct Times{
     int lastDribblerRev = 0;
     int lastFault = 0;
+    int curTime = 0;
 } times;
 
 struct Movement{

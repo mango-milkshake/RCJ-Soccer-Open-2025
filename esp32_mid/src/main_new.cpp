@@ -369,7 +369,7 @@ void setup(){
 
 void loop(){
     // Serial.println("running main code");
-    // float curTime = millis();
+    times.curTime = millis();
     // Serial.print("time: ");
     // Serial.println(curTime - lastLoopTime);
     // lastLoopTime = millis();
