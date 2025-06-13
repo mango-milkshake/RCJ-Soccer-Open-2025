@@ -64,7 +64,7 @@ UARTComms bottomUART(BOTTOM_TX_PIN, BOTTOM_RX_PIN, bottomSendBuffer, BOTTOM_DATA
 #define MID_SDA_PIN 1
 #define MID_SCL_PIN 2
 #define MID_I2C_SEND_DATA_LEN 8
-#define MID_I2C_RCV_DATA_LEN 5
+#define MID_I2C_RCV_DATA_LEN 8
 #define MID_I2C_ADDR 0x09
 byte midSendBuffer[MID_I2C_SEND_DATA_LEN];
 byte midRcvBuffer[MID_I2C_RCV_DATA_LEN];
