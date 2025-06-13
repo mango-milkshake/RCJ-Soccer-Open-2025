@@ -109,7 +109,6 @@ float pid_att_y_default[3] = {2.2, 0, 0};
 PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
 PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000);
 PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000);
-float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 
 // Strategies
 #define CHANGE_TIME 5000
@@ -247,21 +246,21 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_y_dist = total_dist * cosf(total_angle);
 
     // if(ball.ballCap){
-    //     max_translation_pid_value = 0.5;
-    //     max_rotation_pid_value = 0.25;
+    //     move.max_translation = 0.5;
+    //     move.max_rotation = 0.25;
     // }
     // else {
-    //     max_translation_pid_value = 1;
-    //     max_rotation_pid_value = 1;
+    //     move.max_translation = 1;
+    //     move.max_rotation = 1;
     // }
 
     speed_xdir = pid_x.compute(0, shifted_x_dist);
     speed_ydir = pid_y.compute(0, shifted_y_dist);
-    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), -max_rotation_pid_value, max_rotation_pid_value);
+    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), move.min_rotation, move.max_rotation);
 
     float maxPID = max(abs(speed_xdir), abs(speed_ydir));
-    if(maxPID > max_translation_pid_value){
-        float k = max_translation_pid_value/maxPID;
+    if(maxPID > move.max_translation){
+        float k = move.max_translation/maxPID;
         speed_xdir *= k;
         speed_ydir *= k;
     }

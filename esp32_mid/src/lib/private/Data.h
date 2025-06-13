@@ -29,6 +29,8 @@ struct Movement{
     float x = 0, y = 0, rotation = 0;
     bool kick = false;
     float dribblerSpeed = 0;
+    int min_translation = -80, max_translation = 80;
+    int min_rotation = -50, max_rotation = 50;
 } move;
 
 struct State{
