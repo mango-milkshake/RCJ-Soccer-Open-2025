@@ -24,7 +24,7 @@ class Motor {
             if(abs(_speedToSet) > 2){
                 _speedToSet += copysign(27, _speedToSet);
             }
-            // _speedToSet = constrain(_speedToSet, _lastSpeed-MAX_CHANGE, _lastSpeed+MAX_CHANGE);
+            _speedToSet = constrain(_speedToSet, _lastSpeed-MAX_CHANGE, _lastSpeed+MAX_CHANGE);
             if (_speedToSet > 0) {
                 analogWrite(_pin2, 0);
                 analogWrite(_pin1, abs(_speedToSet));
