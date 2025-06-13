@@ -146,7 +146,7 @@ float last_ball_x = 0, last_ball_y = 0;
 bool noBall = false, ballCap = false, topOff = false, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
 float speed_xdir, speed_ydir, rotation;
-
+bool otherBotExists = false;
 
 // ESP Bluetooth Communication
 uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
@@ -155,6 +155,8 @@ typedef struct struct_message {
     int isPresent;
     float xpos; 
     float ypos;
+    bool def;
+    bool inField;
     float heading;
     bool hasBall; 
     int botID_comm;
@@ -177,8 +179,8 @@ void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //in
     lastRecvTime = millis();
     // DEBUG(espnowDataRecv.isPresent);
     // DEBUG(espnowDataRecv.inField);
-    DEBUG(espnowDataRecv.xpos);
-    DEBUG(espnowDataRecv.ypos);
+    // DEBUG(espnowDataRecv.xpos);
+    // DEBUG(espnowDataRecv.ypos);
     // DEBUG(espnowDataRecv.def);
     // DEBUG(espnowDataRecv.hasBall);
     // Serial.println("received data");
@@ -244,11 +246,14 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
 void sendData(){ //send data here
     //Define what values to send
     espnowData.isPresent = 2;
+    espnowData.def = isDefender;
+    espnowData.inField = (turnOff || topOff) ? false: true;
     espnowData.xpos = self_x;
     espnowData.ypos = self_y;
     espnowData.heading = self_heading;
     espnowData.hasBall = ballCap ? true : false;
     espnowData.botID_comm = botID;
+    
     
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espnowData, sizeof(espnowData));
@@ -416,6 +421,39 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
 }
 
 
+int assignDefBuffer = 4;
+int defCount = 0;
+int atkCount = 0;
+bool isDefender = false;
+void assignDef(){
+    // from lowest to highest priority
+    if(espnowDataRecv.def == true){  //check if other bot is defending
+        defCount++;
+        atkCount = 0;
+        if(defCount >= assignDefBuffer){
+            isDefender = false;
+           // defCount = 0;
+        }
+    }
+    else if (espnowDataRecv.def == false){
+        atkCount++;
+        defCount = 0;
+        if(atkCount >= assignDefBuffer){
+            isDefender = true;
+           // atkCount = 0;
+        }
+    }    
+    if((topOff || turnOff)){
+        isDefender = false;
+    }
+    if(ballCap && millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
+        isDefender = false;
+    }
+    if(espnowDataRecv.inField == false || otherBotExists == false){ //check if the other bot is in the field
+        isDefender = true;
+    }
+    //DEBUG(espnowDataRecv.inField);
+}
 
 void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.20, FIELD_WIDTH - 0.20);
@@ -718,6 +756,8 @@ void loop(){
     getTopPlateData();
     getMidPlateData();
 
+    assignDef();
+
     if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
         absolute_ball_x = last_ball_x;
         absolute_ball_y = last_ball_y;
@@ -728,6 +768,9 @@ void loop(){
     if (curTime - esp_last_send >= 100){
         sendData();
         esp_last_send = curTime;
+    }
+        if(curTime - lastRecvTime > 1000){
+        otherBotExists = false;
     }
     for (int i  = 0; i < pbvx_size; i++){ //stores the last 50 values
         pbvx[i] = pbvx[i+1];
@@ -741,8 +784,7 @@ void loop(){
         pbvx[pbvx_size] = 0;
         pbvy[pbvx_size] = 0;  
     }
-    DEBUG(botID);
+
     updateSelfVelocityEWMA(RAD(self_heading), self_x, self_y); 
-    ballHide2();
 
 }
