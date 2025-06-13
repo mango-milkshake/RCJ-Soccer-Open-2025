@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <DribblerNew.h>
+#include <Dribbler.h>
 #include <Motor.h>
 #include <Adafruit_NeoPixel.h>
 
@@ -8,8 +8,8 @@
 #define MISO_PIN 13
 #define SCK_PIN 14
 #define CS_PIN 15
-#define DRIBBLER_IN1 48
-#define DRIBBLER_IN2 47
+#define DRIBBLER_IN1 47
+#define DRIBBLER_IN2 48
 #define DRIBBLER_NFAULT 21
 #define NSLEEP_PIN 6
 #define DRVOFF_PIN 7
@@ -63,6 +63,7 @@ void setup(){
 
     dribblerMD.init();
     dribblerMD.setMode();
+    analogWriteFrequency(100000);
 
     // while(!Serial.available());
     // while(Serial.available()) Serial.read();
