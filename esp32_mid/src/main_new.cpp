@@ -477,11 +477,6 @@ void loop(){
             bot.dribblerAim();
     }
 
-    DEBUG(self.x);
-    DEBUG(self.y);
-    DEBUG(move.x);
-    DEBUG(move.y);
-
     // send moving command to motors
     movement(move.x, move.y, move.rotation);
 
