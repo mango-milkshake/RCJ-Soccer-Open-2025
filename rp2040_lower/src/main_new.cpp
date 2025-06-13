@@ -46,7 +46,7 @@ uint8_t IN2_pin[NUM_DRIVERS] = {6, 8, 10, 12};
 uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29};
 #endif
 
-uint8_t maxspeed = 80;
+uint8_t maxspeed = 130;
 
 Motor motorFL(IN1_pin[0], IN2_pin[0], NFAULT_pin[0], maxspeed, 1.0);
 Motor motorFR(IN1_pin[3], IN2_pin[3], NFAULT_pin[3], maxspeed, 1.0);
@@ -54,8 +54,8 @@ Motor motorBL(IN1_pin[1], IN2_pin[1], NFAULT_pin[1], maxspeed, 1.0);
 Motor motorBR(IN1_pin[2], IN2_pin[2], NFAULT_pin[2], maxspeed, 1.0);
 float lastFault = 0;
 
-Drive bot(motorFR, motorBR, motorBL, motorFL);
-float speedX = 0.0, speedY = 0.0, speed_xdir = 0.0, speed_ydir = 0.0, moveAngle = 0.0, rotation = 0.0;
+Drive bot(motorFR, motorBR, motorBL, motorFL, maxspeed);
+int speedX = 0, speedY = 0, speed_xdir = 0, speed_ydir = 0, moveAngle = 0, rotation = 0;
 
 void checkFault(){
     bool faulted = false;
