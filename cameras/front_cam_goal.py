@@ -59,9 +59,19 @@ def longest_consecutive_subarray(arr):
             max_idx = cur_idx
     return(arr[max_idx:max_idx+max_len])
 
+def pixel_blocked(lab):
+    #if (lab[1] < -15 or lab[0] > 60):
+    if (lab[0] > 60 and lab[1] > -25): #white
+        return False
+    if (lab[1] < -15 and lab[1] > -45): #green
+        return False
+    if (lab[2] < 5 and lab[1] < -5 and lab[1] > -30): #blue
+        return False
+    else:
+        return True
 
 threshold = (0, 100, 9, 76, 5, 76) # orange ball
-threshold_field = (0, 84, -50, -14, -33, 44)
+threshold_field = (0, 84, -50, -14, 2-33, 44)
 threshold_goal_blue = (0, 100, -20, 6, -29, -5)
 x = 0
 y = 0
@@ -71,7 +81,7 @@ sensor.set_pixformat(sensor.RGB565)  # Set pixel format to RGB565 (or GRAYSCALE)
 sensor.set_framesize(sensor.QVGA)  # Set frame size to QVGA (320x240)
 clock = time.clock()  # Create a clock object to track the FPS.
 sensor.set_auto_whitebal(False, rgb_gain_db =(1,0,1))
-sensor.set_auto_exposure(False, exposure_us=3000)  # Disable auto exposure
+sensor.set_auto_exposure(False, exposure_us=16000)  # Disable auto exposure
 sensor.set_auto_gain(False, gain_db = 2) # must be turned off for colour tracking
 sensor.skip_frames(time=200)  # Wait for settings take effect.
 
@@ -114,10 +124,11 @@ while True:
     rows = 5
     columns = 24
     y_separation = 10
-    goal_width = 4
+    goal_width = 5
+    central_bar_start = 80
     for i in range(columns): #check path to goal
        for j in range(rows):
-            pixel_x = int((i)*(280/columns)+50)
+            pixel_x = int((i)*((320-central_bar_start)/columns)+central_bar_start)
             pixel_y = int((120-y_separation*rows/2)+y_separation*j)
             rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
             lab = image.rgb_to_lab(rgb)
@@ -125,7 +136,7 @@ while True:
             #hsv = rgb_to_hsv(rgb)
             #print(rgb)
             #print(hsv)
-            if(lab[1] > -15):
+            if(pixel_blocked(lab)):
                 blocked_pixels += 1
                 img.draw_cross(pixel_x, pixel_y, color=(255,0,0), size=5)
             else:
@@ -135,11 +146,11 @@ while True:
         for i in range(int(240/y_separation)):
             for j in range(goal_width):
                 #make sure these pixels dont overlap with previous ones, they will detect the drawn white cross
-                pixel_x = int(j*(320/columns)+55)
+                pixel_x = int(j*(320/columns)+90)
                 pixel_y = int(i*y_separation)
                 rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
                 lab = image.rgb_to_lab(rgb)
-                if(lab[1] > -15):
+                if(pixel_blocked(lab)):
                     img.draw_cross(pixel_x, pixel_y, color=(255,0,0), size = 5)
                     open_goal.append(0) #pixel blocked
                 else:
