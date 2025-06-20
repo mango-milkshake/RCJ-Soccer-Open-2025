@@ -83,6 +83,7 @@ class Bot{
             bool aligned = false, moving_back;
             float initial_change = 0, initial_magnitude = 0;
             int last_moving_back = 0, aligning_time = 0, last_aligning = 0;
+            float dribblerDist = 0.60; // distance away from ball to turn on dribbler
         } balltrack;
 
         void ballTrack(){
@@ -187,6 +188,8 @@ class Bot{
             move.x = new_x;
             move.y = new_y;
             move.rotation = 90-DEG(absBallAngle);
+            if(distToBall <= balltrack.dribblerDist) move.dribblerSpeed = move.dribbler_maxspeed;
+            else move.dribblerSpeed = 0;
         }
 
         void dribblerAim(){
@@ -201,7 +204,7 @@ class Bot{
             if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
             if(ball.ballCap && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 move.kick = true;
-                move.dribblerSpeed = -1.0;
+                move.dribblerSpeed = -100;
             }
         }
 
@@ -302,7 +305,7 @@ class Bot{
                 }
             }
             return true;
-}
+        }
         float targetballposx = FIELD_WIDTH/2;
         float targetballposy = 0.80;
         float lastLAtargetx = 0, lastLAtargety = 0, lastLAtargetAngle = 0;
