@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#define MAX_CHANGE 10
+#define MAX_CHANGE 1
 
 class Motor {
     public:
@@ -19,8 +19,9 @@ class Motor {
 
         void setSpeed(float speed) {
             _speed = speed * _multiplier;
-            _speed = constrain(_speed, -1, 1);
-            _speedToSet = _speed * _maxspeed;
+            // _speed = constrain(_speed, -1, 1);
+            // _speedToSet = _speed * _maxspeed;
+            _speedToSet = constrain(_speed, -_maxspeed, _maxspeed);
             _speedToSet = constrain(_speedToSet, _lastSpeed-MAX_CHANGE, _lastSpeed+MAX_CHANGE);
             if (_speedToSet >= 0) {
                 analogWrite(_pin2, 0);
