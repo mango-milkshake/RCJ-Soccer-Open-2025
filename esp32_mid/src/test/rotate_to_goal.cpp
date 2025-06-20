@@ -373,7 +373,7 @@ void loop(){
             end_heading = goal_heading_left;
         }
         float target_heading = 0.5*(start_heading+end_heading);
-        DEBUG(target_heading);
+        // DEBUG(target_heading);
         movement(self.x, self.y, -1*target_heading + self.heading);
     }
     else{
