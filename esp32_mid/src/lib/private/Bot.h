@@ -475,13 +475,15 @@ class Bot{
             }
             
             else ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y - self.y, ball.absolute_x - self.x)) : 0;
-            movement(targetballposx, targetballposy, ballAngle_LA);
+            move.x = targetballposx;
+            move.y = targetballposy;
+            move.rotation = ballAngle_LA;
 
             lastLAtargetx = targetballposx;
             lastLAtargety = targetballposy;
             lastLAtargetAngle = ballAngle_LA;
             // DEBUG(ballAngle_LA);
-            }
+        }
     private:
         } bot;
 
