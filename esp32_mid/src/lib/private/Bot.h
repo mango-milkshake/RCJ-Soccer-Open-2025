@@ -433,8 +433,8 @@ class Bot{
                 else if (!moveToGoal && !ball.noBall && checkv(5, 200)){ // if last n values are within x of each other, update look ahead target
                     if(abs(times.curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
                         //switches target only if last switch target was sufficiently long ago
-                        esp_led.setPixelColor(0, esp_led.Color(0, 20, 0));
-                        esp_led.show();
+                        // esp_led.setPixelColor(0, esp_led.Color(0, 20, 0));
+                        // esp_led.show();
                         // Serial.println("look ahead called////////////////////////////////////////////////////////////");
                         lookAhead();
                         lastLookAhead = millis();
