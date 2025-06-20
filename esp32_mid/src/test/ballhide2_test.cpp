@@ -14,6 +14,8 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <WebSerial.h>
+#include <Data.h>
+#include <Bot.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -84,18 +86,18 @@ byte firstbyte = 5;
 float line_status[NUM_LINE_MUX];
 
 // PID
-float pid_def_rotate_default[3] = {0.7, 0, 0};
-float pid_def_x_default[3] = {3.5, 0, 0};
-float pid_def_y_default[3] = {3.5, 0, 0};
+float pid_def_rotate_default[3] = {12, 0, 0}; // 0.7
+float pid_def_x_default[3] = {120, 0, 0}; // 3.5
+float pid_def_y_default[3] = {120, 0, 0}; // 3.5
 
-float pid_att_rotate_default[3] = {0.3, 0, 0};
-float pid_att_x_default[3] = {2.2, 0, 0};
-float pid_att_y_default[3] = {2.2, 0, 0};
+float pid_att_rotate_default[3] = {12, 0, 0};
+float pid_att_x_default[3] = {120, 0, 0};
+float pid_att_y_default[3] = {120, 0, 0};
 
 PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
 PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000);
 PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000);
-float max_translation_pid_value = 1, max_rotation_pid_value = 1;
+
 
 // Dimensions
 #define FIELD_WIDTH 1.82
@@ -137,12 +139,6 @@ float max_translation_pid_value = 1, max_rotation_pid_value = 1;
 #define OSCILLATE_WAIT_TIME 2000
 
 // Variables
-float self_x = 0, self_y = 0, self_heading = 0;
-float ball_angle = 0, ball_dist = 0;
-float ball_vx = 0, ball_vy = 0;
-float relative_ball_x = 0, relative_ball_y = 0;
-float absolute_ball_x = 0, absolute_ball_y = 0;
-float last_ball_x = 0, last_ball_y = 0;
 bool noBall = false, ballCap = false, topOff = false, isOnLine = false;
 float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
 float speed_xdir, speed_ydir, rotation;
@@ -244,9 +240,9 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
 void sendData(){ //send data here
     //Define what values to send
     espnowData.isPresent = 2;
-    espnowData.xpos = self_x;
-    espnowData.ypos = self_y;
-    espnowData.heading = self_heading;
+    espnowData.xpos = self.x;
+    espnowData.ypos = self.y;
+    espnowData.heading = self.heading;
     espnowData.hasBall = ballCap ? true : false;
     espnowData.botID_comm = botID;
     
@@ -305,36 +301,36 @@ void getMidPlateData(){
         // Serial.print("Received bad data");
         return;
     }
-    ball_angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
-    ball_dist = (float)(midRcvBuffer[3] + (midRcvBuffer[4]<<8)) / 128;
-    // DEBUG(ball_angle);
-    // DEBUG(ball_dist);
+    ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
+    ball.dist = (float)(midRcvBuffer[3] + (midRcvBuffer[4]<<8)) / 128;
+    // DEBUG(ball.angle);
+    // DEBUG(ball.dist);
 
-    if(ball_angle==0 && ball_dist==0) {
+    if(ball.angle==0 && ball.dist==0) {
         noBall = true;
     }
     else {
         noBall = false;
         lastSeenBall = millis();
     }
-    // DEBUG(ball_angle);
-    // DEBUG(ball_dist);
+    // DEBUG(ball.angle);
+    // DEBUG(ball.dist);
 
-    float relative_angle = 90 - (ball_angle + self_heading); 
-    relative_ball_x = (ball_dist * cosf(RAD(relative_angle))) / 100;
-    relative_ball_y = (ball_dist * sinf(RAD(relative_angle))) / 100;
+    float relative_angle = 90 - (ball.angle + self.heading); 
+    ball.relative_x = (ball.dist * cosf(RAD(relative_angle))) / 100;
+    ball.relative_y = (ball.dist * sinf(RAD(relative_angle))) / 100;
 
-    absolute_ball_x = relative_ball_x + self_x;
-    absolute_ball_y = relative_ball_y + self_y;
+    ball.absolute_x = ball.relative_x + self.x;
+    ball.absolute_y = ball.relative_y + self.y;
 }
 
 void getTopPlateData(){
     bool status = topUART.uartRead((byte)5);
     if(status){
-        self_x = (float)(topBuffer[1] + (topBuffer[2]<<8)) / 128;
-        self_y = (float)(topBuffer[3] + (topBuffer[4]<<8)) / 128;
-        self_heading = (float)(topBuffer[6] + (topBuffer[7]<<8)) / 128;
-        if(topBuffer[5]==0) self_heading *= -1;
+        self.x = (float)(topBuffer[1] + (topBuffer[2]<<8)) / 128;
+        self.y = (float)(topBuffer[3] + (topBuffer[4]<<8)) / 128;
+        self.heading = (float)(topBuffer[6] + (topBuffer[7]<<8)) / 128;
+        if(topBuffer[5]==0) self.heading *= -1;
         if(topBuffer[8]==1) topOff = true;
         else topOff = false;
     }
@@ -374,15 +370,15 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
     float inst_vw = (current_self_w - last_self_w) / dt;
     float inst_vx = (current_self_x - last_self_x) / dt;  
     float inst_vy = (current_self_y - last_self_y) / dt; 
-    if((absolute_ball_x == 0 && absolute_ball_y == 0) || (absolute_ball_x != last_top_absolute_ball_x || absolute_ball_y != last_top_absolute_ball_y)) {   
-        inst_ball_vx = (absolute_ball_x - last_top_absolute_ball_x) / dt_ball;
-        inst_ball_vy = (absolute_ball_y - last_top_absolute_ball_y) / dt_ball;
+    if((ball.absolute_x == 0 && ball.absolute_y == 0) || (ball.absolute_x != last_top_absolute_ball_x || ball.absolute_y != last_top_absolute_ball_y)) {   
+        inst_ball_vx = (ball.absolute_x - last_top_absolute_ball_x) / dt_ball;
+        inst_ball_vy = (ball.absolute_y - last_top_absolute_ball_y) / dt_ball;
         updatedBallV = true;
     }
     else{
         updatedBallV = false;
     }
-    // DEBUG(absolute_ball_x);
+    // DEBUG(ball.absolute_x);
     // DEBUG(absolute_ball_y);
     // DEBUG(updatedBallV);
     // DEBUG(dt_ball);
@@ -392,22 +388,22 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
     self_velocityx = 0.2f * inst_vx + (0.8f) * self_velocityx;
     self_velocityy = 0.2f * inst_vy + (0.8f) * self_velocityy;
     if (updatedBallV && !noBall && abs(pow((inst_ball_vx*inst_ball_vx+inst_ball_vy*inst_ball_vy),0.5)) < 4){    
-        ball_vx = 0.5f * inst_ball_vx + (0.5f) * ball_vx;
-        ball_vy = 0.5f * inst_ball_vy + (0.5f) * ball_vy;
+        ball.vx = 0.5f * inst_ball_vx + (0.5f) * ball.vx;
+        ball.vy = 0.5f * inst_ball_vy + (0.5f) * ball.vy;
     }
     else if(abs(pow((inst_ball_vx*inst_ball_vx+inst_ball_vy*inst_ball_vy),0.5)) > 4){
         // Serial.println("anomalous data cancelled");
     }
     // DEBUG(noBall);
-    // DEBUG(absolute_ball_x);
+    // DEBUG(ball.absolute_x);
     // DEBUG(absolute_ball_y);
 
     // Save current data for next iteration
     last_self_w = current_self_w;
     last_self_x = current_self_x;
     last_self_y = current_self_y;
-    last_top_absolute_ball_x = absolute_ball_x;
-    last_top_absolute_ball_y = absolute_ball_y;
+    last_top_absolute_ball_x = ball.absolute_x;
+    last_top_absolute_ball_y = ball.absolute_y;
     last_vel_time = now;
     // DEBUG(self_velocityx);
     // DEBUG(self_velocityy);
@@ -415,40 +411,43 @@ void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float cu
     // DEBUG(ball_vy);
 }
 
-
+void sendMotorData(){ // fill bottomSendBuffer with desired data before calling this function
+    bottomUART.uartWrite();
+}
 
 void movement(float target_x, float target_y, float target_rotation){
     target_x = constrain(target_x, 0.20, FIELD_WIDTH - 0.20);
-    if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
+    if(self.x > FIELD_MARGIN_X && self.x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
     else target_y = constrain(target_y, 0.20, FIELD_HEIGHT - 0.20);
 
-    float x_dist = target_x - self_x, y_dist = target_y - self_y;
+    float x_dist = target_x - self.x, y_dist = target_y - self.y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
-    float total_angle = PI/2 - atan2(y_dist, x_dist) - RAD(self_heading); // in radians
+    // float total_angle = PI/2 - atan2(y_dist, x_dist) - RAD(self.heading); // in radians
+    float total_angle = atan2(y_dist, x_dist) + RAD(self.heading) - PI/4; // in radians
 
-    float rotation_dist = self_heading - target_rotation;
+    float rotation_dist = self.heading - target_rotation;
     while(rotation_dist > 180) rotation_dist -= 360;
     while(rotation_dist < -180) rotation_dist += 360;
 
     float shifted_x_dist = total_dist * sinf(total_angle);
     float shifted_y_dist = total_dist * cosf(total_angle);
 
-    if(ballCap){
-        max_translation_pid_value = 0.5;
-        max_rotation_pid_value = 0.25;
-    }
-    else {
-        max_translation_pid_value = 1;
-        max_rotation_pid_value = 1;
-    }
+    // if(ball.ballCap){
+    //     move.max_translation = 0.5;
+    //     move.max_rotation = 0.25;
+    // }
+    // else {
+    //     move.max_translation = 1;
+    //     move.max_rotation = 1;
+    // }
 
     speed_xdir = pid_x.compute(0, shifted_x_dist);
     speed_ydir = pid_y.compute(0, shifted_y_dist);
-    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), -max_rotation_pid_value, max_rotation_pid_value);
+    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), move.min_rotation, move.max_rotation);
 
     float maxPID = max(abs(speed_xdir), abs(speed_ydir));
-    if(maxPID > max_translation_pid_value){
-        float k = max_translation_pid_value/maxPID;
+    if(maxPID > move.max_translation){
+        float k = move.max_translation/maxPID;
         speed_xdir *= k;
         speed_ydir *= k;
     }
@@ -460,15 +459,13 @@ void movement(float target_x, float target_y, float target_rotation){
     else speed_x_sign = 0;
     if(copysign(1, speed_ydir)==1) speed_y_sign = 1;
     else speed_y_sign = 0;
-    uint8_t rounded_rotation = floor(abs(rotation) * 255);
-    uint8_t rounded_speed_x = floor(abs(speed_xdir) * 255);
-    uint8_t rounded_speed_y = floor(abs(speed_ydir) * 255);
+    uint8_t rounded_rotation = ((int)floor(abs(rotation))) & 0xFF;
+    uint8_t rounded_speed_x = ((int)floor(abs(speed_xdir))) & 0xFF;
+    uint8_t rounded_speed_y = ((int)floor(abs(speed_ydir))) & 0xFF;
 
     bottomSendBuffer[0] = 5;
-    if(turnOff || topOff){
+    if(switches.turnOff || switches.topOff){
         for (int i=1; i<BOTTOM_DATA_LEN; i++) bottomSendBuffer[i] = 0;
-        // DEBUG(turnOff);
-        // DEBUG(topOff);
     }
     else{
         bottomSendBuffer[1] = speed_x_sign;
@@ -478,7 +475,7 @@ void movement(float target_x, float target_y, float target_rotation){
         bottomSendBuffer[5] = rotation_sign;
         bottomSendBuffer[6] = rounded_rotation;
     }
-    bottomUART.uartWrite();
+    sendMotorData();
 }
 
 int ballhide_test_x = 0.50;
@@ -487,22 +484,24 @@ void ballHide2(){
     if(botID == 1){
       /*
         if (moving_right){
-            movement(self_x + 0.05, self_y, 0);
+            movement(self.x + 0.05, self.y, 0);
         }
         else{
-            movement(self_x - 0.05, self_y, 0);
+            movement(self.x - 0.05, self.y, 0);
         }
-        if (self_x >= 1.2){
+        if (self.x >= 1.2){
             moving_right = false;
         }
-        if (self_x <= 0.7){
+        if (self.x <= 0.7){
             moving_right = true;
         } */
     }
     else if(botID == 2){
         float target_x = espnowDataRecv.xpos + 0.3*sin(RAD(espnowDataRecv.heading));
         float target_y = espnowDataRecv.ypos + 0.3*cos(RAD(espnowDataRecv.heading));
-        float target_heading = 90-DEG(atan2(espnowDataRecv.ypos - self_y, espnowDataRecv.xpos - self_x));
+        float target_heading = 90-DEG(atan2(espnowDataRecv.ypos - self.y, espnowDataRecv.xpos - self.x));
+        DEBUG(target_x);
+        DEBUG(target_y);
         movement(target_x, target_y, target_heading);
     }
 }
@@ -532,10 +531,10 @@ void lookAhead(){
     //     // DEBUG(LAball_vx);
     // }
     //look ahead uses relative position and absolute velocity
-    LAball_x = relative_ball_x;
-    LAball_y = relative_ball_y;
-    LAball_vx = ball_vx;
-    LAball_vy = ball_vy;
+    LAball_x = ball.relative_x;
+    LAball_y = ball.relative_y;
+    LAball_vx = ball.vx;
+    LAball_vy = ball.vy;
     // LAball_vx -= self_velocityx;
     // LAball_vy -= self_velocityy;
 
@@ -582,15 +581,15 @@ void lookAhead(){
     t += 0.3;
     targetballposx = LAball_x + LAball_vx*t;
     targetballposy = LAball_y + LAball_vy*t;
-    targetballposx += self_x; 
-    targetballposy += self_y;
+    targetballposx += self.x; 
+    targetballposy += self.y;
     targetheadinglookahead = atan2(targetballposy,targetballposx);
     // DEBUG(targetballposx);
     // DEBUG(targetballposy);
     // DEBUG(LAball_vx);
     // DEBUG(LAball_vy);
-    // DEBUG(self_x);
-    // DEBUG(self_y);
+    // DEBUG(self.x);
+    // DEBUG(self.y);
     // DEBUG(t);
     // DEBUG(lookAheadConfirm);
  
@@ -719,8 +718,8 @@ void loop(){
     getMidPlateData();
 
     if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
-        absolute_ball_x = last_ball_x;
-        absolute_ball_y = last_ball_y;
+        ball.absolute_x = ball.last_x;
+        ball.absolute_y = ball.last_y;
         // noBall = false;
         tooklastball = true;
     }
@@ -734,14 +733,14 @@ void loop(){
         pbvy[i] = pbvy[i+1];
     }
     if (!noBall){
-        pbvx[pbvx_size] = ball_vx;
-        pbvy[pbvx_size] = ball_vy;
+        pbvx[pbvx_size] = ball.vx;
+        pbvy[pbvx_size] = ball.vy;
     }
     else{
         pbvx[pbvx_size] = 0;
         pbvy[pbvx_size] = 0;  
     }
     DEBUG(botID);
-    updateSelfVelocityEWMA(RAD(self_heading), self_x, self_y); 
+    updateSelfVelocityEWMA(RAD(self.heading), self.x, self.y); 
     ballHide2();
 }
