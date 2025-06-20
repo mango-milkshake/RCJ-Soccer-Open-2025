@@ -33,6 +33,7 @@ struct Movement{
     float dribblerSpeed = 0;
     int min_translation = -40, max_translation = 40;
     int min_rotation = -25, max_rotation = 25;
+    int dribbler_maxspeed = 150, dribblerSpeed = 0;
 } move;
 
 struct State{
