@@ -303,7 +303,7 @@ void motorTest(){
     bottomSendBuffer[3] = 1;
     bottomSendBuffer[4] = 0;
     bottomSendBuffer[5] = 1;
-    bottomSendBuffer[6] = 255;
+    bottomSendBuffer[6] = 30;
     sendMotorData();
 }
 
@@ -312,7 +312,7 @@ void moveForward(){
     bottomSendBuffer[1] = 1;
     bottomSendBuffer[2] = 0;
     bottomSendBuffer[3] = 1;
-    bottomSendBuffer[4] = 255;
+    bottomSendBuffer[4] = 30;
     bottomSendBuffer[5] = 1;
     bottomSendBuffer[6] = 0;
     sendMotorData();
