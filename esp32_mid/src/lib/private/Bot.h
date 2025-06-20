@@ -485,6 +485,6 @@ class Bot{
             // DEBUG(ballAngle_LA);
         }
     private:
-        } bot;
+} bot;
 
-        #endif
+#endif
