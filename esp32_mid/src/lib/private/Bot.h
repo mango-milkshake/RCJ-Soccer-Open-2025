@@ -115,20 +115,14 @@ class Bot{
                 balltrack.aligning_time = millis() - balltrack.last_aligning;
                 new_x = ball.absolute_x;
                 if((balltrack.aligning_time > ALIGN_DURATION && balltrack.aligning_time < ALIGN_TIME_THRESHOLD) || abs(self.x - ball.absolute_x) < BALLCAP_WIDTH/2){
-                if((balltrack.aligning_time > ALIGN_DURATION && balltrack.aligning_time < ALIGN_TIME_THRESHOLD) || abs(self.x - ball.absolute_x) < BALLCAP_WIDTH/2){
                     new_y = fmax(ball.absolute_y - BALLCAP_DISTANCE, self.y + 0.03);
-                    Serial.println("aligning 1");
-                }
                     Serial.println("aligning 1");
                 }
                 else{
                     if(balltrack.aligning_time > ALIGN_TIME_THRESHOLD) balltrack.last_aligning = millis();
-                    if(balltrack.aligning_time > ALIGN_TIME_THRESHOLD) balltrack.last_aligning = millis();
                     new_y = ball.absolute_y - BALLCAP_DISTANCE;
                     Serial.println("aligning 2");
-                    Serial.println("aligning 2");
                 }
-                new_y = ball.absolute_y; // testing, remove me later idk
                 new_y = ball.absolute_y; // testing, remove me later idk
             }
 
@@ -432,10 +426,6 @@ class Bot{
                 // else if (sqrtf(ball.vx*ball.vx + ball.vy*ball.vy) < 0.15){} //don't look ahead if velocity is too small
                 else if (!moveToGoal && !ball.noBall && checkv(5, 200)){ // if last n values are within x of each other, update look ahead target
                     if(abs(times.curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
-                        //switches target only if last switch target was sufficiently long ago
-                        // esp_led.setPixelColor(0, esp_led.Color(0, 20, 0));
-                        // esp_led.show();
-                        // Serial.println("look ahead called////////////////////////////////////////////////////////////");
                         lookAhead();
                         lastLookAhead = millis();
                     }

@@ -223,8 +223,8 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     //     Serial.println("Failed to read MAC address");
     // }
     //const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}; //cooked
-    const uint8_t MAC_1[6] = {0x28, 0x37, 0x2f, 0x85, 0x9d, 0x54}; // id 1 (yes googly eyes)
-    const uint8_t MAC_2[6] = {0xd8, 0x3b, 0xda, 0x7f, 0x6a, 0xf4}; // id 2 (no googly eyes, follows bot 1)
+    const uint8_t MAC_1[6] = {0xd8, 0x3b, 0xda, 0x7c, 0xf2, 0x14}; // id 1 (yes googly eyes)
+    const uint8_t MAC_2[6] = {0xd8, 0x3b, 0xda, 0x7c, 0x38, 0x18}; // id 2 (follows bot 1)
     //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
