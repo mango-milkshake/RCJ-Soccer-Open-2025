@@ -128,7 +128,6 @@ class Bot{
             float xToBall = ball.absolute_x - self.x, yToBall = ball.absolute_y - self.y;
             float absBallAngle = atan2(yToBall, xToBall);
             LIM_ANGLE_180(absBallAngle);
-
  
             move.x = new_x;
             move.y = new_y;
@@ -136,7 +135,6 @@ class Bot{
         }
 
         void aim(){
-
             if(!balltrack.aligned){
                 if(abs(self.x - ball.absolute_x) < ALIGN_THRESHOLD) balltrack.aligned = true;
                 move.x = ball.absolute_x;
