@@ -484,6 +484,48 @@ class Bot{
             lastLAtargetAngle = ballAngle_LA;
             // DEBUG(ballAngle_LA);
         }
+
+        struct BallHide{
+            bool state;
+            float x_margin = 0.35, target_xpos = 0.25;
+            float y_margin = 1.90, target_ypos = 2.0;
+            float target_angle = 90;
+            int timee = 1000;
+        } ballhide;
+
+        void ballHide(){
+            if(ball.ballCap && millis() - ball.lastNoBallCap < ballhide.timee){
+                move.dont_move = true;
+                return;
+            }
+            if(self.x < FIELD_WIDTH/2)  ballhide.state = false; // left side
+            else ballhide.state = true; // right side
+            if(self.y > ballhide.y_margin) dribblerAim();
+            else if(self.x > ballhide.x_margin && self.x < FIELD_WIDTH - ballhide.x_margin){
+                // move to side of field
+                move.y = self.y;
+                if(ballhide.state){
+                    move.x = FIELD_WIDTH - ballhide.target_xpos;
+                    move.rotation = ballhide.target_angle;
+                }
+                else{
+                    move.x = ballhide.target_xpos;
+                    move.rotation = -ballhide.target_angle;
+                }
+            }
+            else {
+                move.y = ballhide.target_ypos;
+                if(ballhide.state){
+                    move.x = FIELD_WIDTH - ballhide.target_xpos;
+                    move.rotation = ballhide.target_angle;
+                }
+                else{
+                    move.x = ballhide.target_xpos;
+                    move.rotation = -ballhide.target_angle;
+                }
+            }
+        }
+
     private:
 } bot;
 
