@@ -86,11 +86,11 @@ byte firstbyte = 5;
 float line_status[NUM_LINE_MUX];
 
 // PID
-float pid_def_rotate_default[3] = {12, 0, 0}; // 0.7
+float pid_def_rotate_default[3] = {10, 0, 0}; // 0.7
 float pid_def_x_default[3] = {120, 0, 0}; // 3.5
 float pid_def_y_default[3] = {120, 0, 0}; // 3.5
 
-float pid_att_rotate_default[3] = {12, 0, 0};
+float pid_att_rotate_default[3] = {10, 0, 0};
 float pid_att_x_default[3] = {120, 0, 0};
 float pid_att_y_default[3] = {120, 0, 0};
 
@@ -173,8 +173,8 @@ void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //in
     lastRecvTime = millis();
     // DEBUG(espnowDataRecv.isPresent);
     // DEBUG(espnowDataRecv.inField);
-    DEBUG(espnowDataRecv.xpos);
-    DEBUG(espnowDataRecv.ypos);
+    // DEBUG(espnowDataRecv.xpos);
+    // DEBUG(espnowDataRecv.ypos);
     // DEBUG(espnowDataRecv.def);
     // DEBUG(espnowDataRecv.hasBall);
     // Serial.println("received data");
@@ -237,11 +237,13 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     }
 }
 
+float target_x_comm = self.x;
+float target_y_comm = self.y;
 void sendData(){ //send data here
     //Define what values to send
     espnowData.isPresent = 2;
-    espnowData.xpos = self.x;
-    espnowData.ypos = self.y;
+    espnowData.xpos = target_x_comm;
+    espnowData.ypos = target_y_comm;
     espnowData.heading = self.heading;
     espnowData.hasBall = ballCap ? true : false;
     espnowData.botID_comm = botID;
@@ -331,8 +333,8 @@ void getTopPlateData(){
         self.y = (float)(topBuffer[3] + (topBuffer[4]<<8)) / 128;
         self.heading = (float)(topBuffer[6] + (topBuffer[7]<<8)) / 128;
         if(topBuffer[5]==0) self.heading *= -1;
-        if(topBuffer[8]==1) topOff = true;
-        else topOff = false;
+        if(topBuffer[8]==1) switches.topOff = true;
+        else switches.topOff = false;
     }
 }
 
@@ -478,31 +480,35 @@ void movement(float target_x, float target_y, float target_rotation){
     sendMotorData();
 }
 
+
 int ballhide_test_x = 0.50;
 bool moving_right = true;
 void ballHide2(){
     if(botID == 1){
-      /*
+        target_y_comm = self.y;
         if (moving_right){
-            movement(self.x + 0.05, self.y, 0);
+            target_x_comm = self.x + 0.05;
+            movement(target_x_comm, self.y, 180);
         }
         else{
-            movement(self.x - 0.05, self.y, 0);
+            target_x_comm = self.x - 0.05;
+            movement(target_x_comm, self.y, 180);
         }
         if (self.x >= 1.2){
             moving_right = false;
         }
         if (self.x <= 0.7){
             moving_right = true;
-        } */
+        } 
     }
     else if(botID == 2){
-        float target_x = espnowDataRecv.xpos + 0.3*sin(RAD(espnowDataRecv.heading));
-        float target_y = espnowDataRecv.ypos + 0.3*cos(RAD(espnowDataRecv.heading));
+        float target_x = espnowDataRecv.xpos + 0.8*sin(RAD(espnowDataRecv.heading));
+        float target_y = espnowDataRecv.ypos + 0.8*cos(RAD(espnowDataRecv.heading));
         float target_heading = 90-DEG(atan2(espnowDataRecv.ypos - self.y, espnowDataRecv.xpos - self.x));
-        DEBUG(target_x);
+        DEBUG(espnowDataRecv.ypos);
         DEBUG(target_y);
-        movement(target_x, target_y, target_heading);
+        // movement(target_x, target_y, 0);
+        movement(target_x, 1, 0);
     }
 }
 
@@ -716,6 +722,7 @@ void loop(){
 
     getTopPlateData();
     getMidPlateData();
+    ballHide2();
 
     if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
         ball.absolute_x = ball.last_x;
@@ -724,7 +731,7 @@ void loop(){
         tooklastball = true;
     }
     else tooklastball = false;
-    if (curTime - esp_last_send >= 100){
+    if (curTime - esp_last_send >= 250){
         sendData();
         esp_last_send = curTime;
     }
@@ -740,7 +747,9 @@ void loop(){
         pbvx[pbvx_size] = 0;
         pbvy[pbvx_size] = 0;  
     }
-    DEBUG(botID);
+    // DEBUG(botID);
     updateSelfVelocityEWMA(RAD(self.heading), self.x, self.y); 
-    ballHide2();
+    // switches.turnOff = false;
+    // switches.topOff = false;
+
 }
