@@ -13,7 +13,7 @@ class MotorDriver {
             pinMode(_nsleep, OUTPUT);
             pinMode(_drvoff, OUTPUT);
             pinMode(_ipropi, INPUT);
-            analogWriteFrequency(100000);
+            analogWriteFrequency(25000);
         }
 
         void init(){
