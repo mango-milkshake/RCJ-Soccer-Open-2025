@@ -36,7 +36,7 @@
 #define ESP_LED 48
 int ESP_BRIGHTNESS = 20;
 #define BLINK_TIME 50
-// Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 // to check if code is running
 bool esp_led_state = true;
 float lastLED = 0;
@@ -356,9 +356,9 @@ void setup(){
     state.curStratIdx = 0;
     state.lastChange = millis();
 
-    // esp_led.begin();
-    // esp_led.setBrightness(ESP_BRIGHTNESS);
-    // esp_led.show();
+    esp_led.begin();
+    esp_led.setBrightness(ESP_BRIGHTNESS);
+    esp_led.show();
 
 }
 
@@ -409,24 +409,24 @@ void loop(){
     // decide strategy type
     if(ball.ballCap) {
         state.curType = 2; // score
-        // esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
+        esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
     }
     else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
         // Serial.println("using last ball pos");
         ball.absolute_x = ball.last_x;
         ball.absolute_y = ball.last_y;
         state.curType = 1;
-        // esp_led.setPixelColor(0, esp_led.Color(50, 50, 50));
+        esp_led.setPixelColor(0, esp_led.Color(50, 50, 50));
     }
     else if(ball.noBall) {
         state.curType = 0; // no ball
-        // esp_led.setPixelColor(0, esp_led.Color(0, 0, 50));
+        esp_led.setPixelColor(0, esp_led.Color(0, 0, 50));
     }
     else {
         state.curType = 1; // ball track
-        // esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+        esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
     }
-    // esp_led.show();
+    esp_led.show();
 
     // decide specific strategy
     if(state.curType != state.lastType){
