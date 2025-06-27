@@ -63,7 +63,8 @@ struct State{
         DRIBBLER_BALL_TRACK = 5,
         DRIBBLER_SCORE = 6,
         DEFEND = 7,
-        ATTACK_MODE1 = 8
+        ATTACK_MODE1 = 8,
+        ATTACK_MODE2 = 9
     } strategies;
 } state;
 
