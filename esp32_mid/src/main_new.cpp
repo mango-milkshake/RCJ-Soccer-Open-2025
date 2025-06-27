@@ -484,7 +484,7 @@ void loop(){
     movement(move.x, move.y, move.rotation);
 
     // kicker
-    // if(move.kick) kicker.kick();
+    if(move.kick) kicker.kick();
 
     // dribbler
     // if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
