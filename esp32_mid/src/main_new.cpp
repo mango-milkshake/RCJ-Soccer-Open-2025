@@ -434,6 +434,23 @@ void loop(){
     }
     esp_led.show();
 
+    if(ball.ballCap > 0){
+        move.max_translation = move.translation_ballcap, move.min_translation = -move.translation_ballcap;
+        // rotation positive is counterclockwise
+        if(ball.ballCap == 1){
+            move.min_rotation = -move.rotation_ballcap;
+        }
+        else move.min_rotation = -move.rotation_lowered;
+        if(ball.ballCap == 3){
+            move.max_rotation = move.rotation_ballcap;
+        }
+        else move.max_rotation = move.rotation_lowered;
+    }
+    else{
+        move.max_translation = move.translation_default, move.min_translation = -move.translation_default;
+        move.max_rotation = move.rotation_default, move.min_translation = -move.rotation_default;
+    }
+
     // decide specific strategy
     if(state.curType != state.lastType){
         state.curStratIdx = 0;
