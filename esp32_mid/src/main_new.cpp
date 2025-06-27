@@ -287,6 +287,12 @@ void movement(float target_x, float target_y, float target_rotation){
     sendMotorData();
 }
 
+void stop_motors(){
+    bottomSendBuffer[0] = 5;
+    for (int i=1; i<BOTTOM_DATA_LEN; i++) bottomSendBuffer[i] = 0;
+    sendMotorData();
+}
+
 //// ** TESTING ** ////
 
 void motorTest(){
@@ -393,6 +399,7 @@ void loop(){
     else switches.motorTest = false;
 
     move.kick = false;
+    move.dont_move = false;
 
     // temp ball cap via cam
     // if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
@@ -484,7 +491,9 @@ void loop(){
     }
 
     // send moving command to motors
-    movement(move.x, move.y, move.rotation);
+    if(switches.turnOff || switches.topOff) move.dont_move = true;
+    if(move.dont_move) stop_motors();
+    else movement(move.x, move.y, move.rotation);
 
     // kicker
     if(move.kick) kicker.kick();
