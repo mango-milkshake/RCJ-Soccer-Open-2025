@@ -12,7 +12,7 @@ Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 
 #define CLOCKWISE
 #ifdef CLOCKWISE
-#define MOTOR_SPEED 1.0
+#define MOTOR_SPEED 50
 #else
 #define MOTOR_SPEED -1.0
 #endif
