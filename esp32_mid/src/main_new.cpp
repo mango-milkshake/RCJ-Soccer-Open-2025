@@ -24,7 +24,7 @@
 #define DEBUG(x) 123;
 #endif
 
-#define TESTING
+// #define TESTING
 
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
