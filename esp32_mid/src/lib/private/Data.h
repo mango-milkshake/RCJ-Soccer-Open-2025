@@ -12,7 +12,8 @@ struct Ball{
     float relative_x = 0, relative_y = 0;
     float absolute_x = 0, absolute_y = 0;
     float last_x = 0, last_y = 0;
-    bool noBall = false, ballCap = false;
+    bool noBall = false;
+    int ballCap = 0;
     int lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = 0;
     
 } ball;

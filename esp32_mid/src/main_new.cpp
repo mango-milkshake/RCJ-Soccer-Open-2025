@@ -218,7 +218,10 @@ void getBottomPlateData(){
         return;
     }   
 
-    ball.ballCap = (bool) bottomRcvBuffer[1];
+    ball.ballCap = bottomRcvBuffer[1];
+    if(ball.ballCap > 0) ball.lastBallCap = millis();
+    else ball.lastNoBallCap = millis();
+    
     self.line_status = bottomRcvBuffer[2];
     if(self.line_status > 0) self.onLine = true;
     else self.onLine = false;
@@ -247,15 +250,6 @@ void movement(float target_x, float target_y, float target_rotation){
 
     float shifted_x_dist = total_dist * sinf(total_angle);
     float shifted_y_dist = total_dist * cosf(total_angle);
-
-    // if(ball.ballCap){
-    //     move.max_translation = 0.5;
-    //     move.max_rotation = 0.25;
-    // }
-    // else {
-    //     move.max_translation = 1;
-    //     move.max_rotation = 1;
-    // }
 
     speed_xdir = pid_x.compute(0, shifted_x_dist);
     speed_ydir = pid_y.compute(0, shifted_y_dist);
@@ -396,20 +390,14 @@ void loop(){
     move.kick = false;
 
     // temp ball cap via cam
-    if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
-        ball.ballCap = true;
-        ball.lastBallCap = millis();
-    }
-    else if(millis() - ball.lastBallCap <= 1000) ball.ballCap = true;
-    else {
-        ball.ballCap = false; 
-        ball.lastNoBallCap = millis();
-    }
-
-    // if(ball.noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    // if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
+    //     ball.ballCap = 2;
+    //     ball.lastBallCap = millis();
+    // }
+    // else if(millis() - ball.lastBallCap <= 1000) ball.ballCap = 2;
     // else {
-    //     bot.dribblerBallTrack();
-    //     movement(move.x, move.y, move.rotation);
+    //     ball.ballCap = 0; 
+    //     ball.lastNoBallCap = millis();
     // }
 
     // decide strategy type

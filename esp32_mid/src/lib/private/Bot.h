@@ -162,7 +162,7 @@ class Bot{
             LIM_ANGLE_180(minAngleFace);
             LIM_ANGLE_180(maxAngleFace);
             if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
-            if(ball.ballCap && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
+            if(ball.ballCap > 0 && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 move.kick = true;
             }
             float xToBall = ball.absolute_x - self.x, yToBall = ball.absolute_y - self.y;
@@ -196,7 +196,7 @@ class Bot{
             LIM_ANGLE_180(minAngleFace);
             LIM_ANGLE_180(maxAngleFace);
             if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
-            if(ball.ballCap && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
+            if(ball.ballCap > 0 && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 move.kick = true;
                 move.dribblerSpeed = -100;
             }
