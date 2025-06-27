@@ -162,7 +162,7 @@ void getMidPlateData(){
         }
     }
     if(midRcvBuffer[0]!=firstbyte) {
-        Serial.print("Received mid bad data");
+        // Serial.print("Received mid bad data");
         return;
     }
     ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
@@ -204,17 +204,17 @@ void getTopPlateData(){
 void getBottomPlateData(){
     byte num_bytes = Wire1.requestFrom(BOTTOM_I2C_ADDR, BOTTOM_I2C_DATA_LEN);
     if(num_bytes != BOTTOM_I2C_DATA_LEN){
-        Serial.print("Received bottom bad data: ");
+        // Serial.print("Received bottom bad data: ");
         return;
     }
-    else Serial.print("Received: ");
+    // else Serial.print("Received: ");
     for (int i=0; i<BOTTOM_I2C_DATA_LEN; i++) {
         if (Wire1.available()) {
             bottomRcvBuffer[i] = Wire1.read();
         }
     }
     if(bottomRcvBuffer[0]!=firstbyte) {
-        Serial.print("Received bad data");
+        // Serial.print("Received bad data");
         return;
     }   
 
@@ -451,32 +451,32 @@ void loop(){
             bot.moveToPoint(0.60, 0.80, 0);
             break;
         case State::Strategies::MOVE_TO_POINT:
-            Serial.println("move to centre");
+            // Serial.println("move to centre");
             bot.moveToPoint(FIELD_WIDTH/2, 0.80 /* FIELD_HEIGHT/2 */, 0);
             break;
         
         case State::Strategies::OSCILLATE_ABOUT_POINT:
-            Serial.println("oscillate");
+            // Serial.println("oscillate");
             bot.oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.50);
             break;
 
         case State::Strategies::NO_DRIBBLER_BALL_TRACK:
-            Serial.println("no dribbler ball track");
+            // Serial.println("no dribbler ball track");
             bot.ballTrack();
             break;
         
         case State::Strategies::DRIBBLER_BALL_TRACK:
-            Serial.println("dribbler ball track");
+            // Serial.println("dribbler ball track");
             bot.dribblerBallTrack();
             break;
         
         case State::Strategies::NO_DRIBBLER_SCORE:
-            Serial.println("no dribbler score");
+            // Serial.println("no dribbler score");
             bot.aim();
             break;
         
         case State::Strategies::DRIBBLER_SCORE:
-            Serial.println("dribbler score");
+            // Serial.println("dribbler score");
             bot.dribblerAim();
     }
 
