@@ -37,8 +37,7 @@ int c[NUM_CHECK];
 bool avg_filled = false, check_filled = false;
 float sum_avg = 0, sum_check = 0, avgV = 0;
 
-#define MAX_VOLTAGE 0.05
-#define STOP_TIME 2000
+#define MAX_VOLTAGE 0.1
 
 void checkFault(){
     bool faulted = false;
