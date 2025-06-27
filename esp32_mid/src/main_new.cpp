@@ -91,8 +91,7 @@ byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN];
 #define DRVOFF_PIN 7
 #define IPROPI_PIN 5
 MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN, IPROPI_PIN);
-uint8_t dribbler_maxspeed = 100;
-Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
+Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, move.dribbler_maxspeed, 1.0);
 
 // Kicker
 #define KICKER_PIN 11
