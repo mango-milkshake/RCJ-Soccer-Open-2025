@@ -475,45 +475,52 @@ class Bot{
             // DEBUG(ballAngle_LA);
         }
 
+        struct Along{
+            float margin = 0.10;
+        } along;
+
+        void moveAlongX(float target_x, float target_y, float target_angle){
+            // align y then move along x
+            if(self.y >= target_y - along.margin && self.y <= target_y + along.margin){
+                move.x = target_x;
+                move.y = self.y;
+            }
+            else{
+                move.x = self.x;
+                move.y = target_y;
+            }
+            move.rotation = target_angle;
+        }
+
+        void moveAlongY(float target_x, float target_y, float target_angle){
+            // align x then move along y
+            if(self.x >= target_x - along.margin && self.x <= target_x + along.margin){
+                move.x = self.x;
+                move.y = target_y;
+            }
+            else{
+                move.x = target_x;
+                move.y = self.y;
+            }
+            move.rotation = target_angle;
+        }
+
         struct BallHide{
-            bool state;
-            float x_margin = 0.35, target_xpos = 0.25;
-            float y_margin = 1.90, target_ypos = 2.0;
-            float target_angle = 90;
-            int timee = 1000;
+            float side_x = 0.30, side_y = 1.90, side_angle = 90;
+            float mid_x = 0.91, mid_y = 1.65, mid_angle = 180;
         } ballhide;
 
-        void ballHide(){
-            if(ball.ballCap && millis() - ball.lastNoBallCap < ballhide.timee){
-                move.dont_move = true;
-                return;
+        void ballHideSide(){
+            if(self.y > ballhide.side_y) dribblerAim();
+            else{
+                if(self.x < FIELD_WIDTH/2) moveAlongY(ballhide.side_x, ballhide.side_y, -ballhide.side_angle);
+                else moveAlongY(FIELD_WIDTH - ballhide.side_x, ballhide.side_y, ballhide.side_angle);
             }
-            if(self.x < FIELD_WIDTH/2)  ballhide.state = false; // left side
-            else ballhide.state = true; // right side
-            if(self.y > ballhide.y_margin) dribblerAim();
-            else if(self.x > ballhide.x_margin && self.x < FIELD_WIDTH - ballhide.x_margin){
-                // move to side of field
-                move.y = self.y;
-                if(ballhide.state){
-                    move.x = FIELD_WIDTH - ballhide.target_xpos;
-                    move.rotation = ballhide.target_angle;
-                }
-                else{
-                    move.x = ballhide.target_xpos;
-                    move.rotation = -ballhide.target_angle;
-                }
-            }
-            else {
-                move.y = ballhide.target_ypos;
-                if(ballhide.state){
-                    move.x = FIELD_WIDTH - ballhide.target_xpos;
-                    move.rotation = ballhide.target_angle;
-                }
-                else{
-                    move.x = ballhide.target_xpos;
-                    move.rotation = -ballhide.target_angle;
-                }
-            }
+        }
+
+        void ballHideMid(){
+            if(self.y > ballhide.mid_y) dribblerAim();
+            else moveAlongY(ballhide.mid_x, ballhide.mid_y, ballhide.mid_angle);
         }
 
     private:

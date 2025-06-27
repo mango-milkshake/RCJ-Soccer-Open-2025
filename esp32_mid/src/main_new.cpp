@@ -488,6 +488,24 @@ void loop(){
         case State::Strategies::DRIBBLER_SCORE:
             // Serial.println("dribbler score");
             bot.dribblerAim();
+            break;
+        
+        case State::Strategies::ATTACK_MODE1:
+            // Serial.println("ball hide");
+            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+                move.dont_move = true;
+                return;
+            }
+            bot.ballHideSide();
+            break;
+        
+        case State::Strategies::ATTACK_MODE2:
+            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+                move.dont_move = true;
+                return;
+            }
+            bot.ballHideMid();
+            break;
     }
 
     // send moving command to motors
