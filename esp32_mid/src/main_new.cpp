@@ -333,7 +333,6 @@ void setup(){
     // pinMode(PAUSE_SW2, INPUT);
     // pinMode(STATE_SW, INPUT);
     analogSetAttenuation(ADC_11db);
-    analogWriteFrequency(100000);
 
     esp_task_wdt_init(2, true); // timeout in seconds
     enableLoopWDT();
