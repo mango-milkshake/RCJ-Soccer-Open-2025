@@ -261,6 +261,16 @@ void movement(float target_x, float target_y, float target_rotation){
         speed_ydir *= k;
     }
 
+    if(abs(speed_xdir) > 2){
+        speed_xdir += copysign(move.x_offset, speed_xdir);
+    }
+    if(abs(speed_ydir) > 2){
+        speed_ydir += copysign(move.y_offset, speed_ydir);
+    }
+    if(abs(rotation) > 2){
+        rotation += copysign(move.rotation_offset, rotation);
+    }
+
     uint8_t rotation_sign, speed_x_sign, speed_y_sign;
     if(copysign(1, rotation)==1) rotation_sign = 1;
     else rotation_sign = 0;
