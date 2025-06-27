@@ -20,12 +20,14 @@ struct Ball{
 
 struct Switches{
     bool topOff = true, turnOff = false;
+    bool motorTest = false;
 } switches;
 
 struct Times{
     int lastDribblerRev = 0;
     int lastFault = 0;
     int curTime = 0;
+    int motorTestPressed = 0, motorTestWait = 1000;
 } times;
 
 struct Movement{

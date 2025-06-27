@@ -383,9 +383,15 @@ void loop(){
     getBottomPlateData();
 
     if(digitalRead(MOTOR_TEST_SW)==HIGH){
-        motorTest();
+        if(!switches.motorTest){
+            times.motorTestPressed = millis();
+            switches.motorTest = true;
+        }
+        if(millis() - times.motorTestPressed >= times.motorTestWait) motorTest();
+        else stop_motors();
         return;
     }
+    else switches.motorTest = false;
 
     move.kick = false;
 
