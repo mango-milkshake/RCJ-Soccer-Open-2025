@@ -8,25 +8,25 @@ sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QVGA)
 sensor.set_gainceiling(32)
-sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False)
 sensor.set_auto_exposure(False, exposure_us=4000)
-sensor.set_auto_gain(False, gain_db=-2)
-sensor.set_auto_whitebal(False)
-sensor.set_contrast(1)
+sensor.set_auto_gain(False, gain_db=2)
+#sensor.set_contrast(1)
 sensor.skip_frames(time=200)
+
 clock = time.clock()
 led2 = pyb.LED(2)
 led2.on()
-window_x = 145
-window_y = 116
-window_width = 260
+window_x = 169
+window_y = 111
+window_width = 270
 mask_radius = 100
 roi_width=280
 sensor.set_windowing(window_x - int((window_width/2)), window_y - int((window_width/2)), window_width, window_width)
-centre_x = 132
-centre_y = 113
-thresh_ball = (0, 100, 53, 97, 21, 79)
+
+centre_x = 133
+centre_y = 106
+thresh_ball = (34, 76, 9, 44, 17, 60)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72)
 thresh_blue_goal = (46, 58, -27, -7, -34, -17)
 uart = UART(3, 115200)
@@ -52,8 +52,7 @@ while True:
         ball_dist = (ball_x ** 2 + ball_y ** 2) ** 0.5
         print("angle ", ball_angle, "dist ", ball_dist)
         actual_dist = pix_to_real(ball_dist) +2
-        print("actual dist: ")
-        print(actual_dist)
+        print("actual dist: ", actual_dist)
         angle_uart = round(ball_angle * 128)
         dist_uart = round(actual_dist * 128)
     else:
