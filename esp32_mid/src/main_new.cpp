@@ -440,6 +440,10 @@ void loop(){
     }
     state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
+    // dribbler setting speed (may be changed again in strategies)
+    if(switches.turnOff || switches.topOff || ball.noBall) move.dribblerSpeed = 0;
+    else if(ball.ballCap) move.dribblerSpeed = 150;
+
     #ifdef TESTING
     state.strategies = State::Strategies::NONE;
     #endif
@@ -487,9 +491,7 @@ void loop(){
     if(move.kick) kicker.kick();
 
     // dribbler
-    // if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
-    // else move.dribblerSpeed = 1.0;
-    // dribbler.setSpeed(move.dribblerSpeed);
+    dribbler.setSpeed(move.dribblerSpeed);
 
     // update last type
     state.lastType = state.curType;
