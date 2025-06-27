@@ -458,7 +458,7 @@ void loop(){
     switch (state.strategies){
         case State::Strategies::NONE:
             // any testing code
-            bot.moveToPoint(0.60, 0.80, 0);
+            bot.moveToPoint(0.40, 1.40, 0);
             break;
         case State::Strategies::MOVE_TO_POINT:
             // Serial.println("move to centre");
