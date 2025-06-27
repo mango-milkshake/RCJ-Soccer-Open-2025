@@ -482,7 +482,7 @@ class Bot{
         void moveAlongX(float target_x, float target_y, float target_angle){
             // align y then move along x
             if(self.y >= target_y - along.margin && self.y <= target_y + along.margin){
-                move.x = target_x;
+                move.x = target_x + copysign(along.margin, target_x - self.x);
                 move.y = self.y;
             }
             else{
@@ -496,7 +496,7 @@ class Bot{
             // align x then move along y
             if(self.x >= target_x - along.margin && self.x <= target_x + along.margin){
                 move.x = self.x;
-                move.y = target_y;
+                move.y = target_y + copysign(along.margin, target_y - self.y);
             }
             else{
                 move.x = target_x;
@@ -511,7 +511,7 @@ class Bot{
         } ballhide;
 
         void ballHideSide(){
-            if(self.y > ballhide.side_y) dribblerAim();
+            if(self.y >= ballhide.side_y) dribblerAim();
             else{
                 if(self.x < FIELD_WIDTH/2) moveAlongY(ballhide.side_x, ballhide.side_y, -ballhide.side_angle);
                 else moveAlongY(FIELD_WIDTH - ballhide.side_x, ballhide.side_y, ballhide.side_angle);
@@ -519,7 +519,7 @@ class Bot{
         }
 
         void ballHideMid(){
-            if(self.y > ballhide.mid_y) dribblerAim();
+            if(self.y >= ballhide.mid_y) dribblerAim();
             else moveAlongY(ballhide.mid_x, ballhide.mid_y, ballhide.mid_angle);
         }
 
