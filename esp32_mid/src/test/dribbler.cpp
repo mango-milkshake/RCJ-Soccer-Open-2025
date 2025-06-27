@@ -29,8 +29,8 @@ Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 
 // Voltage averaging
 #define NUM_FRAMES 5
-#define NUM_CHECK 120
-#define EXCEED_THRESH 0.80
+#define NUM_CHECK 10
+#define EXCEED_THRESH 0.70
 int avg_cnt = 0, check_cnt = 0;
 float v[NUM_FRAMES];
 int c[NUM_CHECK];
