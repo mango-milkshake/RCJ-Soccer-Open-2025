@@ -99,11 +99,11 @@ Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, move.dribbler_maxspe
 Kicker kicker(KICKER_PIN);
 
 // PID
-float pid_def_rotate_default[3] = {12, 0, 0}; // 0.7
+float pid_def_rotate_default[3] = {8, 0, 0}; // 0.7
 float pid_def_x_default[3] = {120, 0, 0}; // 3.5
 float pid_def_y_default[3] = {120, 0, 0}; // 3.5
 
-float pid_att_rotate_default[3] = {12, 0, 0};
+float pid_att_rotate_default[3] = {8, 0, 0};
 float pid_att_x_default[3] = {120, 0, 0};
 float pid_att_y_default[3] = {120, 0, 0};
 
