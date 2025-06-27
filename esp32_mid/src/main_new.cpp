@@ -116,10 +116,10 @@ PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000
 #define NUM_STRAT_TYPES 3
 #define NUM_NO_BALL_STRAT 2
 #define NUM_BALL_STRAT 1
-#define NUM_SCORE_STRAT 1
+#define NUM_SCORE_STRAT 2
 #define MAX_NUM_STRATS 2
 int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
-int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {3}, {4}};
+int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {5}, {8, 9}};
 
 // Variables
 float lastLoopTime = 0;
