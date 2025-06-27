@@ -68,7 +68,6 @@ void setup(){
 
     dribblerMD.init();
     dribblerMD.setMode();
-    analogWriteFrequency(100000);
 
     // while(!Serial.available());
     // while(Serial.available()) Serial.read();
