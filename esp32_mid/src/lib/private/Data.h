@@ -39,7 +39,7 @@ struct Movement{
     int translation_ballcap = 20, rotation_ballcap = 10, rotation_lowered = 5;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
-    int x_offset = 11, y_offset = 11, rotation_offset = 11;
+    int x_offset = 18, y_offset = 18, rotation_offset = 12;
     bool dont_move = false;
 } move;
 
