@@ -3,6 +3,8 @@
 #include <Motor.h>
 #include <Adafruit_NeoPixel.h>
 
+#define TESTING
+
 // Dribbler
 #define MOSI_PIN 12
 #define MISO_PIN 13
@@ -81,6 +83,12 @@ void loop(){
     // esp_led.setPixelColor(0, esp_led.Color(0, 15, 0));
     // esp_led.show();
     checkFault();
+
+    #ifdef TESTING
+    dribbler.setSpeed(dribbler_maxspeed);
+    return;
+    #endif
+
     dribbler.setSpeed(dribblerSpeed);
 
     float analogval = dribblerMD.checkCurrent();
