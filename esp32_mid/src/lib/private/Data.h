@@ -39,13 +39,15 @@ struct Times{
 struct Movement{
     float x = 0, y = 0, rotation = 0;
     bool kick = false;
+    bool dont_move = false;
+    float dribblerSpeed = 0;
+    int dribbler_maxspeed = 150;
     int dribbler_maxspeed = 150, dribblerSpeed = 0;
     int translation_default = 40, rotation_default = 25;
     int translation_ballcap = 20, rotation_ballcap = 10, rotation_lowered = 5;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
     int x_offset = 18, y_offset = 18, rotation_offset = 12;
-    bool dont_move = false;
 } move;
 
 struct State{

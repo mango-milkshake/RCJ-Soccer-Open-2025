@@ -771,7 +771,11 @@ void setup(){
     esp_led.setBrightness(ESP_BRIGHTNESS);
     esp_led.show();
 
-
+    prefs.begin("gameState", false);
+    ballhide_state = prefs.getInt("ballhide", 0);
+    ballhide_state = (ballhide_state + 1) % 4;
+    prefs.putInt("ballhide", ballhide_state);
+    prefs.end();
 
 }
 
@@ -804,7 +808,7 @@ void loop(){
     getTopPlateData();
     getMidPlateData();
     DEBUG(ballhide_state);
-    ballHide3_2();
+    //ballHide3_2();
     //ballhide_state = 3;
     // char received = Serial.read();
     //     if (received == ' ') {
