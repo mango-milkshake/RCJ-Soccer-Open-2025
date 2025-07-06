@@ -86,6 +86,7 @@ void loop(){
 
     #ifdef TESTING
     dribbler.setSpeed(dribbler_maxspeed);
+    delay(1);
     return;
     #endif
 
