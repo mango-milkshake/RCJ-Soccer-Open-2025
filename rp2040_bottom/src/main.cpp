@@ -34,9 +34,9 @@ Line lineMux(S0_PIN, S1_PIN, S2_PIN, INPUT_PIN);
 #define LIDAR_GATE_SCL_PIN 9
 #define LIDAR_GATE_ID 0
 LidarGate lidargate(LIDAR_GATE_SCL_PIN, LIDAR_GATE_SDA_PIN, LIDAR_GATE_ID);
-bool ballCap = false;
+uint8_t ballCap = 0;
 
-bool getLidarGateData(){
+uint8_t getLidarGateData(){
     ballCap = lidargate.checkBallCap();
     return ballCap;
 }
@@ -75,12 +75,12 @@ void setup(){
 void loop(){
     data_ready = false;
     sendBuffer[0] = 5;
-    sendBuffer[1] = (uint8_t) getLidarGateData();
+    sendBuffer[1] = getLidarGateData();
     sendBuffer[2] = getLineData();
     data_ready = true;
 
     colour = (15<<8) + 15;
-    if(ballCap) colour += (15<<8);
+    if(ballCap > 0) colour += (15<<8);
     if(lineValue > 0) colour += (15<<16);
     strip.setPixelColor(0, colour);
     strip.show();

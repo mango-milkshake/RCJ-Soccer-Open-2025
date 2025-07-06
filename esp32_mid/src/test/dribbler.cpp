@@ -3,6 +3,8 @@
 #include <Motor.h>
 #include <Adafruit_NeoPixel.h>
 
+#define TESTING
+
 // Dribbler
 #define MOSI_PIN 12
 #define MISO_PIN 13
@@ -16,11 +18,12 @@
 #define IPROPI_PIN 5
 MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN, IPROPI_PIN);
 
-uint8_t dribbler_maxspeed = 150;
+uint8_t dribbler_maxspeed = 150, dribbler_minspeed = 40;
 Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
 int lastFault = 0;
 int lastStop = 0;
 bool stopped = false;
+int desiredSpeed = dribbler_maxspeed, dribblerSpeed = dribbler_maxspeed;
 
 // LEDs
 #define ESP_LED 48
@@ -29,16 +32,17 @@ Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 
 // Voltage averaging
 #define NUM_FRAMES 5
-#define NUM_CHECK 120
-#define EXCEED_THRESH 0.80
+#define NUM_CHECK 10
+#define EXCEED_THRESH 0.70
 int avg_cnt = 0, check_cnt = 0;
 float v[NUM_FRAMES];
 int c[NUM_CHECK];
 bool avg_filled = false, check_filled = false;
 float sum_avg = 0, sum_check = 0, avgV = 0;
 
-#define MAX_VOLTAGE 0.05
-#define STOP_TIME 2000
+#define MAX_VOLTAGE 0.1
+#define INC_AMT 1
+#define DEC_AMT 2
 
 void checkFault(){
     bool faulted = false;
@@ -68,7 +72,6 @@ void setup(){
 
     dribblerMD.init();
     dribblerMD.setMode();
-    analogWriteFrequency(100000);
 
     // while(!Serial.available());
     // while(Serial.available()) Serial.read();
@@ -80,8 +83,13 @@ void loop(){
     // esp_led.setPixelColor(0, esp_led.Color(0, 15, 0));
     // esp_led.show();
     checkFault();
-    if(stopped) dribbler.setSpeed(0);
-    else dribbler.setSpeed(1.0);
+
+    #ifdef TESTING
+    dribbler.setSpeed(dribbler_maxspeed);
+    return;
+    #endif
+
+    dribbler.setSpeed(dribblerSpeed);
 
     float analogval = dribblerMD.checkCurrent();
     // Serial.printf("Analog value: %f\n", analogval);
@@ -119,11 +127,16 @@ void loop(){
     if(check_cnt>=NUM_CHECK) check_cnt %= NUM_CHECK;
 
     if(sum_check >= EXCEED_THRESH * NUM_CHECK){
-        if(!stopped) {
-            stopped = true;
-            lastStop = millis();
+        if(dribblerSpeed == 0) dribblerSpeed = 0;
+        else dribblerSpeed -= copysign(DEC_AMT, dribblerSpeed);
+    }
+    else{
+        if(abs(dribblerSpeed) < dribbler_minspeed) dribblerSpeed = copysign(dribbler_minspeed, desiredSpeed);
+        else{
+            int diff = desiredSpeed - dribblerSpeed;
+            dribblerSpeed += copysign(INC_AMT, diff);
+            if((desiredSpeed >= 0 && dribblerSpeed > desiredSpeed) || (desiredSpeed < 0 && dribblerSpeed < desiredSpeed))
+                dribblerSpeed = desiredSpeed;
         }
     }
-
-    if(millis() - lastStop >= STOP_TIME) stopped = false;
 }

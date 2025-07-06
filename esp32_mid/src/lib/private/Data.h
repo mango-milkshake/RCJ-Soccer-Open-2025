@@ -12,19 +12,23 @@ struct Ball{
     float relative_x = 0, relative_y = 0;
     float absolute_x = 0, absolute_y = 0;
     float last_x = 0, last_y = 0;
-    bool noBall = false, ballCap = false;
+    bool noBall = false;
+    int ballCap = 0;
     int lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = 0;
+    int ballCapTime = 1000;
     
 } ball;
 
 struct Switches{
     bool topOff = true, turnOff = false;
+    bool motorTest = false;
 } switches;
 
 struct Times{
     int lastDribblerRev = 0;
     int lastFault = 0;
     int curTime = 0;
+    int motorTestPressed = 0, motorTestWait = 1000;
 } times;
 
 struct Movement{
@@ -33,10 +37,12 @@ struct Movement{
     bool dont_move = false;
     float dribblerSpeed = 0;
     int dribbler_maxspeed = 150;
+    int dribbler_maxspeed = 150, dribblerSpeed = 0;
     int translation_default = 40, rotation_default = 25;
-    int translation_ballcap = 20, rotation_ballcap = 10;
+    int translation_ballcap = 20, rotation_ballcap = 10, rotation_lowered = 5;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
+    int x_offset = 18, y_offset = 18, rotation_offset = 12;
 } move;
 
 struct State{
@@ -60,7 +66,8 @@ struct State{
         DRIBBLER_BALL_TRACK = 5,
         DRIBBLER_SCORE = 6,
         DEFEND = 7,
-        ATTACK_MODE1 = 8
+        ATTACK_MODE1 = 8,
+        ATTACK_MODE2 = 9
     } strategies;
 } state;
 

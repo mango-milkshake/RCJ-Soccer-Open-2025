@@ -24,7 +24,7 @@
 #define DEBUG(x) 123;
 #endif
 
-#define TESTING
+// #define TESTING
 
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
@@ -36,7 +36,7 @@
 #define ESP_LED 48
 int ESP_BRIGHTNESS = 20;
 #define BLINK_TIME 50
-// Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 // to check if code is running
 bool esp_led_state = true;
 float lastLED = 0;
@@ -91,8 +91,7 @@ byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN];
 #define DRVOFF_PIN 7
 #define IPROPI_PIN 5
 MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN, IPROPI_PIN);
-uint8_t dribbler_maxspeed = 100;
-Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
+Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, move.dribbler_maxspeed, 1.0);
 
 // Kicker
 #define KICKER_PIN 11
@@ -117,10 +116,10 @@ PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000
 #define NUM_STRAT_TYPES 3
 #define NUM_NO_BALL_STRAT 2
 #define NUM_BALL_STRAT 1
-#define NUM_SCORE_STRAT 1
+#define NUM_SCORE_STRAT 2
 #define MAX_NUM_STRATS 2
 int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
-int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {3}, {4}};
+int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {5}, {8, 9}};
 
 // Variables
 float lastLoopTime = 0;
@@ -162,7 +161,7 @@ void getMidPlateData(){
         }
     }
     if(midRcvBuffer[0]!=firstbyte) {
-        Serial.print("Received mid bad data");
+        // Serial.print("Received mid bad data");
         return;
     }
     ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
@@ -204,21 +203,24 @@ void getTopPlateData(){
 void getBottomPlateData(){
     byte num_bytes = Wire1.requestFrom(BOTTOM_I2C_ADDR, BOTTOM_I2C_DATA_LEN);
     if(num_bytes != BOTTOM_I2C_DATA_LEN){
-        Serial.print("Received bottom bad data: ");
+        // Serial.print("Received bottom bad data: ");
         return;
     }
-    else Serial.print("Received: ");
+    // else Serial.print("Received: ");
     for (int i=0; i<BOTTOM_I2C_DATA_LEN; i++) {
         if (Wire1.available()) {
             bottomRcvBuffer[i] = Wire1.read();
         }
     }
     if(bottomRcvBuffer[0]!=firstbyte) {
-        Serial.print("Received bad data");
+        // Serial.print("Received bad data");
         return;
     }   
 
-    ball.ballCap = (bool) bottomRcvBuffer[1];
+    ball.ballCap = bottomRcvBuffer[1];
+    if(ball.ballCap > 0) ball.lastBallCap = millis();
+    else ball.lastNoBallCap = millis();
+    
     self.line_status = bottomRcvBuffer[2];
     if(self.line_status > 0) self.onLine = true;
     else self.onLine = false;
@@ -248,15 +250,6 @@ void movement(float target_x, float target_y, float target_rotation){
     float shifted_x_dist = total_dist * sinf(total_angle);
     float shifted_y_dist = total_dist * cosf(total_angle);
 
-    // if(ball.ballCap){
-    //     move.max_translation = 0.5;
-    //     move.max_rotation = 0.25;
-    // }
-    // else {
-    //     move.max_translation = 1;
-    //     move.max_rotation = 1;
-    // }
-
     speed_xdir = pid_x.compute(0, shifted_x_dist);
     speed_ydir = pid_y.compute(0, shifted_y_dist);
     rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), move.min_rotation, move.max_rotation);
@@ -266,6 +259,16 @@ void movement(float target_x, float target_y, float target_rotation){
         float k = move.max_translation/maxPID;
         speed_xdir *= k;
         speed_ydir *= k;
+    }
+
+    if(abs(speed_xdir) > 2){
+        speed_xdir += copysign(move.x_offset, speed_xdir);
+    }
+    if(abs(speed_ydir) > 2){
+        speed_ydir += copysign(move.y_offset, speed_ydir);
+    }
+    if(abs(rotation) > 2){
+        rotation += copysign(move.rotation_offset, rotation);
     }
 
     uint8_t rotation_sign, speed_x_sign, speed_y_sign;
@@ -291,6 +294,12 @@ void movement(float target_x, float target_y, float target_rotation){
         bottomSendBuffer[5] = rotation_sign;
         bottomSendBuffer[6] = rounded_rotation;
     }
+    sendMotorData();
+}
+
+void stop_motors(){
+    bottomSendBuffer[0] = 5;
+    for (int i=1; i<BOTTOM_DATA_LEN; i++) bottomSendBuffer[i] = 0;
     sendMotorData();
 }
 
@@ -333,7 +342,6 @@ void setup(){
     // pinMode(PAUSE_SW2, INPUT);
     // pinMode(STATE_SW, INPUT);
     analogSetAttenuation(ADC_11db);
-    analogWriteFrequency(100000);
 
     esp_task_wdt_init(2, true); // timeout in seconds
     enableLoopWDT();
@@ -363,9 +371,9 @@ void setup(){
     state.curStratIdx = 0;
     state.lastChange = millis();
 
-    // esp_led.begin();
-    // esp_led.setBrightness(ESP_BRIGHTNESS);
-    // esp_led.show();
+    esp_led.begin();
+    esp_led.setBrightness(ESP_BRIGHTNESS);
+    esp_led.show();
 
 }
 
@@ -390,50 +398,68 @@ void loop(){
     getBottomPlateData();
 
     if(digitalRead(MOTOR_TEST_SW)==HIGH){
-        motorTest();
+        if(!switches.motorTest){
+            times.motorTestPressed = millis();
+            switches.motorTest = true;
+        }
+        if(millis() - times.motorTestPressed >= times.motorTestWait) motorTest();
+        else stop_motors();
         return;
     }
+    else switches.motorTest = false;
 
     move.kick = false;
+    move.dont_move = false;
 
     // temp ball cap via cam
-    if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
-        ball.ballCap = true;
-        ball.lastBallCap = millis();
-    }
-    else if(millis() - ball.lastBallCap <= 1000) ball.ballCap = true;
-    else {
-        ball.ballCap = false; 
-        ball.lastNoBallCap = millis();
-    }
-
-    // if(ball.noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+    // if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
+    //     ball.ballCap = 2;
+    //     ball.lastBallCap = millis();
+    // }
+    // else if(millis() - ball.lastBallCap <= 1000) ball.ballCap = 2;
     // else {
-    //     bot.dribblerBallTrack();
-    //     movement(move.x, move.y, move.rotation);
+    //     ball.ballCap = 0; 
+    //     ball.lastNoBallCap = millis();
     // }
 
     // decide strategy type
     if(ball.ballCap) {
         state.curType = 2; // score
-        // esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
+        esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
     }
     else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
         // Serial.println("using last ball pos");
         ball.absolute_x = ball.last_x;
         ball.absolute_y = ball.last_y;
         state.curType = 1;
-        // esp_led.setPixelColor(0, esp_led.Color(50, 50, 50));
+        esp_led.setPixelColor(0, esp_led.Color(50, 50, 50));
     }
     else if(ball.noBall) {
         state.curType = 0; // no ball
-        // esp_led.setPixelColor(0, esp_led.Color(0, 0, 50));
+        esp_led.setPixelColor(0, esp_led.Color(0, 0, 50));
     }
     else {
         state.curType = 1; // ball track
-        // esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+        esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
     }
-    // esp_led.show();
+    esp_led.show();
+
+    if(ball.ballCap > 0){
+        move.max_translation = move.translation_ballcap, move.min_translation = -move.translation_ballcap;
+        // rotation positive is counterclockwise
+        if(ball.ballCap == 1){
+            move.min_rotation = -move.rotation_ballcap;
+        }
+        else move.min_rotation = -move.rotation_lowered;
+        if(ball.ballCap == 3){
+            move.max_rotation = move.rotation_ballcap;
+        }
+        else move.max_rotation = move.rotation_lowered;
+    }
+    else{
+        move.max_translation = move.translation_default, move.min_translation = -move.translation_default;
+        move.max_rotation = move.rotation_default, move.min_translation = -move.rotation_default;
+    }
 
     // decide specific strategy
     if(state.curType != state.lastType){
@@ -447,6 +473,10 @@ void loop(){
     }
     state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
+    // dribbler setting speed (may be changed again in strategies)
+    if(switches.turnOff || switches.topOff || ball.noBall) move.dribblerSpeed = 0;
+    else if(ball.ballCap) move.dribblerSpeed = 150;
+
     #ifdef TESTING
     state.strategies = State::Strategies::NONE;
     #endif
@@ -455,48 +485,66 @@ void loop(){
     switch (state.strategies){
         case State::Strategies::NONE:
             // any testing code
-            bot.moveToPoint(0.60, 0.80, 0);
+            bot.moveToPoint(0.40, 1.40, 0);
             break;
         case State::Strategies::MOVE_TO_POINT:
-            Serial.println("move to centre");
+            // Serial.println("move to centre");
             bot.moveToPoint(FIELD_WIDTH/2, 0.80 /* FIELD_HEIGHT/2 */, 0);
             break;
         
         case State::Strategies::OSCILLATE_ABOUT_POINT:
-            Serial.println("oscillate");
+            // Serial.println("oscillate");
             bot.oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.50);
             break;
 
         case State::Strategies::NO_DRIBBLER_BALL_TRACK:
-            Serial.println("no dribbler ball track");
+            // Serial.println("no dribbler ball track");
             bot.ballTrack();
             break;
         
         case State::Strategies::DRIBBLER_BALL_TRACK:
-            Serial.println("dribbler ball track");
+            // Serial.println("dribbler ball track");
             bot.dribblerBallTrack();
             break;
         
         case State::Strategies::NO_DRIBBLER_SCORE:
-            Serial.println("no dribbler score");
+            // Serial.println("no dribbler score");
             bot.aim();
             break;
         
         case State::Strategies::DRIBBLER_SCORE:
-            Serial.println("dribbler score");
+            // Serial.println("dribbler score");
             bot.dribblerAim();
+            break;
+        
+        case State::Strategies::ATTACK_MODE1:
+            // Serial.println("ball hide");
+            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+                move.dont_move = true;
+                return;
+            }
+            bot.ballHideSide();
+            break;
+        
+        case State::Strategies::ATTACK_MODE2:
+            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+                move.dont_move = true;
+                return;
+            }
+            bot.ballHideMid();
+            break;
     }
 
     // send moving command to motors
-    movement(move.x, move.y, move.rotation);
+    if(switches.turnOff || switches.topOff) move.dont_move = true;
+    if(move.dont_move) stop_motors();
+    else movement(move.x, move.y, move.rotation);
 
     // kicker
-    // if(move.kick) kicker.kick();
+    if(move.kick) kicker.kick();
 
     // dribbler
-    // if(switches.turnOff || switches.topOff) move.dribblerSpeed = 0.0;
-    // else move.dribblerSpeed = 1.0;
-    // dribbler.setSpeed(move.dribblerSpeed);
+    dribbler.setSpeed(move.dribblerSpeed);
 
     // update last type
     state.lastType = state.curType;

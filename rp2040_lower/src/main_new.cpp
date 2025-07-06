@@ -59,10 +59,26 @@ int speedX = 0, speedY = 0, speed_xdir = 0, speed_ydir = 0, moveAngle = 0, rotat
 
 void checkFault(){
     bool faulted = false;
-    if(digitalRead(motorFL.nfault)==LOW) faulted = true;
-    if(digitalRead(motorFR.nfault)==LOW) faulted = true;
-    if(digitalRead(motorBL.nfault)==LOW) faulted = true;
-    if(digitalRead(motorBR.nfault)==LOW) faulted = true;
+    if(digitalRead(motorFL.nfault)==LOW) {
+        faulted = true;
+        // Serial.print("0 ");
+    }
+    // else Serial.print("1 ");
+    if(digitalRead(motorFR.nfault)==LOW) {
+        faulted = true;
+        // Serial.print("0 ");
+    }
+    // else Serial.print("1 ");
+    if(digitalRead(motorBL.nfault)==LOW) {
+        faulted = true;
+        // Serial.print("0 ");
+    }
+    // else Serial.print("1 ");
+    if(digitalRead(motorBR.nfault)==LOW) {
+        faulted = true;
+        // Serial.println("0 ");
+    }
+    // else Serial.println("1 ");
     if(faulted){
         // Serial.println("faulted");
         float curTime = millis();
@@ -80,7 +96,7 @@ void setup(){
     
     motor_driver.init();
     motor_driver.setMode();
-    analogWriteFreq(100000);
+    analogWriteFreq(25000);
 
     strip.begin();
     strip.setBrightness(brightness);
@@ -104,6 +120,7 @@ void loop(){
     checkFault();
     bool status = espUART.uartRead((byte)5);
     if(status){
+        // Serial.println("received data");
         bool speed_x_sign = buffer[1]==1 ? true : false;
         bool speed_y_sign = buffer[3]==1 ? true : false;
         bool rotationsign = buffer[5]==1 ? true : false;
