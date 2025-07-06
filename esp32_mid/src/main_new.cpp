@@ -13,9 +13,8 @@
 #include <esp_wifi.h>
 #include <esp_now.h>
 #include <esp_task_wdt.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#include <WebSerial.h>
+// #include <AsyncTCP.h>
+// #include <ESPAsyncWebServer.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
