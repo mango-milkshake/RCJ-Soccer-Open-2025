@@ -166,6 +166,11 @@ void getMidPlateData(){
     ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
     ball.dist = (float)(midRcvBuffer[3] + (midRcvBuffer[4]<<8)) / 128;
 
+    if(midRcvBuffer[5] == 1) goal.frontPathClear = true;
+    else goal.frontPathClear = false;
+    goal.open_rows_start = midRcvBuffer[6];
+    goal.open_rows_end = midRcvBuffer[7];
+
     if(ball.angle==0 && ball.dist==0) {
         ball.noBall = true;
     }
