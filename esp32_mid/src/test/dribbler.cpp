@@ -3,7 +3,7 @@
 #include <Motor.h>
 #include <Adafruit_NeoPixel.h>
 
-#define TESTING
+// #define TESTING
 
 // Dribbler
 #define MOSI_PIN 12
