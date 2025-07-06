@@ -16,7 +16,6 @@ struct Ball{
     int ballCap = 0;
     int lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = 0;
     int ballCapTime = 1000;
-    
 } ball;
 
 struct Switches{
