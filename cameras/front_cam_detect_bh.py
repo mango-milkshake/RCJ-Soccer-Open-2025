@@ -83,20 +83,19 @@ clock = time.clock()  # Create a clock object to track the FPS.
 sensor.set_auto_whitebal(False, rgb_gain_db =(1,0,1))
 sensor.set_auto_exposure(False, exposure_us=16000)  # Disable auto exposure
 sensor.set_auto_gain(False, gain_db = 2) # must be turned off for colour tracking
-sensor.skip_frames(time=200)  # Wait for settings take effect.
+
 
 led2 = pyb.LED(2)
 no_ball = False
 uart = UART(3, 115200)
 blocked_pixels = 0
 open_goal = []
-    
+
 while True:
     open_rows  = []
     clock.tick()  # Update the FPS clock.
     led2.on()
-    img = sensor.snapshot()  # Take a picture and return the image.
-    img.lens_corr(strength=1.35, zoom=1.0)
+    `
     blobs = img.find_blobs([threshold], area_threshold = 150, merge=True)
    # blobs2 = img.find_blobs([threshold_goal_blue], area_threshold=200, merge = True)
    # if len(blobs2)>0:
@@ -122,7 +121,6 @@ while True:
     else:
         no_ball = True
     blocked_pixels = 0
-    blocked_pixels_goal = 0
     rows = 6
     columns = 24
     y_separation = 10
@@ -144,18 +142,17 @@ while True:
             else:
                 img.draw_cross(pixel_x, pixel_y, color=(255,255,255), size=5)
 
-    if (blocked_pixels != -1): #check for open goal regions (-1 TO TESt, ORIGINALLY 0)
+    if (blocked_pixels != 0): #check for open goal regions
         for i in range(int(240/y_separation)):
             for j in range(goal_width):
                 #make sure these pixels dont overlap with previous ones, they will detect the drawn white cross
-                pixel_x = int(j*(320/columns)+40/)
+                pixel_x = int(j*(320/columns)+50)
                 pixel_y = int(i*y_separation)
                 rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
                 lab = image.rgb_to_lab(rgb)
                 if(pixel_blocked(lab)):
                     img.draw_cross(pixel_x, pixel_y, color=(255,0,0), size = 5)
                     open_goal.append(0) #pixel blocked
-                    blocked_pixels_goal += 1
                 else:
                     img.draw_cross(pixel_x, pixel_y, color=(255,255,255), size = 5)
                     open_goal.append(1) #pixel clear
@@ -183,10 +180,8 @@ while True:
         img.draw_arrow(320,120,100,120,color=(0,0,255), thickness=5)
 
     open_goal = []
-    
-    if (blocked_pixels_goal != 0):
-        print("ballhide detected")
-    
+
+
     uart.writechar(5)
     if(no_ball==False):
         sendUART(x2, True)
