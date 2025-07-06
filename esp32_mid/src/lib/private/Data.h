@@ -18,6 +18,12 @@ struct Ball{
     int ballCapTime = 1000;
 } ball;
 
+struct Goal{
+    bool frontPathClear = false;
+    int open_rows_start = 0, open_rows_end = 0, total_rows = 24;
+    float fov = 100;
+} goal;
+
 struct Switches{
     bool topOff = true, turnOff = false;
     bool motorTest = false;
