@@ -402,7 +402,7 @@ class Bot{
                 ball.absolute_y = ball.last_y;
                 // noBall = false;
                 
-                 tooklastball = true;
+                tooklastball = true;
             }
             else tooklastball = false;
 
@@ -534,15 +534,18 @@ class Bot{
         }
 
         struct BallHide{
-            float side_x = 0.30, side_y = 1.90, side_angle = 90;
+            float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.90, side_angle = 90;
             float mid_x = 0.91, mid_y = 1.65, mid_angle = 180;
         } ballhide;
 
-        void ballHideSide(){
-            if(self.y >= ballhide.side_y) dribblerAim();
-            else{
-                if(self.x < FIELD_WIDTH/2) moveAlongY(ballhide.side_x, ballhide.side_y, -ballhide.side_angle);
-                else moveAlongY(FIELD_WIDTH - ballhide.side_x, ballhide.side_y, ballhide.side_angle);
+        void ballHideLeft(){
+            if(self.y < ballhide.side_y){
+                moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
+            }
+        }
+        void ballHideRight(){
+            if(self.y < ballhide.side_y){
+                moveAlongY(ballhide.right_x, ballhide.side_y, ballhide.side_angle);
             }
         }
 
@@ -551,6 +554,93 @@ class Bot{
             else moveAlongY(ballhide.mid_x, ballhide.mid_y, ballhide.mid_angle);
         }
 
+        void defend(){
+            float leftAngle = atan2(SELF_GOAL_Y - ball.absolute_y, SELF_GOAL_LEFT_X - ball.absolute_x);
+            float rightAngle = atan2(SELF_GOAL_Y - ball.absolute_y, SELF_GOAL_RIGHT_X - ball.absolute_x);
+            float angleDiff = rightAngle - leftAngle;
+            LIM_ANGLE_180(angleDiff);
+            if(angleDiff < 0){
+                float tempAngle = leftAngle;
+                leftAngle = rightAngle;
+                rightAngle = tempAngle;
+                angleDiff = -angleDiff;
+            }
+            float midAngle = leftAngle + (angleDiff / 2);
+            float sinHalfAngle = sinf(angleDiff/2);
+            float new_x, new_y, newDistToBall;
+            // if(fabs(sinHalfAngle) , 1e-6f) newDistToBall = 9999.0f;
+            // else newDistToBall = BOT_RADIUS_M / sinHalfAngle;
+            newDistToBall = BOT_RADIUS_M / sinHalfAngle;
+            new_x = ball.absolute_x + newDistToBall * cosf(midAngle);
+            new_y = ball.absolute_y + newDistToBall * sinf(midAngle);
+            if(new_y > 0.80){
+                float denom = (new_x - 0.91f);
+                float slope = (new_y - 0.12f)/ (denom);
+                new_y = 0.80f;
+                float dydefend = (new_y - 0.12f);
+                new_x = 0.91f + (dydefend / slope);
+            }
+            // DEBUG(new_x);
+            // DEBUG(new_y);
+            move.x = new_x;
+            move.y = new_y;
+            move.rotation = 0;
+        }
+        void triggerDefend(){
+                    pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+        pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+        pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+        if (ball.ballCap == 0){
+            if (ball.noBall && (millis() - ball.lastSeenBall) > LAST_SEEN_BALL_TIME) {
+                move.x = 0.91;
+                move.y = 0.60;
+                move.rotation = 0;
+            }
+            // 2) Else if the ball is within the no-chase region near the goal
+            else if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < 0.25f){
+                move.x = 0.91;
+                move.y = 0.60;
+                move.rotation = 0;
+            }
+            // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
+            else if (ball.absolute_y <  0.80f) {
+                // if(millis() - lastDribblerRev < 1000) ;
+                if(ball.ballCap > 0 || (ball.dist>0 && ball.dist<=40) || 
+                (ball.last_dist>0 && ball.last_dist<=40 && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME)) {
+                    dribbler.setSpeed(1.0);
+                }
+                else if(ball.noBall) dribbler.setSpeed(0);
+                else dribbler.setSpeed(0.5);
+
+                if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < self.y){
+                    pid_rotate.setConfig(0.4, 0, 0);
+                    pid_x.setConfig(1.9, 0, 0);
+                    pid_y.setConfig(1.9, 0, 0);                
+                }
+                else {
+                    pid_rotate.setConfig(0.5, 0, 0);
+                    pid_x.setConfig(2.2, 0, 0);
+                    pid_y.setConfig(2.2, 0, 0);  
+                }
+                if (ball.noBall) {
+                    ball.absolute_x = ball.last_x;
+                    ball.absolute_y = ball.last_y;
+                    dribblerBallTrack();
+                }
+                // 3b) If we DO see the ball => track it with the dribbler
+                else {
+                    dribblerBallTrack();
+                }
+                pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+                pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+                pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+            }
+            // 4) Otherwise => geometry-based blocking
+            else {
+                defend();
+            }
+        }
+    }
     private:
 } bot;
 

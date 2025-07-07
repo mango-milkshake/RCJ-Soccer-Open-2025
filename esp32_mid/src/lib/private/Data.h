@@ -11,7 +11,7 @@ struct Ball{
     float angle = 0, dist = 0, vx = 0, vy = 0;
     float relative_x = 0, relative_y = 0;
     float absolute_x = 0, absolute_y = 0;
-    float last_x = 0, last_y = 0;
+    float last_x = 0, last_y = 0, last_dist = 0;
     bool noBall = false;
     int ballCap = 0;
     int lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = 0;
@@ -54,7 +54,10 @@ struct State{
     bool isDefender = true;
     int lastChange = 0;
     int lastType = 0, curType = 0;
+    int botType = 0; //0 = score, 1 = def, 2 = atk, 3 = out 
+    int botID = 0;
     int curStratIdx = 0;
+    bool ready_to_shoot = false;
 
     enum StratType{
         NO_BALL = 0,
@@ -71,8 +74,9 @@ struct State{
         DRIBBLER_BALL_TRACK = 5,
         DRIBBLER_SCORE = 6,
         DEFEND = 7,
-        ATTACK_MODE1 = 8,
-        ATTACK_MODE2 = 9
+        BALLHIDE = 8,
+        ATTACK_MODE2 = 9,
+        LOOK_AHEAD = 10
     } strategies;
 } state;
 

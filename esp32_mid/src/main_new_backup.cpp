@@ -13,9 +13,8 @@
 #include <esp_wifi.h>
 #include <esp_now.h>
 #include <esp_task_wdt.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#include <WebSerial.h>
+// #include <AsyncTCP.h>
+// #include <ESPAsyncWebServer.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -116,10 +115,10 @@ PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000
 #define NUM_STRAT_TYPES 3
 #define NUM_NO_BALL_STRAT 2
 #define NUM_BALL_STRAT 1
-#define NUM_SCORE_STRAT 2
+#define NUM_SCORE_STRAT 1
 #define MAX_NUM_STRATS 2
 int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
-int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {5}, {8, 9}};
+int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {5}, {6}};
 
 // Variables
 float lastLoopTime = 0;
@@ -166,6 +165,11 @@ void getMidPlateData(){
     }
     ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
     ball.dist = (float)(midRcvBuffer[3] + (midRcvBuffer[4]<<8)) / 128;
+
+    if(midRcvBuffer[5] == 1) goal.frontPathClear = true;
+    else goal.frontPathClear = false;
+    goal.open_rows_start = midRcvBuffer[6];
+    goal.open_rows_end = midRcvBuffer[7];
 
     if(ball.angle==0 && ball.dist==0) {
         ball.noBall = true;

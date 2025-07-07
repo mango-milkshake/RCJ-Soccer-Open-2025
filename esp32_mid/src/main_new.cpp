@@ -124,7 +124,148 @@ int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {5}, {6}};
 float lastLoopTime = 0;
 float speed_xdir, speed_ydir, rotation;
 
+// ESP Bluetooth Communication
+uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
+uint8_t own_mac_address[6];
+typedef struct struct_message {
+    int isPresent;
+    float xpos; 
+    float ypos;
+    float heading;
+    bool hasBall; 
+    int botID_comm;
+    int bh_state;
+    int type;
+} struct_message;
+struct_message espnowData;
+struct_message espnowDataRecv;
+
+
+// Game logic
+#define MAX_DEF_Y 80
+
+
 //// ** FUNCTIONS ** ////
+void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
+    Serial.print("\r\nLast Packet Send Status:\t");
+    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+ 
+int lastRecvTime;
+void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
+    memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
+    lastRecvTime = millis();
+    // DEBUG(espnowDataRecv.isPresent);
+    // DEBUG(espnowDataRecv.inField);
+    // DEBUG(espnowDataRecv.xpos);
+    // DEBUG(espnowDataRecv.ypos);
+    // DEBUG(espnowDataRecv.def);
+    // DEBUG(espnowDataRecv.hasBall);
+    // Serial.println("received data");
+}
+
+void set_up_esp_now(){
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_STA);
+
+    if (esp_now_init() != ESP_OK) {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+
+
+    //callback functions for sending and receiving
+    esp_now_register_send_cb(onDataSent);
+    esp_now_register_recv_cb(onDataRecv);
+    
+    // Register peer
+    esp_now_peer_info_t peerInfo = {};
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = 1;  
+    peerInfo.encrypt = false;
+    
+    // Add peer        
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+        Serial.println("Failed to add peer");
+    }
+}
+
+
+void readMacAddress(){ //read own mac address and set broadcast address to other bot
+    WiFi.mode(WIFI_AP_STA);
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
+    if (ret == ESP_OK) {
+    // Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+    //               own_mac_address[0], own_mac_address[1], own_mac_address[2],
+    //               own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    // } 
+    // else{
+    //     Serial.println("Failed to read MAC address");
+    // }
+    const uint8_t MAC_1[6] = {0xd8, 0x3b, 0xda, 0x7c, 0xf2, 0x10}; // id 1 ()
+    const uint8_t MAC_2[6] = {0xd8, 0x3b, 0xda, 0x7c, 0x38, 0x18}; // id 2 (follows bot 1)
+    //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
+    if (memcmp(own_mac_address, MAC_1, 6) == 0){
+        memcpy(broadcastAddress, MAC_2, 6);
+        state.botID = 1;
+    }
+    else if (memcmp(own_mac_address, MAC_2, 6) == 0){
+        memcpy(broadcastAddress, MAC_1, 6);
+        state.botID = 2;
+    }
+    else{
+        memcpy(broadcastAddress, MAC_2, 6);
+        state.botID = 3;
+    }
+    }
+}
+
+float target_x_comm = self.x;
+float target_y_comm = self.y;
+bool ready_to_ballhide = false;
+int ballhide_state = 0;
+void sendData(){ //send data here
+    //Define what values to send
+    espnowData.isPresent = 2;
+    espnowData.xpos = target_x_comm;
+    espnowData.ypos = target_y_comm;
+    espnowData.heading = self.heading;
+    espnowData.hasBall = ball.ballCap > 0 ? true : false;
+    espnowData.botID_comm = state.botID;
+    espnowData.bh_state = ballhide_state;
+    espnowData.type = state.botType;
+    
+
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espnowData, sizeof(espnowData));
+
+    switch (result) {
+        case ESP_OK:
+            Serial.println("✅ ESP-NOW: Data sent successfully.");
+            break;
+        case ESP_ERR_ESPNOW_NOT_INIT:
+            Serial.println("❌ ESP-NOW: Not initialized.");
+            break;
+        case ESP_ERR_ESPNOW_ARG:
+            Serial.println("❌ ESP-NOW: Invalid argument.");
+            break;
+        case ESP_ERR_ESPNOW_INTERNAL:
+            Serial.println("❌ ESP-NOW: Internal error.");
+            break;
+        case ESP_ERR_ESPNOW_NO_MEM:
+            Serial.println("❌ ESP-NOW: Out of memory.");
+            break;
+        case ESP_ERR_ESPNOW_NOT_FOUND:
+            Serial.println("❌ ESP-NOW: Peer not found.");
+            break;
+        case ESP_ERR_ESPNOW_IF:
+            Serial.println("❌ ESP-NOW: Interface error.");
+            break;
+        default:
+            Serial.print("❌ ESP-NOW: Unknown error: ");
+            Serial.println(result);
+            break;
+    }
+}
 
 void sendMidPlateData(){
     int rounded_coord_x = floor(self.x * 128);
@@ -307,6 +448,40 @@ void stop_motors(){
     sendMotorData();
 }
 
+int assignTypeBuffer = 4;
+int defCount = 0;
+int atkCount = 0;
+#define DEFENDER_WAIT_TIME 1500
+void assignType(){
+    // from lowest to highest priority
+    if(espnowDataRecv.type == 1){  //check if other bot is defending
+        defCount++;
+        atkCount = 0;
+        if(defCount >= assignTypeBuffer){
+            state.botType = 2;
+           // defCount = 0;
+        }
+    }
+    else if (espnowDataRecv.type == 2){ //check if other bot is attacking but not ballhiding
+        atkCount++;
+        defCount = 0;
+        if(atkCount >= assignTypeBuffer){
+            state.botType = 1;
+           // atkCount = 0;
+        }
+    }  
+    if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
+        state.botType = 0; //switch to scoring
+    } 
+    if (espnowDataRecv.type == 0){ //check if other bot is scoring
+        state.botType = 0; //switch to zero to help with ballhide
+    } 
+    if(switches.turnOff || switches.topOff){ //check if bot is off
+        state.botType = 3;
+    }
+
+    //DEBUG(espnowDataRecv.inField);
+}
 //// ** TESTING ** ////
 
 void motorTest(){
@@ -359,8 +534,8 @@ void setup(){
     pinMode(KICKER_SW, INPUT);
 
     // startWebSerial();
-    // readMacAddress();
-    // set_up_esp_now();
+    readMacAddress();
+    set_up_esp_now();
 
     // if(espnowDataRecv.isPresent == 2) isDefender = false;
     // else isDefender = true;
@@ -426,9 +601,37 @@ void loop(){
     //     ball.lastNoBallCap = millis();
     // }
 
+    assignType();
+
     // decide strategy type
-    if(ball.ballCap) {
-        state.curType = 2; // score
+    switch (state.botType)
+    {
+    case 1:  //defender      
+        state.curType = 7; //Defend
+        if(move.y > MAX_DEF_Y){
+            move.y = MAX_DEF_Y;
+        } /* code */
+        break;
+    case 2: //attacker
+        if(ball.ballCap == 0){
+            state.curType = 10; //lookahead
+        }
+    case 0: //scoring
+        if(!state.ready_to_shoot){      
+            state.curType = 8; //ballhide
+        }
+
+  
+
+    default:
+        break;
+    }
+
+
+
+
+    /*if(ball.ballCap) {
+        state.curType = 6; // score
         esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
     }
     else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
@@ -445,7 +648,7 @@ void loop(){
     else {
         state.curType = 1; // ball track
         esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
-    }
+    }*/
     esp_led.show();
 
     if(ball.ballCap > 0){
@@ -479,7 +682,7 @@ void loop(){
 
     // dribbler setting speed (may be changed again in strategies)
     if(switches.turnOff || switches.topOff || ball.noBall) move.dribblerSpeed = 0;
-    else if(ball.ballCap) move.dribblerSpeed = 150;
+    else if(ball.ballCap > 0) move.dribblerSpeed = 150;
 
     #ifdef TESTING
     state.strategies = State::Strategies::NONE;
@@ -491,6 +694,7 @@ void loop(){
             // any testing code
             bot.moveToPoint(0.40, 1.40, 0);
             break;
+
         case State::Strategies::MOVE_TO_POINT:
             // Serial.println("move to centre");
             bot.moveToPoint(FIELD_WIDTH/2, 0.80 /* FIELD_HEIGHT/2 */, 0);
@@ -521,13 +725,33 @@ void loop(){
             bot.dribblerAim();
             break;
         
-        case State::Strategies::ATTACK_MODE1:
+        case State::Strategies::DEFEND:
+            // Serial.println("defend");
+            bot.triggerDefend();
+            break;
+
+        case State::Strategies::BALLHIDE: //ballhide + decoy
             // Serial.println("ball hide");
             if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
                 move.dont_move = true;
                 return;
             }
-            bot.ballHideSide();
+            if(self.x < espnowDataRecv.xpos){
+                if (bot.ballHideLeft()){
+                    state.ready_to_shoot = true; 
+                }
+                else{
+                    state.ready_to_shoot = false;
+                }
+            }
+            else if(self.x > espnowDataRecv.xpos){
+                if (bot.ballHideRight()){
+                    state.ready_to_shoot = true; 
+                }
+                else{
+                    state.ready_to_shoot = false;
+                }
+            }
             break;
         
         case State::Strategies::ATTACK_MODE2:
@@ -536,6 +760,10 @@ void loop(){
                 return;
             }
             bot.ballHideMid();
+            break;
+        
+        case State::Strategies::LOOK_AHEAD:
+            bot.triggerLookAhead();
             break;
     }
 
@@ -555,4 +783,5 @@ void loop(){
 
     ball.last_x = ball.absolute_x;
     ball.last_y = ball.absolute_y;
+    ball.last_dist = ball.dist;
 }
