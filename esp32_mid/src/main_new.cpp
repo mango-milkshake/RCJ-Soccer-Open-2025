@@ -134,7 +134,7 @@ typedef struct struct_message {
     float heading;
     bool hasBall; 
     int botID_comm;
-    int bh_state;
+    int bh_ready;
     int type;
 } struct_message;
 struct_message espnowData;
@@ -232,7 +232,7 @@ void sendData(){ //send data here
     espnowData.heading = self.heading;
     espnowData.hasBall = ball.ballCap > 0 ? true : false;
     espnowData.botID_comm = state.botID;
-    espnowData.bh_state = ballhide_state;
+    espnowData.bh_ready = state.ready_to_shoot;
     espnowData.type = state.botType;
     
 
@@ -604,13 +604,12 @@ void loop(){
     assignType();
 
     // decide strategy type
-    switch (state.botType)
-    {
+    switch (state.botType){
     case 1:  //defender      
         state.curType = 7; //Defend
         if(move.y > MAX_DEF_Y){
             move.y = MAX_DEF_Y;
-        } /* code */
+        } 
         break;
     case 2: //attacker
         if(ball.ballCap == 0){
@@ -620,9 +619,9 @@ void loop(){
         if(!state.ready_to_shoot){      
             state.curType = 8; //ballhide
         }
-
-  
-
+        else if(state.ready_to_shoot && espnowDataRecv.bh_ready == true){ //check if both ready to shoot
+            state.curType = 6; //score
+        }
     default:
         break;
     }

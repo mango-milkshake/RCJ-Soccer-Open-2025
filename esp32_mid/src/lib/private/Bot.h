@@ -533,20 +533,44 @@ class Bot{
             move.rotation = target_angle;
         }
 
+        bool within(float a, float b, float c){ //check if a is within b +- c
+            if(a > b - c && a < b + c){
+                return true;
+            }
+            else{
+                return false;
+            }
+        }
+
         struct BallHide{
             float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.90, side_angle = 90;
             float mid_x = 0.91, mid_y = 1.65, mid_angle = 180;
         } ballhide;
 
-        void ballHideLeft(){
-            if(self.y < ballhide.side_y){
-                moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
+        void ballHideSide(){
+            if(self.y >= ballhide.side_y) dribblerAim();
+            else{
+                if(self.x < FIELD_WIDTH/2) moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
+                else moveAlongY(FIELD_WIDTH - ballhide.left_x, ballhide.side_y, ballhide.side_angle);
             }
         }
-        void ballHideRight(){
-            if(self.y < ballhide.side_y){
+        bool ballHideLeft(){
+            if(!(within(self.x, ballhide.left_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){ //not at shooting point 
+                moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
+            }
+            else{
+                return true; //return true if ready to shoot
+            }
+            return false; //return false if not ready
+        }
+        bool ballHideRight(){
+            if(!(within(self.x, ballhide.right_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){
                 moveAlongY(ballhide.right_x, ballhide.side_y, ballhide.side_angle);
             }
+            else{
+                return true;
+            }
+            return false;
         }
 
         void ballHideMid(){
