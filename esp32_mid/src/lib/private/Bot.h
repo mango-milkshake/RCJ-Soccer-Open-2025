@@ -465,18 +465,18 @@ class Bot{
 
             
                 float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
-                // //call movement exactly once every loop
-                // if(targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
-                //     targetballposx = targetballposx_current;
-                //     targetballposy = targetballposy_current;
+                //call movement exactly once every loop
+                if(targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
+                    targetballposx = targetballposx_current;
+                    targetballposy = targetballposy_current;
                    
-                // }
-                // else if (abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
-                //     //switches target only if new target is far away from current target 
-                //     targetballposx_current = targetballposx;
-                //     targetballposy_current = targetballposy; 
+                }
+                else if (abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
+                    //switches target only if new target is far away from current target 
+                    targetballposx_current = targetballposx;
+                    targetballposy_current = targetballposy; 
              
-                // }
+                }
             }   
             ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.relative_y, ball.relative_x)) : 0;
             // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y, ball.absolute_x)) : 0;

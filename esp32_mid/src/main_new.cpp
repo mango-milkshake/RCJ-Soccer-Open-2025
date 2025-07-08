@@ -40,6 +40,12 @@ Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 bool esp_led_state = true;
 float lastLED = 0;
 
+// LEDs on middle plate (small)
+#define LEDS_PIN 18
+#define LEDS_BRIGHTNESS 50
+#define NUM_LEDS 8
+Adafruit_NeoPixel leds(NUM_LEDS, LEDS_PIN, NEO_GRB + NEO_KHZ800)
+
 // Switches
 // Motor software switch
 #define TURN_OFF_SW 38
@@ -565,6 +571,10 @@ void setup(){
     state.strategies = static_cast<State::Strategies>(strats[0][0]);
     state.curStratIdx = 0;
     state.lastChange = millis();
+
+    leds.begin();
+    leds.setBrightness(LEDS_BRIGHTNESS);
+    leds.show();
 
     esp_led.begin();
     esp_led.setBrightness(ESP_BRIGHTNESS);
