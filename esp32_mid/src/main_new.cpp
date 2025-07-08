@@ -118,7 +118,7 @@ PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000
 #define NUM_SCORE_STRAT 1
 #define MAX_NUM_STRATS 2
 int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
-int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{1, 2}, {5}, {6}};
+int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{0}, {7, 10}, {6, 8}};
 
 // Variables
 float lastLoopTime = 0;
@@ -319,8 +319,8 @@ void getMidPlateData(){
         ball.noBall = false;
         ball.lastSeenBall = millis();
     }
-    // DEBUG(ball.angle);
-    // DEBUG(ball.dist);
+    DEBUG(ball.angle);
+    DEBUG(ball.dist);
 
     float relative_angle = 90 - (ball.angle + self.heading); 
     ball.relative_x = (ball.dist * cosf(RAD(relative_angle))) / 100;
@@ -454,30 +454,46 @@ int atkCount = 0;
 #define DEFENDER_WAIT_TIME 1500
 void assignType(){
     // from lowest to highest priority
+    if(state.botID == 1){
+        state.botType = 1;
+    }
+    else if(state.botID == 2){
+        state.botType = 2;
+    }
     if(espnowDataRecv.type == 1){  //check if other bot is defending
-        defCount++;
-        atkCount = 0;
-        if(defCount >= assignTypeBuffer){
+        atkCount++;
+        defCount = 0;
+        if(atkCount >= assignTypeBuffer){
             state.botType = 2;
            // defCount = 0;
         }
     }
     else if (espnowDataRecv.type == 2){ //check if other bot is attacking but not ballhiding
-        atkCount++;
-        defCount = 0;
-        if(atkCount >= assignTypeBuffer){
+        defCount++;
+        atkCount = 0;
+        if(defCount >= assignTypeBuffer){
             state.botType = 1;
            // atkCount = 0;
         }
     }  
     if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
-        state.botType = 0; //switch to scoring
+        state.botType = 3; //switch to scoring
     } 
-    if (espnowDataRecv.type == 0){ //check if other bot is scoring
-        state.botType = 0; //switch to zero to help with ballhide
+    if (espnowDataRecv.type == 3){ //check if other bot is scoring
+        state.botType = 3; //switch to zero to help with ballhide
+    }
+    if (state.botType == 3 && !(ball.ballCap > 0 || espnowDataRecv.type == 3)){ //switch back after scoring 
+        if (state.botID == 1){
+            state.botType = 1;
+        }
+        else if(state.botID == 2){
+            state.botType = 2;
+        }
     } 
     if(switches.turnOff || switches.topOff){ //check if bot is off
-        state.botType = 3;
+        state.botType = 0;
+        // DEBUG(switches.turnOff);
+        // DEBUG(switches.topOff);
     }
 
     //DEBUG(espnowDataRecv.inField);
@@ -605,32 +621,47 @@ void loop(){
 
     // decide strategy type
     switch (state.botType){
-    case 1:  //defender      
-        state.curType = 7; //Defend
+    case 1:  //defender       
+        state.curType = 1;
+        state.curStratIdx = 0; //Defend
+        Serial.println("defend");
         if(move.y > MAX_DEF_Y){
             move.y = MAX_DEF_Y;
         } 
         break;
     case 2: //attacker
         if(ball.ballCap == 0){
-            state.curType = 10; //lookahead
+            state.curType = 1;
+            state.curStratIdx = 1; //lookahead
+            Serial.println("lookahead");
         }
-    case 0: //scoring
+        break;
+    case 3: //scoring
         if(!state.ready_to_shoot){      
-            state.curType = 8; //ballhide
+            state.curType = 2;
+            state.curStratIdx = 1; //ballhide
+            Serial.println("ballhide");
         }
         else if(state.ready_to_shoot && espnowDataRecv.bh_ready == true){ //check if both ready to shoot
-            state.curType = 6; //score
+            state.curType = 2;
+            state.curStratIdx = 0; //score
+            Serial.println("score");
+
         }
+        break;
     default:
+        state.curType = 0;
+        state.curStratIdx = 0;
+        Serial.println("out");
         break;
     }
-
-
-
+    DEBUG(state.strategies);
+    DEBUG(strats[state.curType][state.curStratIdx]);
+    DEBUG(state.botType);
+    
 
     /*if(ball.ballCap) {
-        state.curType = 6; // score
+        state.curType = 2; // score
         esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
     }
     else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
@@ -668,15 +699,15 @@ void loop(){
     }
 
     // decide specific strategy
-    if(state.curType != state.lastType){
-        state.curStratIdx = 0;
-        state.lastChange = millis();
-    }
-    else if(millis() - state.lastChange > CHANGE_TIME){
-        state.curStratIdx++;
-        state.curStratIdx %= stratTypes[state.curType];
-        state.lastChange = millis();
-    }
+    // if(state.curType != state.lastType){
+    //     state.curStratIdx = 0;
+    //     state.lastChange = millis();
+    // }
+    // else if(millis() - state.lastChange > CHANGE_TIME){
+    //     state.curStratIdx++;
+    //     state.curStratIdx %= stratTypes[state.curType];
+    //     state.lastChange = millis();
+    // }
     state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
     // dribbler setting speed (may be changed again in strategies)

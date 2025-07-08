@@ -24,9 +24,9 @@ mask_radius = 100
 roi_width=280
 sensor.set_windowing(window_x - int((window_width/2)), window_y - int((window_width/2)), window_width, window_width)
 
-centre_x = 133
-centre_y = 106
-thresh_ball = (34, 76, 9, 44, 17, 60)
+centre_x = 139
+centre_y = 123
+thresh_ball = (0, 100, -21, 74, 31, 102)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72)
 thresh_blue_goal = (46, 58, -27, -7, -34, -17)
 uart = UART(3, 115200)

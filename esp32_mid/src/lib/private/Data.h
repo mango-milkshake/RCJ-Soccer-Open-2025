@@ -40,8 +40,6 @@ struct Movement{
     float x = 0, y = 0, rotation = 0;
     bool kick = false;
     bool dont_move = false;
-    float dribblerSpeed = 0;
-    int dribbler_maxspeed = 150;
     int dribbler_maxspeed = 150, dribblerSpeed = 0;
     int translation_default = 40, rotation_default = 25;
     int translation_ballcap = 20, rotation_ballcap = 10, rotation_lowered = 5;

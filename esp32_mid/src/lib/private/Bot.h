@@ -44,6 +44,12 @@
 #define BALLCAP_DURATION 2504
 #define LAST_SEEN_BALL_TIME 200
 
+#define DEBUGGING
+#ifdef DEBUGGING
+#define DEBUG(x) Serial.println(String(#x) + String(": ") + String(x) + String('\r')); 
+#else
+#define DEBUG(x) 123;
+#endif
 
 class Bot{
     public:
@@ -349,7 +355,7 @@ class Bot{
             bool lookAheadConfirm = false;
             float t;
             float LAball_x, LAball_y, LAball_vx, LAball_vy;
-            float targetballposx, targetballposy;
+            // float targetballposx, targetballposy;
         
             LAball_x = ball.relative_x;
             LAball_y = ball.relative_y;
@@ -390,9 +396,18 @@ class Bot{
         } 
             targetballposx = LAball_x + LAball_vx*t;
             targetballposy = LAball_y + LAball_vy*t;
-            targetballposx += self.x + 0.075*sin(self.heading); 
-            targetballposy += self.y + 0.075*cos(self.heading);
-         
+            targetballposx += self.x;
+            targetballposy += self.y;
+            // targetballposx += self.x + 0.075*sin(self.heading); 
+            // targetballposy += self.y + 0.075*cos(self.heading);
+            
+            // DEBUG(LAball_x);
+            // DEBUG(LAball_y);
+            // DEBUG(LAball_vx);
+            // DEBUG(LAball_vy);
+            // DEBUG(t);
+            // DEBUG(self.x);
+            // DEBUG(self.y);
         }
         
         void triggerLookAhead(){
@@ -421,21 +436,14 @@ class Bot{
 
             updateSelfVelocityEWMA(RAD(self.heading), self.x, self.y); 
             if(ball.ballCap){
-                switches.turnOff = true;
                 noBallTimer = 0;
             }
             else{
-                switches.turnOff = false;
-                if(ball.noBall){
-
-                    if(tooklastball) moveToGoal = false;
-                    else moveToGoal = true;
-                }
-                else{
+                // switches.turnOff = false;
+                if(!ball.noBall){
                     ball.last_x = ball.absolute_x;
                     ball.last_y = ball.absolute_y;
                     noBallTimer = 0;
-                    moveToGoal = false;
                 }
                 
                 if(tooklastball){
@@ -443,47 +451,32 @@ class Bot{
                     targetballposy = lastLAtargety;
                     ballAngle_LA = lastLAtargetAngle;
                 }
-                else if(!moveToGoal && ball.noBall && checkzero(10)){ // if no ball, stop bot
-                    // esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
-                    // sendI2C(zeroBuffer);
-                    // esp_led.show();
-                    // lookAhead(); //delete this later if needed
+                else if(ball.noBall && checkzero(10)){ // if no ball, stop bot
                     targetballposx = self.x;
                     targetballposy = self.y;
                 }  
                 // else if (sqrtf(ball.vx*ball.vx + ball.vy*ball.vy) < 0.15){} //don't look ahead if velocity is too small
-                else if (!moveToGoal && !ball.noBall && checkv(5, 200)){ // if last n values are within x of each other, update look ahead target
+                else if (!ball.noBall && checkv(5, 200)){ // if last n values are within x of each other, update look ahead target
                     if(abs(times.curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
                         lookAhead();
                         lastLookAhead = millis();
                     }
                 } 
 
-                if (moveToGoal){
-                    // Serial.println("MOVING TO GOAL");
-                    targetballposx = FIELD_WIDTH/2;
-                    targetballposy = 0.5;
-                    // movement(targetballposx, targetballposy, 0);
-                }
-                //DEBUG(moveToGoal);
-                // DEBUG(targetballposx);
-                // DEBUG(targetballposy);
-
             
                 float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
-                //call movement exactly once every loop
-                if(!moveToGoal && (targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT)){
-                    targetballposx = targetballposx_current;
-                    targetballposy = targetballposy_current;
-                    // movement(targetballposx, targetballposy, ballAngle_LA);
-                    // sendI2C(zeroBuffer);
-                }
-                else if (!moveToGoal && abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
-                    //switches target only if new target is far away from current target 
-                    targetballposx_current = targetballposx;
-                    targetballposy_current = targetballposy; 
-                    // movement(targetballposx, targetballposy, ballAngle_LA);
-                }
+                // //call movement exactly once every loop
+                // if(targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
+                //     targetballposx = targetballposx_current;
+                //     targetballposy = targetballposy_current;
+                   
+                // }
+                // else if (abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
+                //     //switches target only if new target is far away from current target 
+                //     targetballposx_current = targetballposx;
+                //     targetballposy_current = targetballposy; 
+             
+                // }
             }   
             ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.relative_y, ball.relative_x)) : 0;
             // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y, ball.absolute_x)) : 0;
@@ -493,6 +486,10 @@ class Bot{
             }
             
             else ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y - self.y, ball.absolute_x - self.x)) : 0;
+            // DEBUG(ball.absolute_x);
+            // DEBUG(ball.absolute_y);
+            // DEBUG(targetballposx);
+            // DEBUG(targetballposy);
             move.x = targetballposx;
             move.y = targetballposy;
             move.rotation = ballAngle_LA;
@@ -543,7 +540,7 @@ class Bot{
         }
 
         struct BallHide{
-            float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.90, side_angle = 90;
+            float left_x = 0.50, right_x = FIELD_WIDTH - left_x, side_y = 1.90, side_angle = 90;
             float mid_x = 0.91, mid_y = 1.65, mid_angle = 180;
         } ballhide;
 
@@ -611,9 +608,9 @@ class Bot{
             move.rotation = 0;
         }
         void triggerDefend(){
-                    pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
-        pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
-        pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+        //             pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+        // pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+        // pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
         if (ball.ballCap == 0){
             if (ball.noBall && (millis() - ball.lastSeenBall) > LAST_SEEN_BALL_TIME) {
                 move.x = 0.91;
@@ -631,21 +628,22 @@ class Bot{
                 // if(millis() - lastDribblerRev < 1000) ;
                 if(ball.ballCap > 0 || (ball.dist>0 && ball.dist<=40) || 
                 (ball.last_dist>0 && ball.last_dist<=40 && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME)) {
-                    dribbler.setSpeed(1.0);
+                    // dribbler.setSpeed(1.0);
+                    move.dribblerSpeed = move.dribbler_maxspeed;
                 }
-                else if(ball.noBall) dribbler.setSpeed(0);
-                else dribbler.setSpeed(0.5);
+                else if(ball.noBall) move.dribblerSpeed = 0;
+                else move.dribblerSpeed = 0.5*move.dribbler_maxspeed;
 
-                if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < self.y){
-                    pid_rotate.setConfig(0.4, 0, 0);
-                    pid_x.setConfig(1.9, 0, 0);
-                    pid_y.setConfig(1.9, 0, 0);                
-                }
-                else {
-                    pid_rotate.setConfig(0.5, 0, 0);
-                    pid_x.setConfig(2.2, 0, 0);
-                    pid_y.setConfig(2.2, 0, 0);  
-                }
+                // if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < self.y){
+                //     pid_rotate.setConfig(0.4, 0, 0);
+                //     pid_x.setConfig(1.9, 0, 0);
+                //     pid_y.setConfig(1.9, 0, 0);                
+                // }
+                // else {
+                //     pid_rotate.setConfig(0.5, 0, 0);
+                //     pid_x.setConfig(2.2, 0, 0);
+                //     pid_y.setConfig(2.2, 0, 0);  
+                // }
                 if (ball.noBall) {
                     ball.absolute_x = ball.last_x;
                     ball.absolute_y = ball.last_y;
@@ -655,9 +653,9 @@ class Bot{
                 else {
                     dribblerBallTrack();
                 }
-                pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
-                pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
-                pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+                // pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+                // pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+                // pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
             }
             // 4) Otherwise => geometry-based blocking
             else {
