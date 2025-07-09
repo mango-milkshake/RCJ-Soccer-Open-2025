@@ -775,9 +775,17 @@ void loop(){
         case State::Strategies::BALLHIDE: //ballhide + decoy
             // Serial.println("ball hide");
             if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+                leds.setPixelColor(7, leds.Color(15, 15, 15));
+                leds.show();
                 move.dont_move = true;
-                return;
+                break;
             }
+            // if(state.ready_to_shoot) {
+            //     leds.setPixelColor(7, leds.Color(0, 0, 15));
+            //     leds.show();
+            //     bot.dribblerAim();
+            //     break;
+            // }
             if(self.x < espnowDataRecv.xpos){
                 if (bot.ballHideLeft()){
                     state.ready_to_shoot = true; 
@@ -788,9 +796,13 @@ void loop(){
             }
             else if(self.x > espnowDataRecv.xpos){
                 if (bot.ballHideRight()){
+                    leds.setPixelColor(7, leds.Color(0, 15, 0));
+                    leds.show();
                     state.ready_to_shoot = true; 
                 }
                 else{
+                    leds.setPixelColor(7, leds.Color(15, 0, 0));
+                    leds.show();
                     state.ready_to_shoot = false;
                 }
             }
