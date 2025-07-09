@@ -96,6 +96,7 @@ while True:
     clock.tick()  # Update the FPS clock.
     led2.on()
     img = sensor.snapshot()  # Take a picture and return the image.
+    img.lens_corr(strength=1.35, zoom=1.0)
     blobs = img.find_blobs([threshold], area_threshold = 150, merge=True)
    # blobs2 = img.find_blobs([threshold_goal_blue], area_threshold=200, merge = True)
    # if len(blobs2)>0:
@@ -108,24 +109,27 @@ while True:
         #print(ball.cx(), ball.cy())
         x = ball.cx()
         y = ball.cy()
-        x2 = 2.34678e-7* x**3 - 6.93269e-7* x**2 * y + 0.0000184518 * x**2 + 4.94946e-9 *x * y**2 + 0.000340658*x*y - 0.0405575*x + 1.26915e-7 * y**3 - 0.0000321536*y**2 - 0.0783178*y + 9.3546
-        y2 = -2.17938e-6 * x**3 - 3.57085e-8 * x**2 * y + 0.00129718 * x**2 - 3.14209e-7 * x * y**2 + 0.0000760482 * x * y - 0.27871*x + 6.65652e-7 * y**3 - 0.0001672 * y**2 + 0.00840698*y + 33.1509
+        x2 =  1.46886e-20   * x**3  - 3.0779e-6   * x**2 * y+ 0.000369348 * x**2 - 3.91234e-21 * x * y**2+ 0.00158733  * x * y- 0.190479    * x - 1.20828e-6  * y**3+ 0.000434979 * y**2- 0.277897    * y + 29.1719
+        y2 = -7.9634e-6    * x**3 + 2.7854e-20   * x**2 * y + 0.00535085  * x**2 + 9.05357e-8   * x * y**2 - 0.0000217286* x * y - 1.21978     * x  - 4.6143e-21  * y**3 + 0.0000474553* y**2  - 0.0113893   * y + 110.458
+
 
         dist = (x2**2 + y2**2)**0.5
 
-        #print("dist = ", dist)
+       # print("x2)
+        print("dist = ", dist)
         #print("x = ", x) #image coordinates
         #print("y = ", y)
-        #print("x2 = ", x2) #actual coordinates
-        #print("y2 = ", y2)
+        print("x2 = ", x2) #actual coordinates
+        print("y2 = ", y2)
     else:
         no_ball = True
     blocked_pixels = 0
-    rows = 5
+    blocked_pixels_goal = 0
+    rows = 6
     columns = 24
     y_separation = 10
     goal_width = 5
-    central_bar_start = 80
+    central_bar_start = 55
     for i in range(columns): #check path to goal
        for j in range(rows):
             pixel_x = int((i)*((320-central_bar_start)/columns)+central_bar_start)
@@ -142,17 +146,18 @@ while True:
             else:
                 img.draw_cross(pixel_x, pixel_y, color=(255,255,255), size=5)
 
-    if (blocked_pixels != 0): #check for open goal regions
+    if (blocked_pixels != -1): #check for open goal regions (-1 TO TESt, ORIGINALLY 0)
         for i in range(int(240/y_separation)):
             for j in range(goal_width):
                 #make sure these pixels dont overlap with previous ones, they will detect the drawn white cross
-                pixel_x = int(j*(320/columns)+90)
+                pixel_x = int(j*(320/columns)+40)
                 pixel_y = int(i*y_separation)
                 rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
                 lab = image.rgb_to_lab(rgb)
                 if(pixel_blocked(lab)):
                     img.draw_cross(pixel_x, pixel_y, color=(255,0,0), size = 5)
                     open_goal.append(0) #pixel blocked
+                    blocked_pixels_goal += 1
                 else:
                     img.draw_cross(pixel_x, pixel_y, color=(255,255,255), size = 5)
                     open_goal.append(1) #pixel clear
@@ -180,6 +185,9 @@ while True:
         img.draw_arrow(320,120,100,120,color=(0,0,255), thickness=5)
 
     open_goal = []
+
+    if (blocked_pixels_goal != 0):
+        print("ballhide detected")
 
 
     uart.writechar(5)
