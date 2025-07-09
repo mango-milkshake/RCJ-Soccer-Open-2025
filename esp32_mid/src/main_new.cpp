@@ -164,8 +164,8 @@ void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //in
     lastRecvTime = millis();
     // DEBUG(espnowDataRecv.isPresent);
     // DEBUG(espnowDataRecv.inField);
-    DEBUG(espnowDataRecv.xpos);
-    DEBUG(espnowDataRecv.ypos);
+    // DEBUG(espnowDataRecv.xpos);
+    // DEBUG(espnowDataRecv.ypos);
     // DEBUG(espnowDataRecv.def);
     // DEBUG(espnowDataRecv.hasBall);
     // Serial.println("received data");
@@ -672,8 +672,8 @@ void loop(){
         break;
     }
     // DEBUG(state.botType);
-    DEBUG(state.strategies);
-    DEBUG(state.botID);
+    // DEBUG(state.strategies);
+    // DEBUG(state.botID);
     // DEBUG(strats[state.curType][state.curStratIdx]);
     
 
@@ -831,7 +831,7 @@ void loop(){
             break;
     }
 
-    if (times.curTime - esp_last_send >= 250){
+    if (times.curTime - esp_last_send >= 1000){
         sendData();
         esp_last_send = times.curTime;
     }

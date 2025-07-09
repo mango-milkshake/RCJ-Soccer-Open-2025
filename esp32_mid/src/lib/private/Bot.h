@@ -344,7 +344,6 @@ class Bot{
         float targetballposx = FIELD_WIDTH/2;
         float targetballposy = 0.80;
         float lastLAtargetx = 0, lastLAtargety = 0, lastLAtargetAngle = 0;
-        float targetheadinglookahead = 0;
         float lastLookAhead = millis();
         float targetballposx_current = 0;
         float targetballposy_current = 0;
@@ -392,7 +391,7 @@ class Bot{
                 else if (t2 >= 0){
                     t = t2;
                     lookAheadConfirm = true;
-                }  
+                }
             }
         
             if(!lookAheadConfirm){ //ball is too fast
@@ -403,6 +402,8 @@ class Bot{
         } 
             targetballposx = LAball_x + LAball_vx*t;
             targetballposy = LAball_y + LAball_vy*t;
+            targetballposx *= (ball.dist/100 - BALLCAP_DISTANCE) / (ball.dist/100);
+            targetballposy *= (ball.dist/100 - BALLCAP_DISTANCE) / (ball.dist/100);
             targetballposx += self.x;
             targetballposy += self.y;
             // targetballposx += self.x + 0.075*sin(self.heading); 
@@ -442,61 +443,58 @@ class Bot{
             }
 
             updateSelfVelocityEWMA(RAD(self.heading), self.x, self.y); 
-            if(ball.ballCap){
+            if(!ball.noBall){
+                ball.last_x = ball.absolute_x;
+                ball.last_y = ball.absolute_y;
                 noBallTimer = 0;
             }
-            else{
-                // switches.turnOff = false;
-                if(!ball.noBall){
-                    ball.last_x = ball.absolute_x;
-                    ball.last_y = ball.absolute_y;
-                    noBallTimer = 0;
-                }
-                
-                if(tooklastball){
-                    targetballposx = lastLAtargetx;
-                    targetballposy = lastLAtargety;
-                    ballAngle_LA = lastLAtargetAngle;
-                }
-                else if(ball.noBall && checkzero(10)){ // if no ball, stop bot
-                    targetballposx = self.x;
-                    targetballposy = self.y;
-                }  
-                // else if (sqrtf(ball.vx*ball.vx + ball.vy*ball.vy) < 0.15){} //don't look ahead if velocity is too small
-                else if (!ball.noBall && checkv(5, 200)){ // if last n values are within x of each other, update look ahead target
-                    if(abs(times.curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
-                        lookAhead();
-                        lastLookAhead = millis();
-                    }
-                } 
-
             
-                float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
-                //call movement exactly once every loop
-                if(targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
-                    targetballposx = targetballposx_current;
-                    targetballposy = targetballposy_current;
-                   
-                }
-                else if (abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
-                    //switches target only if new target is far away from current target 
-                    targetballposx_current = targetballposx;
-                    targetballposy_current = targetballposy; 
-             
-                }
-            }   
-            ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.relative_y, ball.relative_x)) : 0;
-            // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y, ball.absolute_x)) : 0;
-
-            if (moveToGoal){
-                ballAngle_LA = 0;
+            if(tooklastball){
+                targetballposx = lastLAtargetx;
+                targetballposy = lastLAtargety;
+                ballAngle_LA = lastLAtargetAngle;
             }
+            else if(ball.noBall && checkzero(10)){ // if no ball, stop bot
+                targetballposx = self.x;
+                targetballposy = self.y;
+            }  
+            // else if (sqrtf(ball.vx*ball.vx + ball.vy*ball.vy) < 0.15){} //don't look ahead if velocity is too small
+            else if (!ball.noBall && checkv(5, 200)){ // if last n values are within x of each other, update look ahead target
+                if(abs(times.curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
+                    lookAhead();
+                    lastLookAhead = times.curTime;
+                }
+            } 
+
+        
+            float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
+            //call movement exactly once every loop
+            if(targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
+                targetballposx = targetballposx_current;
+                targetballposy = targetballposy_current;
+                
+            }
+            else if (abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
+                //switches target only if new target is far away from current target 
+                targetballposx_current = targetballposx;
+                targetballposy_current = targetballposy; 
             
-            else ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y - self.y, ball.absolute_x - self.x)) : 0;
-            DEBUG(ball.absolute_x);
-            DEBUG(ball.absolute_y);
-            DEBUG(targetballposx);
-            DEBUG(targetballposy);
+            }
+        
+            // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.relative_y, ball.relative_x)) : 0;
+            // DEBUG(ball.relative_x);
+            // DEBUG(ball.relative_y);
+
+            // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y, ball.absolute_x)) : 0;
+            
+            
+            ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y - self.y, ball.absolute_x - self.x)) : 0;
+            LIM_ANGLE_180(ballAngle_LA);
+            // DEBUG(ball.absolute_x);
+            // DEBUG(ball.absolute_y);
+            // DEBUG(targetballposx);
+            // DEBUG(targetballposy);
+            // DEBUG(ballAngle_LA);
             move.x = targetballposx;
             move.y = targetballposy;
             move.rotation = ballAngle_LA;
