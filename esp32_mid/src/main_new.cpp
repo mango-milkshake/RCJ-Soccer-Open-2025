@@ -119,9 +119,9 @@ PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000
 // Strategies
 #define CHANGE_TIME 5000
 #define NUM_STRAT_TYPES 3
-#define NUM_NO_BALL_STRAT 2
+#define NUM_NO_BALL_STRAT 1
 #define NUM_BALL_STRAT 1
-#define NUM_SCORE_STRAT 1
+#define NUM_SCORE_STRAT 2
 #define MAX_NUM_STRATS 2
 int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
 int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{0}, {7, 10}, {6, 8}};
@@ -632,37 +632,43 @@ void loop(){
     // decide strategy type
     switch (state.botType){
     case 1:  //defender       
-        state.curType = 1;
-        state.curStratIdx = 0; //Defend
-        Serial.println("defend");
-        if(move.y > MAX_DEF_Y){
-            move.y = MAX_DEF_Y;
-        } 
+        // state.curType = 1;
+        // state.curStratIdx = 0; //Defend
+        state.strategies = static_cast<State::Strategies>(7);
+        Serial.println("defend"); 
         break;
     case 2: //attacker
-        if(ball.ballCap == 0){
-            state.curType = 1;
-            state.curStratIdx = 1; //lookahead
+        if(ball.noBall){
+            // state.curType = 0;
+            // state.curStratIdx = 0;
+            state.strategies = static_cast<State::Strategies>(1);
+        }
+        else{
+            // state.curType = 1;
+            // state.curStratIdx = 1; //lookahead
+            state.strategies = static_cast<State::Strategies>(10);
             Serial.println("lookahead");
         }
         break;
     case 3: //scoring
         if(!state.ready_to_shoot){      
-            state.curType = 2;
-            state.curStratIdx = 1; //ballhide
+            // state.curType = 2;
+            // state.curStratIdx = 1; //ballhide
+            state.strategies = static_cast<State::Strategies>(8);
             Serial.println("ballhide");
         }
         else if(state.ready_to_shoot && espnowDataRecv.bh_ready == true){ //check if both ready to shoot
             state.curType = 2;
             state.curStratIdx = 0; //score
-            Serial.println("score");
-
+            // Serial.println("score");
+            state.strategies = static_cast<State::Strategies>(6);
         }
         break;
     default:
         state.curType = 0;
         state.curStratIdx = 0;
         Serial.println("out");
+        state.strategies = static_cast<State::Strategies>(0);
         break;
     }
     // DEBUG(state.botType);
@@ -718,7 +724,7 @@ void loop(){
     //     state.curStratIdx %= stratTypes[state.curType];
     //     state.lastChange = millis();
     // }
-    state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
+    // state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
     // dribbler setting speed (may be changed again in strategies)
     if(switches.turnOff || switches.topOff) drib.desired = 0;
@@ -727,7 +733,7 @@ void loop(){
     else if(ball.noBall) drib.desired = 0;
 
     #ifdef TESTING
-    state.strategies = State::Strategies::NONE;
+    state.strategies = State::Strategies::ATTACK_MODE2;
     #endif
 
     // carry out the strategy
