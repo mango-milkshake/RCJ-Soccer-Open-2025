@@ -547,7 +547,7 @@ class Bot{
         }
 
         struct BallHide{
-            float left_x = 0.50, right_x = FIELD_WIDTH - left_x, side_y = 1.90, side_angle = 90;
+            float left_x = 0.50, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 90;
             float mid_x = 0.91, mid_y = 1.65, mid_angle = 180;
         } ballhide;
 
