@@ -44,7 +44,7 @@ float lastLED = 0;
 #define LEDS_PIN 18
 #define LEDS_BRIGHTNESS 50
 #define NUM_LEDS 8
-Adafruit_NeoPixel leds(NUM_LEDS, LEDS_PIN, NEO_GRB + NEO_KHZ800)
+Adafruit_NeoPixel leds(NUM_LEDS, LEDS_PIN, NEO_GRB + NEO_KHZ800);
 
 // Switches
 // Motor software switch
@@ -325,8 +325,8 @@ void getMidPlateData(){
         ball.noBall = false;
         ball.lastSeenBall = millis();
     }
-    DEBUG(ball.angle);
-    DEBUG(ball.dist);
+    // DEBUG(ball.angle);
+    // DEBUG(ball.dist);
 
     float relative_angle = 90 - (ball.angle + self.heading); 
     ball.relative_x = (ball.dist * cosf(RAD(relative_angle))) / 100;
@@ -665,31 +665,31 @@ void loop(){
         Serial.println("out");
         break;
     }
+    // DEBUG(state.botType);
     DEBUG(state.strategies);
-    DEBUG(strats[state.curType][state.curStratIdx]);
-    DEBUG(state.botType);
+    // DEBUG(strats[state.curType][state.curStratIdx]);
     
 
-    /*if(ball.ballCap) {
-        state.curType = 2; // score
-        esp_led.setPixelColor(0, esp_led.Color(50, 0, 0));
+    if(ball.ballCap) {
+        // state.curType = 2; // score
+        leds.setPixelColor(2, esp_led.Color(50, 0, 0));
     }
     else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
         // Serial.println("using last ball pos");
         ball.absolute_x = ball.last_x;
         ball.absolute_y = ball.last_y;
-        state.curType = 1;
-        esp_led.setPixelColor(0, esp_led.Color(50, 50, 50));
+        // state.curType = 1;
+        leds.setPixelColor(2, esp_led.Color(50, 50, 50));
     }
     else if(ball.noBall) {
-        state.curType = 0; // no ball
-        esp_led.setPixelColor(0, esp_led.Color(0, 0, 50));
+        // state.curType = 0; // no ball
+        leds.setPixelColor(2, esp_led.Color(0, 0, 50));
     }
     else {
-        state.curType = 1; // ball track
-        esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
-    }*/
-    esp_led.show();
+        // state.curType = 1; // ball track
+        leds.setPixelColor(2, esp_led.Color(0, 50, 0));
+    }
+    leds.show();
 
     if(ball.ballCap > 0){
         move.max_translation = move.translation_ballcap, move.min_translation = -move.translation_ballcap;
@@ -799,9 +799,9 @@ void loop(){
         case State::Strategies::ATTACK_MODE2:
             if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
                 move.dont_move = true;
-                return;
+                break;
             }
-            bot.ballHideMid();
+            bot.ballHideSide();
             break;
         
         case State::Strategies::LOOK_AHEAD:
