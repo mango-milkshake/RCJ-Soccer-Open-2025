@@ -616,44 +616,44 @@ class Bot{
         }
         void triggerDefend(){
 
-        if (ball.ballCap == 0){
-            if (ball.noBall && (millis() - ball.lastSeenBall) > LAST_SEEN_BALL_TIME) {
-                move.x = 0.91;
-                move.y = 0.60;
-                move.rotation = 0;
-            }
-            // 2) Else if the ball is within the no-chase region near the goal
-            else if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < 0.25f){
-                move.x = 0.91;
-                move.y = 0.60;
-                move.rotation = 0;
-            }
-            // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
-            else if (ball.absolute_y <  0.80f) {
-                // if(millis() - lastDribblerRev < 1000) ;
-                if(ball.ballCap > 0 || (ball.dist>0 && ball.dist<=40) || 
-                (ball.last_dist>0 && ball.last_dist<=40 && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME)) {
-                    // dribbler.setSpeed(1.0);
-                    drib.desired = drib.maxspeed;
+            if (ball.ballCap == 0){
+                if (ball.noBall && (millis() - ball.lastSeenBall) > LAST_SEEN_BALL_TIME) {
+                    move.x = 0.91;
+                    move.y = 0.60;
+                    move.rotation = 0;
                 }
-                else if(ball.noBall) drib.desired = 0;
-                else drib.desired = 0.5*drib.maxspeed;
-                if (ball.noBall) {
-                    ball.absolute_x = ball.last_x;
-                    ball.absolute_y = ball.last_y;
-                    dribblerBallTrack();
+                // 2) Else if the ball is within the no-chase region near the goal
+                else if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < 0.25f){
+                    move.x = 0.91;
+                    move.y = 0.60;
+                    move.rotation = 0;
                 }
-                // 3b) If we DO see the ball => track it with the dribbler
+                // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
+                else if (ball.absolute_y <  0.80f) {
+                    // if(millis() - lastDribblerRev < 1000) ;
+                    if(ball.ballCap > 0 || (ball.dist>0 && ball.dist<=40) || 
+                    (ball.last_dist>0 && ball.last_dist<=40 && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME)) {
+                        // dribbler.setSpeed(1.0);
+                        drib.desired = drib.maxspeed;
+                    }
+                    else if(ball.noBall) drib.desired = 0;
+                    else drib.desired = 0.5*drib.maxspeed;
+                    if (ball.noBall) {
+                        ball.absolute_x = ball.last_x;
+                        ball.absolute_y = ball.last_y;
+                        dribblerBallTrack();
+                    }
+                    // 3b) If we DO see the ball => track it with the dribbler
+                    else {
+                        dribblerBallTrack();
+                    }
+                }
+                // 4) Otherwise => geometry-based blocking
                 else {
-                    dribblerBallTrack();
+                    defend();
                 }
-            }
-            // 4) Otherwise => geometry-based blocking
-            else {
-                defend();
             }
         }
-    }
     private:
 } bot;
 
