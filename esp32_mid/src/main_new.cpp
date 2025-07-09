@@ -770,6 +770,9 @@ void loop(){
         case State::Strategies::DEFEND:
             // Serial.println("defend");
             bot.triggerDefend();
+            if(move.y > MAX_DEF_Y){
+                move.y = MAX_DEF_Y;
+            }
             break;
 
         case State::Strategies::BALLHIDE: //ballhide + decoy
