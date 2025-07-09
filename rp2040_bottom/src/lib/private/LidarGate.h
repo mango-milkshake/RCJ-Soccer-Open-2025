@@ -4,9 +4,9 @@
 #include <Arduino.h>
 #include "../public/analog_iic.h"
 #include "../public/tofsense_f_iic.h"
-#define THRESH_LEFT 0.20
-#define THRESH_MID 0.28
-#define THRESH_RIGHT 0.32
+#define THRESH_LEFT 0.010
+#define THRESH_MID 0.018
+#define THRESH_RIGHT 0.030
 
 class LidarGate{
     public:
