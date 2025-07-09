@@ -23,7 +23,7 @@
 #define DEBUG(x) 123;
 #endif
 
-// #define TESTING
+#define TESTING
 
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
@@ -131,6 +131,7 @@ float lastLoopTime = 0;
 float speed_xdir, speed_ydir, rotation;
 
 // ESP Bluetooth Communication
+float esp_last_send = 0;
 uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
 uint8_t own_mac_address[6];
 typedef struct struct_message {
@@ -163,8 +164,8 @@ void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //in
     lastRecvTime = millis();
     // DEBUG(espnowDataRecv.isPresent);
     // DEBUG(espnowDataRecv.inField);
-    // DEBUG(espnowDataRecv.xpos);
-    // DEBUG(espnowDataRecv.ypos);
+    DEBUG(espnowDataRecv.xpos);
+    DEBUG(espnowDataRecv.ypos);
     // DEBUG(espnowDataRecv.def);
     // DEBUG(espnowDataRecv.hasBall);
     // Serial.println("received data");
@@ -226,15 +227,13 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     }
 }
 
-float target_x_comm = self.x;
-float target_y_comm = self.y;
 bool ready_to_ballhide = false;
 int ballhide_state = 0;
 void sendData(){ //send data here
     //Define what values to send
     espnowData.isPresent = 2;
-    espnowData.xpos = target_x_comm;
-    espnowData.ypos = target_y_comm;
+    espnowData.xpos = self.x;
+    espnowData.ypos = self.y;
     espnowData.heading = self.heading;
     espnowData.hasBall = ball.ballCap > 0 ? true : false;
     espnowData.botID_comm = state.botID;
@@ -558,6 +557,7 @@ void setup(){
     // startWebSerial();
     readMacAddress();
     set_up_esp_now();
+    esp_last_send = millis();
 
     // if(espnowDataRecv.isPresent == 2) isDefender = false;
     // else isDefender = true;
@@ -638,12 +638,12 @@ void loop(){
         Serial.println("defend"); 
         break;
     case 2: //attacker
-        if(ball.noBall){
+        if(ball.noBall && millis(); - ball.lastSeenBall > 1500){
             // state.curType = 0;
             // state.curStratIdx = 0;
-            state.strategies = static_cast<State::Strategies>(1);
+            state.strategies = static_cast<State::Strategies>(0);
         }
-        else{
+        else{ 
             // state.curType = 1;
             // state.curStratIdx = 1; //lookahead
             state.strategies = static_cast<State::Strategies>(10);
@@ -673,6 +673,7 @@ void loop(){
     }
     // DEBUG(state.botType);
     DEBUG(state.strategies);
+    DEBUG(state.botID);
     // DEBUG(strats[state.curType][state.curStratIdx]);
     
 
@@ -733,14 +734,14 @@ void loop(){
     else if(ball.noBall) drib.desired = 0;
 
     #ifdef TESTING
-    state.strategies = State::Strategies::ATTACK_MODE2;
+    state.strategies = State::Strategies::LOOK_AHEAD;
     #endif
 
     // carry out the strategy
     switch (state.strategies){
         case State::Strategies::NONE:
             // any testing code
-            bot.moveToPoint(0.40, 1.40, 0);
+            bot.moveToPoint(self.x, self.y, self.heading);
             break;
 
         case State::Strategies::MOVE_TO_POINT:
@@ -830,6 +831,11 @@ void loop(){
             break;
     }
 
+    if (times.curTime - esp_last_send >= 250){
+        sendData();
+        esp_last_send = times.curTime;
+    }
+
     // send moving command to motors
     if(switches.turnOff || switches.topOff) move.dont_move = true;
     if(move.dont_move) stop_motors();
@@ -887,7 +893,7 @@ void loop(){
     }
     if(drib.desired == 0) drib.speed = 0;
     dribbler.setSpeed(drib.speed);
-    DEBUG(drib.speed);
+    // DEBUG(drib.speed);
 
     // update last type
     state.lastType = state.curType;
