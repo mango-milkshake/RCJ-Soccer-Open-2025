@@ -42,7 +42,7 @@
 #define INITIAL_CHANGE 35.0f
 #define GRADUAL_CHANGE 250.0f
 #define BALLCAP_DURATION 2504
-#define LAST_SEEN_BALL_TIME 200
+#define LAST_SEEN_BALL_TIME 1000
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -608,11 +608,11 @@ class Bot{
                 float dydefend = (new_y - 0.12f);
                 new_x = 0.91f + (dydefend / slope);
             }
-            // DEBUG(new_x);
-            // DEBUG(new_y);
+            DEBUG(new_x);
+            DEBUG(new_y);
             move.x = new_x;
             move.y = new_y;
-            move.rotation = 0;
+            move.rotation = 90-DEG(atan2(ball.relative_y, ball.relative_x));
         }
         void triggerDefend(){
 
@@ -621,12 +621,14 @@ class Bot{
                 move.x = 0.91;
                 move.y = 0.60;
                 move.rotation = 0;
+                Serial.println("Defender 1");
             }
             // 2) Else if the ball is within the no-chase region near the goal
             else if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < 0.25f){
                 move.x = 0.91;
                 move.y = 0.60;
                 move.rotation = 0;
+                Serial.println("Defender 2");
             }
             // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
             else if (ball.absolute_y <  0.80f) {
@@ -639,13 +641,15 @@ class Bot{
                 else if(ball.noBall) drib.desired = 0;
                 else drib.desired = 0.5*drib.maxspeed;
                 if (ball.noBall) {
-                    ball.absolute_x = ball.last_x;
-                    ball.absolute_y = ball.last_y;
-                    dribblerBallTrack();
+                    // ball.absolute_x = ball.last_x;
+                    // ball.absolute_y = ball.last_y;
+                    // dribblerBallTrack();
+                    Serial.println("Defender 3a");
                 }
                 // 3b) If we DO see the ball => track it with the dribbler
                 else {
                     dribblerBallTrack();
+                    Serial.println("Defender 3b");
                 }
             }
             // 4) Otherwise => geometry-based blocking

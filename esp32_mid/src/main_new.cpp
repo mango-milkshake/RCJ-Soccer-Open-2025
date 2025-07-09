@@ -486,9 +486,9 @@ void assignType(){
         state.botType = 3; //switch to scoring
     } 
     if (espnowDataRecv.type == 3){ //check if other bot is scoring
-        state.botType = 3; //switch to zero to help with ballhide
+        state.botType = 3; //switch to 3 to help with ballhide
     }
-    if (state.botType == 3 && !(ball.ballCap > 0 || espnowDataRecv.type == 3)){ //switch back after scoring 
+    if (state.botType == 3 && !((ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME) || espnowDataRecv.type == 3)){ //switch back after scoring 
         if (state.botID == 1){
             state.botType = 1;
         }
@@ -657,7 +657,7 @@ void loop(){
             state.strategies = static_cast<State::Strategies>(8);
             Serial.println("ballhide");
         }
-        else if(state.ready_to_shoot && espnowDataRecv.bh_ready == true){ //check if both ready to shoot
+        else if(state.ready_to_shoot && (espnowDataRecv.bh_ready == true || espnowDataRecv.type != 3)){ //check if both ready to shoot
             state.curType = 2;
             state.curStratIdx = 0; //score
             // Serial.println("score");
