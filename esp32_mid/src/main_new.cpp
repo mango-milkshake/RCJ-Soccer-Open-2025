@@ -148,7 +148,7 @@ struct_message espnowDataRecv;
 
 
 // Game logic
-#define MAX_DEF_Y 80
+#define MAX_DEF_Y 0.80
 
 
 //// ** FUNCTIONS ** ////
