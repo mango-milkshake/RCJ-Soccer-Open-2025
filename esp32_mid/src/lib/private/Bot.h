@@ -203,7 +203,13 @@ class Bot{
             move.x = self.x < FIELD_WIDTH/2 ? OPP_GOAL_LEFT_X : OPP_GOAL_RIGHT_X;
             move.y = OPP_GOAL_MIDDLE_Y; 
 
-            if(goal.frontPathClear){
+            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
+            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - self.x));
+            LIM_ANGLE_180(minAngleFace);
+            LIM_ANGLE_180(maxAngleFace);
+            if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
+            if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear
+                && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 // goal is clear, can kick
                 move.kick = true;
                 move.dribblerSpeed = -100;
@@ -220,6 +226,7 @@ class Bot{
             if(aiming.end_heading > aiming.left_heading) aiming.end_heading = aiming.left_heading;
             aiming.target_heading = 0.5 * (aiming.start_heading + aiming.end_heading);
             move.rotation = self.heading - aiming.target_heading;
+            move.rotation = constrain(move.rotation, minAngleFace, maxAngleFace);
 
             // float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self.y, OPP_GOAL_CENTRE_X - self.x);
             // move.x = OPP_GOAL_MIDDLE_X;
