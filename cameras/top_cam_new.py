@@ -9,7 +9,7 @@ sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QVGA)
 sensor.set_gainceiling(32)
 sensor.set_auto_whitebal(False)
-sensor.set_auto_exposure(False, exposure_us=4000)
+sensor.set_auto_exposure(False, exposure_us=2000)
 sensor.set_auto_gain(False, gain_db=2)
 #sensor.set_contrast(1)
 sensor.skip_frames(time=200)
@@ -24,9 +24,9 @@ mask_radius = 100
 roi_width=280
 sensor.set_windowing(window_x - int((window_width/2)), window_y - int((window_width/2)), window_width, window_width)
 
-centre_x = 139
-centre_y = 123
-thresh_ball = (0, 100, -21, 74, 31, 102)
+centre_x = 132
+centre_y = 111
+thresh_ball = (0, 100, 16, 41, 3, 77)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72)
 thresh_blue_goal = (46, 58, -27, -7, -34, -17)
 uart = UART(3, 115200)

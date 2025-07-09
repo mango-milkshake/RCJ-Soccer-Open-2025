@@ -615,9 +615,7 @@ class Bot{
             move.rotation = 0;
         }
         void triggerDefend(){
-        //             pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
-        // pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
-        // pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+
         if (ball.ballCap == 0){
             if (ball.noBall && (millis() - ball.lastSeenBall) > LAST_SEEN_BALL_TIME) {
                 move.x = 0.91;
@@ -640,17 +638,6 @@ class Bot{
                 }
                 else if(ball.noBall) drib.desired = 0;
                 else drib.desired = 0.5*drib.maxspeed;
-
-                // if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < self.y){
-                //     pid_rotate.setConfig(0.4, 0, 0);
-                //     pid_x.setConfig(1.9, 0, 0);
-                //     pid_y.setConfig(1.9, 0, 0);                
-                // }
-                // else {
-                //     pid_rotate.setConfig(0.5, 0, 0);
-                //     pid_x.setConfig(2.2, 0, 0);
-                //     pid_y.setConfig(2.2, 0, 0);  
-                // }
                 if (ball.noBall) {
                     ball.absolute_x = ball.last_x;
                     ball.absolute_y = ball.last_y;
@@ -660,9 +647,6 @@ class Bot{
                 else {
                     dribblerBallTrack();
                 }
-                // pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
-                // pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
-                // pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
             }
             // 4) Otherwise => geometry-based blocking
             else {
