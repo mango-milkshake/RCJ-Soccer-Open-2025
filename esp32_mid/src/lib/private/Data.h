@@ -40,13 +40,26 @@ struct Movement{
     float x = 0, y = 0, rotation = 0;
     bool kick = false;
     bool dont_move = false;
-    int dribbler_maxspeed = 150, dribblerSpeed = 0;
     int translation_default = 40, rotation_default = 25;
     int translation_ballcap = 20, rotation_ballcap = 10, rotation_lowered = 5;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
     int x_offset = 18, y_offset = 18, rotation_offset = 12;
 } move;
+
+struct Dribbler{
+    //dribbler
+    int maxspeed = 150, minspeed = 40;
+    int speed = 0, desired = 0;
+    float max_voltage = 0.1, exceed_thresh = 0.70;
+    int inc = 1, dec = 2;
+    int num_frames = 5, num_check = 10; // used as size of arrays below respectively
+    float v[5] = {0, 0, 0, 0, 0}; 
+    int c[10]; 
+    int avg_cnt = 0, check_cnt = 0;
+    bool avg_filled = false, check_filled = false;
+    float analogval = 0, voltage = 0, sum_avg = 0, sum_check = 0, avgV = 0;
+} drib;
 
 struct State{
     bool isDefender = true;

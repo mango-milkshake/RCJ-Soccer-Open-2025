@@ -96,7 +96,7 @@ byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN];
 #define DRVOFF_PIN 7
 #define IPROPI_PIN 5
 MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN, IPROPI_PIN);
-Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, move.dribbler_maxspeed, 1.0);
+Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, drib.maxspeed, 1.0);
 
 // Kicker
 #define KICKER_PIN 11
@@ -721,8 +721,10 @@ void loop(){
     state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
     // dribbler setting speed (may be changed again in strategies)
-    if(switches.turnOff || switches.topOff || ball.noBall) move.dribblerSpeed = 0;
-    else if(ball.ballCap > 0) move.dribblerSpeed = 150;
+    if(switches.turnOff || switches.topOff) drib.desired = 0;
+    else if(ball.ballCap > 0) drib.desired = 150;
+    else if(ball.dist <= 20) drib.desired = 150;
+    else if(ball.noBall) drib.desired = 0;
 
     #ifdef TESTING
     state.strategies = State::Strategies::NONE;
@@ -815,8 +817,56 @@ void loop(){
     // kicker
     if(move.kick) kicker.kick();
 
-    // dribbler
-    dribbler.setSpeed(move.dribblerSpeed);
+    // dribbler check current
+    drib.analogval = dribblerMD.checkCurrent();
+    drib.voltage = (drib.analogval / 4095) * 3.1;
+    if(!drib.avg_filled){
+        drib.v[drib.avg_cnt] = drib.voltage;
+        drib.sum_avg += drib.v[drib.avg_cnt];
+        drib.avgV = drib.sum_avg / (drib.avg_cnt+1);
+    }
+    else{
+        drib.sum_avg -= drib.v[drib.avg_cnt];
+        drib.v[drib.avg_cnt] = drib.voltage;
+        drib.sum_avg += drib.v[drib.avg_cnt];
+        drib.avgV = drib.sum_avg / drib.num_frames;
+    }
+    Serial.printf("Average V: %f\n", drib.avgV);
+    drib.avg_cnt++;
+    if(!drib.avg_filled && drib.avg_cnt==drib.num_frames) drib.avg_filled = true;
+    if(drib.avg_cnt>=drib.num_frames) drib.avg_cnt %= drib.num_frames;
+
+    if(!drib.check_filled) {
+        if(drib.avgV > drib.max_voltage) drib.c[drib.check_cnt] = 1;
+        else drib.c[drib.check_cnt] = 0;
+        drib.sum_check += drib.c[drib.check_cnt];
+    }
+    else{
+        drib.sum_check -= drib.c[drib.check_cnt];
+        if(drib.avgV > drib.max_voltage) drib.c[drib.check_cnt] = 1;
+        else drib.c[drib.check_cnt] = 0;
+        drib.sum_check += drib.c[drib.check_cnt];
+    }
+    drib.check_cnt++;
+    if(!drib.check_filled && drib.check_cnt==drib.num_check) drib.check_filled = true;
+    if(drib.check_cnt>=drib.num_check) drib.check_cnt %= drib.num_check;
+
+    if(drib.sum_check >= drib.exceed_thresh * drib.num_check){
+        if(drib.speed == 0) drib.speed = 0;
+        else drib.speed -= copysign(drib.dec, drib.speed);
+    }
+    else{
+        if(abs(drib.speed) < drib.minspeed) drib.speed = copysign(drib.minspeed, drib.desired);
+        else{
+            int diff = drib.desired - drib.speed;
+            drib.speed += copysign(drib.inc, diff);
+            if((drib.desired >= 0 && drib.speed > drib.desired) || (drib.desired < 0 && drib.speed < drib.desired))
+                drib.speed = drib.desired;
+        }
+    }
+    if(drib.desired == 0) drib.speed = 0;
+    dribbler.setSpeed(drib.speed);
+    DEBUG(drib.speed);
 
     // update last type
     state.lastType = state.curType;

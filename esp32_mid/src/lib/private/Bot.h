@@ -188,8 +188,8 @@ class Bot{
             move.x = new_x;
             move.y = new_y;
             move.rotation = 90-DEG(absBallAngle);
-            if(distToBall <= balltrack.dribblerDist) move.dribblerSpeed = move.dribbler_maxspeed;
-            else move.dribblerSpeed = 0;
+            if(distToBall <= balltrack.dribblerDist) drib.desired = drib.maxspeed;
+            else drib.desired = 0;
         }
 
         struct Aiming{
@@ -212,7 +212,7 @@ class Bot{
                 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 // goal is clear, can kick
                 move.kick = true;
-                move.dribblerSpeed = -100;
+                drib.desired = -100;
                 move.rotation = self.heading;
                 return;
             }
@@ -239,7 +239,7 @@ class Bot{
             // if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
             // if(ball.ballCap > 0 && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
             //     move.kick = true;
-            //     move.dribblerSpeed = -100;
+            //     drib.desired = -100;
             // }
         }
 
@@ -636,10 +636,10 @@ class Bot{
                 if(ball.ballCap > 0 || (ball.dist>0 && ball.dist<=40) || 
                 (ball.last_dist>0 && ball.last_dist<=40 && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME)) {
                     // dribbler.setSpeed(1.0);
-                    move.dribblerSpeed = move.dribbler_maxspeed;
+                    drib.desired = drib.maxspeed;
                 }
-                else if(ball.noBall) move.dribblerSpeed = 0;
-                else move.dribblerSpeed = 0.5*move.dribbler_maxspeed;
+                else if(ball.noBall) drib.desired = 0;
+                else drib.desired = 0.5*drib.maxspeed;
 
                 // if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < self.y){
                 //     pid_rotate.setConfig(0.4, 0, 0);
