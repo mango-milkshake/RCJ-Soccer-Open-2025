@@ -190,6 +190,15 @@ class Bot{
             // else drib.desired = 0;
         }
 
+        bool within(float a, float b, float c){ //check if a is within b +- c
+            if(a > b - c && a < b + c){
+                return true;
+            }
+            else{
+                return false;
+            }
+        }
+
         struct Aiming{
             float start_heading = 0, end_heading = 0;
             float left_heading = 0, right_heading = 0;
@@ -550,15 +559,6 @@ class Bot{
                 move.y = self.y;
             }
             move.rotation = target_angle;
-        }
-
-        bool within(float a, float b, float c){ //check if a is within b +- c
-            if(a > b - c && a < b + c){
-                return true;
-            }
-            else{
-                return false;
-            }
         }
 
         struct BallHide{
