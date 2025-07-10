@@ -25,7 +25,7 @@ struct Goal{
 } goal;
 
 struct Switches{
-    bool topOff = true, turnOff = false;
+    bool topOff = true, turnOff = false, dribOff = false;
     bool motorTest = false;
 } switches;
 

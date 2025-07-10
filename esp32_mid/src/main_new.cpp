@@ -47,8 +47,8 @@ float lastLED = 0;
 Adafruit_NeoPixel leds(NUM_LEDS, LEDS_PIN, NEO_GRB + NEO_KHZ800);
 
 // Switches
-// Motor software switch
-#define TURN_OFF_SW 38
+// Dribbler software switch
+#define DRIB_SW 38
 
 // Motor testing switch
 #define MOTOR_TEST_SW 4
@@ -528,7 +528,7 @@ void setup(){
     bottomUART.init();
     topUART.init();
 
-    pinMode(TURN_OFF_SW, INPUT);
+    pinMode(DRIB_SW, INPUT);
     pinMode(MOTOR_TEST_SW, INPUT);
     // pinMode(VOLTAGE_PIN, INPUT);
     // pinMode(PAUSE_SW1, INPUT);
@@ -605,6 +605,9 @@ void loop(){
         return;
     }
     else switches.motorTest = false;
+
+    if(digitalRead(DRIB_SW)==HIGH) switches.dribOff = false;
+    else switches.dribOff = true;
 
     move.kick = false;
     move.dont_move = false;
@@ -736,7 +739,7 @@ void loop(){
     // state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
 
     // dribbler setting speed (may be changed again in strategies)
-    if(switches.turnOff || switches.topOff) drib.desired = 0;
+    if(switches.turnOff || switches.topOff || switches.dribOff) drib.desired = 0;
     else if(ball.ballCap > 0) drib.desired = drib.maxspeed;
     else if(ball.dist <= 20) drib.desired = drib.maxspeed;
     else if(ball.dist <= 40) drib.desired = drib.maxspeed/2;
