@@ -207,7 +207,15 @@ class Bot{
 
         void dribblerAim(){
             // temporarily target goal corner - need to test
-            move.x = self.x < FIELD_WIDTH/2 ? OPP_GOAL_LEFT_X : OPP_GOAL_RIGHT_X;
+            // move.x = self.x < FIELD_WIDTH/2 ? OPP_GOAL_LEFT_X : OPP_GOAL_RIGHT_X;
+            if(self.x < FIELD_WIDTH/2){
+                if(within(self.x, OPP_GOAL_LEFT_X, 0.10)) move.x = OPP_GOAL_CENTRE_X;
+                else move.x = OPP_GOAL_LEFT_X;
+            }
+            else{
+                if(within(self.x, OPP_GOAL_RIGHT_X, 0.10)) move.x = OPP_GOAL_CENTRE_X;
+                else move.x = OPP_GOAL_RIGHT_X;
+            }
             move.y = OPP_GOAL_MIDDLE_Y; 
 
             float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
