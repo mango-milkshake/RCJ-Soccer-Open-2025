@@ -182,11 +182,11 @@ void readAllLidars(){
     for (int i=0; i<NUM_LIDARS; i++){
         bool status = vlLidar[i].updateData();
         if(status){
-            setLED(i, i, strip.Color(0, 15, 0));
+            // setLED(i, i, strip.Color(0, 15, 0));
             Serial.printf("%d:\n", i+1);
             printLidarReadings(vlLidar[i].data.distance_mm);
         }
-        else setLED(i, i, strip.Color(15, 0, 0));
+        // else setLED(i, i, strip.Color(15, 0, 0));
     }
 }
 
@@ -202,7 +202,7 @@ void setup(){
 
     strip.begin();
     strip.setBrightness(STRIP_LED_BRIGHTNESS);
-    setLED(0, STRIP_LED_COUNT-1, strip.Color(0, 0, 15));
+    // setLED(0, STRIP_LED_COUNT-1, strip.Color(0, 0, 15));
 
     for (uint8_t i=0; i<NUM_LIDARS; i++){
         vlLidar.emplace_back(VL_SCL_PIN, VL_SDA_PIN, lpin[i], addr[i], SENSOR_WIDTH, SENSOR_FREQ, Wire1);
