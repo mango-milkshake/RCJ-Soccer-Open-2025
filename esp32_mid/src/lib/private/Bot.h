@@ -353,12 +353,13 @@ class Bot{
         #define LOOK_AHEAD_THRESHOLD_DMAX 2
         bool rotateBot_LA = true;
         bool tooklastball = false;
+        bool lookAheadConfirm;
         void lookAhead(){
             float v = 1.2;
             float latency = 0.2;
             bool validt = false;
             bool useFrontCam = false;
-            bool lookAheadConfirm = false;
+            lookAheadConfirm = false;
             float t;
             float LAball_x, LAball_y, LAball_vx, LAball_vy;
             // float targetballposx, targetballposy;
@@ -406,7 +407,8 @@ class Bot{
             targetballposy *= (ball.dist/100 - BALLCAP_DISTANCE) / (ball.dist/100);
             targetballposx += self.x;
             targetballposy += self.y;
-            // targetballposx += self.x + 0.075*sin(self.heading); 
+            
+                // targetballposx += self.x + 0.075*sin(self.heading); 
             // targetballposy += self.y + 0.075*cos(self.heading);
             
             // DEBUG(LAball_x);
@@ -420,7 +422,7 @@ class Bot{
         
         void triggerLookAhead(){
         
-            if(ball.noBall && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME){
+            if(ball.noBall && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME){ //using memory
                 ball.absolute_x = ball.last_x;
                 ball.absolute_y = ball.last_y;
                 // noBall = false;
@@ -454,39 +456,38 @@ class Bot{
                 targetballposy = lastLAtargety;
                 ballAngle_LA = lastLAtargetAngle;
             }
-            else if(ball.noBall && checkzero(10)){ // if no ball, stop bot
+            else if(ball.noBall && checkzero(10)){ // if no ball and not using memory, stop bot
                 targetballposx = self.x;
-                targetballposy = self.y;
+                targetballposy = self.y; 
             }  
             // else if (sqrtf(ball.vx*ball.vx + ball.vy*ball.vy) < 0.15){} //don't look ahead if velocity is too small
-            else if (!ball.noBall && checkv(5, 200)){ // if last n values are within x of each other, update look ahead target
+            else if (!ball.noBall/* && checkv(5, 200)*/){ // if ball exists and last n values are within x of each other, update look ahead target
                 if(abs(times.curTime - lastLookAhead) > LOOK_AHEAD_THRESHOLD_T){
                     lookAhead();
                     lastLookAhead = times.curTime;
                 }
             } 
-
         
             float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
             //call movement exactly once every loop
-            if(targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
+            // if(targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
+            //     targetballposx = targetballposx_current;
+            //     targetballposy = targetballposy_current;
+                
+            // }
+            if(!lookAheadConfirm){ //filter out invalid targets and use memory instead
                 targetballposx = targetballposx_current;
                 targetballposy = targetballposy_current;
-                
             }
-            else if (abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMIN && abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMAX){
+            else if(abs(LA_distchange) <= LOOK_AHEAD_THRESHOLD_DMIN || abs(LA_distchange) >= LOOK_AHEAD_THRESHOLD_DMAX){
+                targetballposx = targetballposx_current;
+                targetballposy = targetballposy_current;              
+            }
+            else{
                 //switches target only if new target is far away from current target 
                 targetballposx_current = targetballposx;
                 targetballposy_current = targetballposy; 
-            
             }
-        
-            // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.relative_y, ball.relative_x)) : 0;
-            // DEBUG(ball.relative_x);
-            // DEBUG(ball.relative_y);
-
-            // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y, ball.absolute_x)) : 0;
-            
             
             ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y - self.y, ball.absolute_x - self.x)) : 0;
             LIM_ANGLE_180(ballAngle_LA);
