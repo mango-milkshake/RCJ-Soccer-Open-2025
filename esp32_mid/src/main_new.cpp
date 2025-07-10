@@ -23,7 +23,7 @@
 #define DEBUG(x) 123;
 #endif
 
-#define TESTING
+// #define TESTING
 
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
@@ -568,7 +568,7 @@ void setup(){
 
     state.lastType = 0;
     state.curType = 0;
-    state.strategies = static_cast<State::Strategies>(strats[0][0]);
+    state.strategies = static_cast<State::Strategies>(0);
     state.curStratIdx = 0;
     state.lastChange = millis();
 
@@ -585,9 +585,9 @@ void setup(){
 void loop(){
     // Serial.println("running main code");
     times.curTime = millis();
-    // Serial.print("time: ");
-    // Serial.println(curTime - lastLoopTime);
-    // lastLoopTime = millis();
+    Serial.print("time: ");
+    Serial.println(times.curTime - lastLoopTime);
+    lastLoopTime = millis();
 
     // if(millis() - lastLED >= BLINK_TIME){
     //     esp_led_state = !esp_led_state;
@@ -638,7 +638,7 @@ void loop(){
         Serial.println("defend"); 
         break;
     case 2: //attacker
-        if(ball.noBall && millis(); - ball.lastSeenBall > 1500){
+        if(ball.noBall && millis() - ball.lastSeenBall > 1500){
             // state.curType = 0;
             // state.curStratIdx = 0;
             state.strategies = static_cast<State::Strategies>(0);
@@ -677,26 +677,27 @@ void loop(){
     // DEBUG(strats[state.curType][state.curStratIdx]);
     
 
-    if(ball.ballCap) {
-        // state.curType = 2; // score
-        leds.setPixelColor(2, esp_led.Color(50, 0, 0));
-    }
-    else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
-        // Serial.println("using last ball pos");
-        ball.absolute_x = ball.last_x;
-        ball.absolute_y = ball.last_y;
-        // state.curType = 1;
-        leds.setPixelColor(2, esp_led.Color(50, 50, 50));
-    }
-    else if(ball.noBall) {
-        // state.curType = 0; // no ball
-        leds.setPixelColor(2, esp_led.Color(0, 0, 50));
-    }
-    else {
-        // state.curType = 1; // ball track
-        leds.setPixelColor(2, esp_led.Color(0, 50, 0));
-    }
-    leds.show();
+    // if(ball.ballCap) {
+    //     // state.curType = 2; // score
+    //     leds.setPixelColor(1, esp_led.Color(50, 0, 0));
+    // }
+    // else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
+    //     Serial.println("using last ball pos");
+    //     ball.absolute_x = ball.last_x;
+    //     ball.absolute_y = ball.last_y;
+    //     ball.dist = ball.last_dist;
+    //     // state.curType = 1;
+    //     leds.setPixelColor(1, esp_led.Color(50, 50, 50));
+    // }
+    // else if(ball.noBall) {
+    //     // state.curType = 0; // no ball
+    //     leds.setPixelColor(1, esp_led.Color(0, 0, 50));
+    // }
+    // else {
+    //     // state.curType = 1; // ball track
+    //     leds.setPixelColor(1, esp_led.Color(0, 50, 0));
+    // }
+    // leds.show();
 
     if(ball.ballCap > 0){
         move.max_translation = move.translation_ballcap, move.min_translation = -move.translation_ballcap;
@@ -734,7 +735,7 @@ void loop(){
     else if(ball.noBall) drib.desired = 0;
 
     #ifdef TESTING
-    state.strategies = State::Strategies::LOOK_AHEAD;
+    state.strategies = State::Strategies::DRIBBLER_BALL_TRACK;
     #endif
 
     // carry out the strategy
@@ -858,7 +859,7 @@ void loop(){
         drib.sum_avg += drib.v[drib.avg_cnt];
         drib.avgV = drib.sum_avg / drib.num_frames;
     }
-    Serial.printf("Average V: %f\n", drib.avgV);
+    // Serial.printf("Average V: %f\n", drib.avgV);
     drib.avg_cnt++;
     if(!drib.avg_filled && drib.avg_cnt==drib.num_frames) drib.avg_filled = true;
     if(drib.avg_cnt>=drib.num_frames) drib.avg_cnt %= drib.num_frames;
@@ -895,10 +896,23 @@ void loop(){
     dribbler.setSpeed(drib.speed);
     // DEBUG(drib.speed);
 
+    // if(!(move.x == move.last_x && move.y == move.last_y && move.rotation == move.last_rotation)){
+    //     state.strip++;
+    // }
+    // if(state.strip % 3 == 0) leds.setPixelColor(1, leds.Color(15, 0, 0));
+    // else if (state.strip % 3 == 1) leds.setPixelColor(1, leds.Color(0, 15, 0));
+    // else leds.setPixelColor(1, leds.Color(0, 0, 15));
+    // state.strip %= 3;
+    // leds.show();
+
     // update last type
     state.lastType = state.curType;
 
     ball.last_x = ball.absolute_x;
     ball.last_y = ball.absolute_y;
     ball.last_dist = ball.dist;
+
+    move.last_x = move.x;
+    move.last_y = move.y;
+    move.last_rotation = move.rotation;
 }
