@@ -456,7 +456,7 @@ void stop_motors(){
 int assignTypeBuffer = 4;
 int defCount = 0;
 int atkCount = 0;
-#define DEFENDER_WAIT_TIME 1500
+#define DEFENDER_WAIT_TIME 0
 void assignType(){
     // from lowest to highest priority
     if(state.botID == 1){
@@ -487,14 +487,7 @@ void assignType(){
     if (espnowDataRecv.type == 3){ //check if other bot is scoring
         state.botType = 3; //switch to 3 to help with ballhide
     }
-    if (state.botType == 3 && !((ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME) || espnowDataRecv.type == 3)){ //switch back after scoring 
-        if (state.botID == 1){
-            state.botType = 1;
-        }
-        else if(state.botID == 2){
-            state.botType = 2;
-        }
-    } 
+     
     if(switches.turnOff || switches.topOff){ //check if bot is off
         state.botType = 0;
         // DEBUG(switches.turnOff);
@@ -615,6 +608,8 @@ void loop(){
 
     move.kick = false;
     move.dont_move = false;
+    DEBUG(self.x);
+    DEBUG(self.y);
 
     // temp ball cap via cam
     // if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
@@ -626,6 +621,17 @@ void loop(){
     //     ball.ballCap = 0; 
     //     ball.lastNoBallCap = millis();
     // }
+
+    if(ball.ballCap == 0 && millis() - ball.lastBallCap <= BALLCAP_DURATION) ball.ballCap = 2;
+    if(ball.noBall && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME){ //using memory
+                ball.absolute_x = ball.last_x;
+                ball.absolute_y = ball.last_y;
+                ball.dist = ball.last_dist;
+                // noBall = false;
+                
+                ball.tooklastball = true;
+            }
+            else ball.tooklastball = false;
 
     assignType();
 
@@ -641,7 +647,7 @@ void loop(){
         if(ball.noBall && millis() - ball.lastSeenBall > 1500){
             // state.curType = 0;
             // state.curStratIdx = 0;
-            state.strategies = static_cast<State::Strategies>(0);
+            state.strategies = static_cast<State::Strategies>(1);
         }
         else{ 
             // state.curType = 1;
@@ -651,17 +657,17 @@ void loop(){
         }
         break;
     case 3: //scoring
-        if(!state.ready_to_shoot){      
+        if(state.ready_to_shoot && (espnowDataRecv.bh_ready == true || espnowDataRecv.type != 3)){ //check if both ready to shoot
+            // state.curType = 2;
+            // state.curStratIdx = 0; //score
+            // Serial.println("score");
+            state.strategies = static_cast<State::Strategies>(6);
+        }
+        else{
             // state.curType = 2;
             // state.curStratIdx = 1; //ballhide
             state.strategies = static_cast<State::Strategies>(8);
             Serial.println("ballhide");
-        }
-        else if(state.ready_to_shoot && (espnowDataRecv.bh_ready == true || espnowDataRecv.type != 3)){ //check if both ready to shoot
-            state.curType = 2;
-            state.curStratIdx = 0; //score
-            // Serial.println("score");
-            state.strategies = static_cast<State::Strategies>(6);
         }
         break;
     default:
@@ -671,16 +677,17 @@ void loop(){
         state.strategies = static_cast<State::Strategies>(0);
         break;
     }
-    // DEBUG(state.botType);
-    // DEBUG(state.strategies);
-    // DEBUG(state.botID);
+    DEBUG(state.botType);
+    DEBUG(state.strategies);
+    DEBUG(state.botID);
+    DEBUG(espnowDataRecv.type);
     // DEBUG(strats[state.curType][state.curStratIdx]);
     
 
-    // if(ball.ballCap) {
-    //     // state.curType = 2; // score
-    //     leds.setPixelColor(1, esp_led.Color(50, 0, 0));
-    // }
+    if(ball.ballCap) {
+        // state.curType = 2; // score
+        leds.setPixelColor(1, esp_led.Color(15, 15, 15));
+    }
     // else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
     //     Serial.println("using last ball pos");
     //     ball.absolute_x = ball.last_x;
@@ -689,17 +696,17 @@ void loop(){
     //     // state.curType = 1;
     //     leds.setPixelColor(1, esp_led.Color(50, 50, 50));
     // }
-    // else if(ball.noBall) {
-    //     // state.curType = 0; // no ball
-    //     leds.setPixelColor(1, esp_led.Color(0, 0, 50));
-    // }
-    // else {
-    //     // state.curType = 1; // ball track
-    //     leds.setPixelColor(1, esp_led.Color(0, 50, 0));
-    // }
-    // leds.show();
+    else if(ball.noBall) {
+        // state.curType = 0; // no ball
+        leds.setPixelColor(1, esp_led.Color(0, 0, 15));
+    }
+    else {
+        // state.curType = 1; // ball track
+        leds.setPixelColor(1, esp_led.Color(0, 15, 0));
+    }
+    leds.show();
 
-    if(ball.ballCap > 0){
+    if(ball.ballCap > 0 || ball.dist <= 20){
         move.max_translation = move.translation_ballcap, move.min_translation = -move.translation_ballcap;
         // rotation positive is counterclockwise
         if(ball.ballCap == 1){
@@ -713,8 +720,8 @@ void loop(){
     }
     else{
         move.max_translation = move.translation_default, move.min_translation = -move.translation_default;
-        move.max_rotation = move.rotation_default, move.min_translation = -move.rotation_default;
-    }
+        move.max_rotation = move.rotation_default, move.min_rotation = -move.rotation_default;
+    } 
 
     // decide specific strategy
     // if(state.curType != state.lastType){
@@ -730,8 +737,8 @@ void loop(){
 
     // dribbler setting speed (may be changed again in strategies)
     if(switches.turnOff || switches.topOff) drib.desired = 0;
-    else if(ball.ballCap > 0) drib.desired = 150;
-    else if(ball.dist <= 20) drib.desired = 150;
+    else if(ball.ballCap > 0) drib.desired = drib.maxspeed;
+    else if(ball.dist <= 20) drib.desired = drib.maxspeed;
     else if(ball.noBall) drib.desired = 0;
 
     #ifdef TESTING
@@ -742,7 +749,7 @@ void loop(){
     switch (state.strategies){
         case State::Strategies::NONE:
             // any testing code
-            bot.moveToPoint(self.x, self.y, self.heading);
+            bot.moveToPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
             break;
 
         case State::Strategies::MOVE_TO_POINT:
@@ -785,12 +792,12 @@ void loop(){
 
         case State::Strategies::BALLHIDE: //ballhide + decoy
             // Serial.println("ball hide");
-            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
-                leds.setPixelColor(7, leds.Color(15, 15, 15));
-                leds.show();
-                move.dont_move = true;
-                break;
-            }
+            // if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+            //     leds.setPixelColor(7, leds.Color(15, 15, 15));
+            //     leds.show();
+            //     move.dont_move = true;
+            //     break;
+            // }
             // if(state.ready_to_shoot) {
             //     leds.setPixelColor(7, leds.Color(0, 0, 15));
             //     leds.show();
@@ -841,7 +848,9 @@ void loop(){
     if(switches.turnOff || switches.topOff) move.dont_move = true;
     if(move.dont_move) stop_motors();
     else movement(move.x, move.y, move.rotation);
-
+    DEBUG(move.x);
+    DEBUG(move.y);
+    DEBUG(move.rotation);
     // kicker
     if(move.kick) kicker.kick();
 
@@ -911,7 +920,7 @@ void loop(){
     ball.last_x = ball.absolute_x;
     ball.last_y = ball.absolute_y;
     ball.last_dist = ball.dist;
-
+    
     move.last_x = move.x;
     move.last_y = move.y;
     move.last_rotation = move.rotation;

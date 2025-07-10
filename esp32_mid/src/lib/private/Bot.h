@@ -26,11 +26,9 @@
 // Thresholds
 #define OSCILLATE_WAIT_TIME 2000
 #define MOVING_BACK_DURATION 200
-#define BALLCAP_DISTANCE 0.065f
-#define BALLCAP_DISTANCE 0.065f
+#define BALLCAP_DISTANCE -0.03f
 #define BALLCAP_WIDTH 0.0355f
 #define CLEARANCE_X 0.20f
-#define CLEARANCE_Y 0.35f
 #define CLEARANCE_Y 0.35f
 #define FIELD_MARGIN_X 0.51f
 #define FIELD_MARGIN_Y 0.37f
@@ -41,7 +39,7 @@
 #define ALIGN_THRESHOLD 0.10f
 #define INITIAL_CHANGE 35.0f
 #define GRADUAL_CHANGE 250.0f
-#define BALLCAP_DURATION 2504
+#define BALLCAP_DURATION 250
 #define LAST_SEEN_BALL_TIME 1000
 
 #define DEBUGGING
@@ -251,6 +249,7 @@ class Bot{
         float dt_ball;
         bool updatedBallV = false;
         float inst_ball_vx = 0, inst_ball_vy = 0;
+        float beta = 0.85; //lower = more weight on current velocity
         void updateSelfVelocityEWMA(float current_self_w, float current_self_x, float current_self_y) { 
             unsigned long now = micros();
             float dt = (now - last_vel_time) / 1000000.0f; 
@@ -292,8 +291,8 @@ class Bot{
             self_velocityx = 0.2f * inst_vx + (0.8f) * self_velocityx;
             self_velocityy = 0.2f * inst_vy + (0.8f) * self_velocityy;
             if (updatedBallV && !ball.noBall && abs(pow((inst_ball_vx*inst_ball_vx+inst_ball_vy*inst_ball_vy),0.5)) < 4){    
-                ball.vx = 0.5f * inst_ball_vx + (0.5f) * ball.vx;
-                ball.vy = 0.5f * inst_ball_vy + (0.5f) * ball.vy;
+                ball.vx = (1-beta) * inst_ball_vx + beta * ball.vx;
+                ball.vy = (1-beta) * inst_ball_vy + beta * ball.vy;
             }
             else if(abs(pow((inst_ball_vx*inst_ball_vx+inst_ball_vy*inst_ball_vy),0.5)) > 4){
                 Serial.println("anomalous data cancelled");
@@ -352,10 +351,10 @@ class Bot{
         #define LOOK_AHEAD_THRESHOLD_DMIN 0
         #define LOOK_AHEAD_THRESHOLD_DMAX 2
         bool rotateBot_LA = true;
-        bool tooklastball = false;
+        // bool tooklastball = false;
         bool lookAheadConfirm;
         void lookAhead(){
-            float v = 1.2;
+            float v = 10;
             float latency = 0.2;
             lookAheadConfirm = false;
             float t;
@@ -420,14 +419,14 @@ class Bot{
         
         void triggerLookAhead(){
         
-            if(ball.noBall && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME){ //using memory
-                ball.absolute_x = ball.last_x;
-                ball.absolute_y = ball.last_y;
-                // noBall = false;
+            // if(ball.noBall && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME){ //using memory
+            //     ball.absolute_x = ball.last_x;
+            //     ball.absolute_y = ball.last_y;
+            //     // noBall = false;
                 
-                tooklastball = true;
-            }
-            else tooklastball = false;
+            //     tooklastball = true;
+            // }
+            // else tooklastball = false;
 
             for (int i  = 0; i < pbvx_size; i++){ //stores the last 50 values
                 pbvx[i] = pbvx[i+1];
@@ -449,7 +448,7 @@ class Bot{
                 noBallTimer = 0;
             }
             
-            if(tooklastball){
+            if(ball.tooklastball){
                 targetballposx = lastLAtargetx;
                 targetballposy = lastLAtargety;
                 // ballAngle_LA = lastLAtargetAngle;
@@ -563,7 +562,7 @@ class Bot{
         }
 
         struct BallHide{
-            float left_x = 0.50, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 90;
+            float left_x = 0.50, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 110;
             float mid_x = 0.91, mid_y = 1.65, mid_angle = 180;
         } ballhide;
 
@@ -577,23 +576,25 @@ class Bot{
         bool ballHideLeft(){
             // if(!(within(self.x, ballhide.left_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){ //not at shooting point 
             //     moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
+            //     return false;
             // }
             // else{
             //     return true; //return true if ready to shoot
             // }
             if(self.y >= ballhide.side_y) return true;
-                moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
+            moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
             return false; //return false if not ready
         }
         bool ballHideRight(){
             // if(!(within(self.x, ballhide.right_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){
             //     moveAlongY(ballhide.right_x, ballhide.side_y, ballhide.side_angle);
+            //     return false;
             // }
             // else{
             //     return true;
             // }
             if(self.y >= ballhide.side_y) return true;
-                moveAlongY(ballhide.right_x, ballhide.side_y, ballhide.side_angle);
+            moveAlongY(ballhide.right_x, ballhide.side_y, ballhide.side_angle);
             return false;
         }
 
