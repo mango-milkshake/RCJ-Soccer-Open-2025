@@ -627,14 +627,13 @@ void loop(){
 
     if(ball.ballCap == 0 && millis() - ball.lastBallCap <= BALLCAP_DURATION) ball.ballCap = 2;
     if(ball.noBall && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME){ //using memory
-                ball.absolute_x = ball.last_x;
-                ball.absolute_y = ball.last_y;
-                ball.dist = ball.last_dist;
-                // noBall = false;
-                
-                ball.tooklastball = true;
-            }
-            else ball.tooklastball = false;
+        ball.absolute_x = ball.last_x;
+        ball.absolute_y = ball.last_y;
+        ball.dist = ball.last_dist;
+        // ball.noBall = false;
+        ball.tooklastball = true;
+    }
+    else ball.tooklastball = false;
 
     assignType();
 
