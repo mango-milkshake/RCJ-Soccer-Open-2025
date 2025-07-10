@@ -578,9 +578,9 @@ void setup(){
 void loop(){
     // Serial.println("running main code");
     times.curTime = millis();
-    Serial.print("time: ");
-    Serial.println(times.curTime - lastLoopTime);
-    lastLoopTime = millis();
+    // Serial.print("time: ");
+    // Serial.println(times.curTime - lastLoopTime);
+    // lastLoopTime = millis();
 
     // if(millis() - lastLED >= BLINK_TIME){
     //     esp_led_state = !esp_led_state;
@@ -611,8 +611,8 @@ void loop(){
 
     move.kick = false;
     move.dont_move = false;
-    DEBUG(self.x);
-    DEBUG(self.y);
+    // DEBUG(self.x);
+    // DEBUG(self.y);
 
     // temp ball cap via cam
     // if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
@@ -655,7 +655,7 @@ void loop(){
             // state.curType = 1;
             // state.curStratIdx = 1; //lookahead
             state.strategies = static_cast<State::Strategies>(10);
-            Serial.println("lookahead");
+            // Serial.println("lookahead"); // here
         }
         break;
     case 3: //scoring
@@ -675,14 +675,14 @@ void loop(){
     default:
         state.curType = 0;
         state.curStratIdx = 0;
-        Serial.println("out");
+        // Serial.println("out");
         state.strategies = static_cast<State::Strategies>(0);
         break;
     }
-    DEBUG(state.botType);
-    DEBUG(state.strategies);
-    DEBUG(state.botID);
-    DEBUG(espnowDataRecv.type);
+    // DEBUG(state.botType);
+    // DEBUG(state.strategies);
+    // DEBUG(state.botID);
+    // DEBUG(espnowDataRecv.type); // here
     // DEBUG(strats[state.curType][state.curStratIdx]);
     
 
@@ -795,12 +795,12 @@ void loop(){
 
         case State::Strategies::BALLHIDE: //ballhide + decoy
             // Serial.println("ball hide");
-            // if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
-            //     leds.setPixelColor(7, leds.Color(15, 15, 15));
-            //     leds.show();
-            //     move.dont_move = true;
-            //     break;
-            // }
+            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+                leds.setPixelColor(7, leds.Color(15, 15, 15));
+                leds.show();
+                move.dont_move = true;
+                break;
+            }
             // if(state.ready_to_shoot) {
             //     leds.setPixelColor(7, leds.Color(0, 0, 15));
             //     leds.show();
@@ -851,9 +851,9 @@ void loop(){
     if(switches.turnOff || switches.topOff) move.dont_move = true;
     if(move.dont_move) stop_motors();
     else movement(move.x, move.y, move.rotation);
-    DEBUG(move.x);
-    DEBUG(move.y);
-    DEBUG(move.rotation);
+    // DEBUG(move.x);
+    // DEBUG(move.y);
+    // DEBUG(move.rotation); // here
     // kicker
     if(move.kick) kicker.kick();
 
@@ -906,6 +906,7 @@ void loop(){
     }
     if(drib.desired == 0) drib.speed = 0;
     dribbler.setSpeed(drib.speed);
+    // DEBUG(drib.desired);
     // DEBUG(drib.speed);
 
     // if(!(move.x == move.last_x && move.y == move.last_y && move.rotation == move.last_rotation)){
