@@ -188,8 +188,8 @@ class Bot{
             move.x = new_x;
             move.y = new_y;
             move.rotation = 90-DEG(absBallAngle);
-            if(distToBall <= balltrack.dribblerDist) drib.desired = drib.maxspeed;
-            else drib.desired = 0;
+            // if(distToBall <= balltrack.dribblerDist) drib.desired = drib.maxspeed;
+            // else drib.desired = 0;
         }
 
         struct Aiming{
@@ -357,8 +357,6 @@ class Bot{
         void lookAhead(){
             float v = 1.2;
             float latency = 0.2;
-            bool validt = false;
-            bool useFrontCam = false;
             lookAheadConfirm = false;
             float t;
             float LAball_x, LAball_y, LAball_vx, LAball_vy;
@@ -454,7 +452,17 @@ class Bot{
             if(tooklastball){
                 targetballposx = lastLAtargetx;
                 targetballposy = lastLAtargety;
-                ballAngle_LA = lastLAtargetAngle;
+                // ballAngle_LA = lastLAtargetAngle;
+                ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y - self.y, ball.absolute_x - self.x)) : 0;
+                LIM_ANGLE_180(ballAngle_LA);
+                move.x = targetballposx;
+                move.y = targetballposy;
+                move.rotation = ballAngle_LA;
+
+                lastLAtargetx = targetballposx;
+                lastLAtargety = targetballposy;
+                lastLAtargetAngle = ballAngle_LA;
+                return;
             }
             else if(ball.noBall && checkzero(10)){ // if no ball and not using memory, stop bot
                 targetballposx = self.x;
@@ -468,7 +476,7 @@ class Bot{
                 }
             } 
         
-            float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
+            /*float LA_distchange = pow((targetballposx*targetballposx + targetballposy*targetballposy),0.5) - pow((targetballposx_current*targetballposx_current + targetballposy_current*targetballposy_current),0.5);
             //call movement exactly once every loop
             // if(targetballposx<0 || targetballposx>FIELD_WIDTH || targetballposy<0 || targetballposy>FIELD_HEIGHT){
             //     targetballposx = targetballposx_current;
@@ -488,6 +496,15 @@ class Bot{
                 targetballposx_current = targetballposx;
                 targetballposy_current = targetballposy; 
             }
+            
+            }*/
+        
+            // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.relative_y, ball.relative_x)) : 0;
+            // DEBUG(ball.relative_x);
+            // DEBUG(ball.relative_y);
+
+            // ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y, ball.absolute_x)) : 0;
+            
             
             ballAngle_LA = rotateBot_LA ? 90-DEG(atan2(ball.absolute_y - self.y, ball.absolute_x - self.x)) : 0;
             LIM_ANGLE_180(ballAngle_LA);
@@ -558,21 +575,25 @@ class Bot{
             }
         }
         bool ballHideLeft(){
-            if(!(within(self.x, ballhide.left_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){ //not at shooting point 
+            // if(!(within(self.x, ballhide.left_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){ //not at shooting point 
+            //     moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
+            // }
+            // else{
+            //     return true; //return true if ready to shoot
+            // }
+            if(self.y >= ballhide.side_y) return true;
                 moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
-            }
-            else{
-                return true; //return true if ready to shoot
-            }
             return false; //return false if not ready
         }
         bool ballHideRight(){
-            if(!(within(self.x, ballhide.right_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){
+            // if(!(within(self.x, ballhide.right_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){
+            //     moveAlongY(ballhide.right_x, ballhide.side_y, ballhide.side_angle);
+            // }
+            // else{
+            //     return true;
+            // }
+            if(self.y >= ballhide.side_y) return true;
                 moveAlongY(ballhide.right_x, ballhide.side_y, ballhide.side_angle);
-            }
-            else{
-                return true;
-            }
             return false;
         }
 
@@ -611,7 +632,7 @@ class Bot{
             DEBUG(new_y);
             move.x = new_x;
             move.y = new_y;
-            move.rotation = 90-DEG(atan2(ball.relative_y, ball.relative_x));
+            move.rotation = 90-DEG(atan2(ball.absolute_y - self.y, ball.absolute_x - self.x));
         }
         void triggerDefend(){
 

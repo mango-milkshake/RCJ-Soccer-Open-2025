@@ -38,6 +38,7 @@ struct Times{
 
 struct Movement{
     float x = 0, y = 0, rotation = 0;
+    float last_x = 0, last_y = 0, last_rotation = 0;
     bool kick = false;
     bool dont_move = false;
     int translation_default = 40, rotation_default = 25;
@@ -69,6 +70,7 @@ struct State{
     int botID = 0;
     int curStratIdx = 0;
     bool ready_to_shoot = false;
+    int strip = true;
 
     enum StratType{
         NO_BALL = 0,
