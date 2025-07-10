@@ -739,6 +739,7 @@ void loop(){
     if(switches.turnOff || switches.topOff) drib.desired = 0;
     else if(ball.ballCap > 0) drib.desired = drib.maxspeed;
     else if(ball.dist <= 20) drib.desired = drib.maxspeed;
+    else if(ball.dist <= 40) drib.desired = drib.maxspeed/2;
     else if(ball.noBall) drib.desired = 0;
 
     #ifdef TESTING
