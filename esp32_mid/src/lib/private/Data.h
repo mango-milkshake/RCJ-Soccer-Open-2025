@@ -12,7 +12,7 @@ struct Ball{
     float relative_x = 0, relative_y = 0;
     float absolute_x = 0, absolute_y = 0;
     float last_x = 0, last_y = 0, last_dist = 0;
-    bool noBall = false;
+    bool noBall = false, tooklastball = false;
     int ballCap = 0;
     int lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = 0;
     int ballCapTime = 1000;
@@ -42,7 +42,7 @@ struct Movement{
     bool kick = false;
     bool dont_move = false;
     int translation_default = 40, rotation_default = 25;
-    int translation_ballcap = 10, rotation_ballcap = 5, rotation_lowered = 2;
+    int translation_ballcap = 10, rotation_ballcap = 10, rotation_lowered = 10;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
     int x_offset = 18, y_offset = 18, rotation_offset = 12;
@@ -50,7 +50,7 @@ struct Movement{
 
 struct Dribbler{
     //dribbler
-    int maxspeed = 150, minspeed = 40;
+    int maxspeed = 190, minspeed = 40;
     int speed = 0, desired = 0;
     float max_voltage = 0.1, exceed_thresh = 0.70;
     int inc = 1, dec = 2;
