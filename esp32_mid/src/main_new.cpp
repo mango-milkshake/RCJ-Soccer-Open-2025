@@ -736,7 +736,7 @@ void loop(){
     }
     leds.show();
 
-    if(ball.ballCap > 0 || ball.dist <= 20){
+    if(ball.ballCap > 0 || ball.dist <= 20 || state.botType == 3 || state.botType == 4 || state.botType == 5 ){
         move.max_translation = move.translation_ballcap, move.min_translation = -move.translation_ballcap;
         // rotation positive is counterclockwise
         if(ball.ballCap == 1){
