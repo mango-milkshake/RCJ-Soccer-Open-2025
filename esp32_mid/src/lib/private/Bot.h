@@ -613,18 +613,21 @@ class Bot{
         }
 
         void ballHideLeader(){ //asymmetric ballhide
+            DEBUG(state.ballhide_stage);
+            DEBUG(comms.bh_stage);
             switch (state.ballhide_stage){
             case 1:
                 //move to target
                 move.x = ballhide.mid_x;
-                move.y = 0.6;
+                move.y = self.y;
                 move.rotation = 0;
-                if(within(self.x, ballhide.mid_x, 0.05) && within(self.y, 0.6, 0.05)){
+                // if(within(self.x, ballhide.mid_x, 0.05) && within(self.y, 0.6, 0.05)){
+                if(within(self.x, ballhide.mid_x, 0.05)){
                     state.ballhide_stage = 2;
                 }
                 break;
             case 2:
-                if(espnowDataRecv.bh_stage == 2 || espnowDataRecv.isPresent != 2){ //check if follower is in front
+                if(comms.bh_stage == 2 || comms.isPresent != 2){ //check if follower is in front
                     //move up field
                     moveAlongY(ballhide.mid_x, ballhide.mid_y, 0);
                 }
@@ -635,40 +638,42 @@ class Bot{
                 }
                 break;
             case 3:
-                if(espnowDataRecv.bh_stage == 3 || espnowDataRecv.isPresent != 2){ //score after checking that goal is open
+                if(comms.bh_stage == 3 || comms.isPresent != 2){ //score after checking that goal is open
                     state.ready_to_shoot = true;
                     move.dont_move = true;
                 }
                 else move.dont_move = true;
                 break;
             default:
-                state.ballhide_stage = 1;
+                // state.ballhide_stage = 1;
                 move.dont_move = true;
                 break;
             }
         }   
 
         void ballHideFollower(){
+            DEBUG(state.ballhide_stage);
+            DEBUG(comms.bh_stage);
             switch(state.ballhide_stage){
             case 1:
                 //move beside target
                 move.x = self.x;
-                move.y = espnowDataRecv.ypos + 0.25;
+                move.y = comms.ypos + 0.25;
                 move.rotation = 180;
-                if(within(self.y, espnowDataRecv.ypos + 0.25, 0.05)){ 
+                if(within(self.y, comms.ypos + 0.25, 0.05)){ 
                     //move to target (in front of leader)
                     move.x = ballhide.mid_x;
-                    move.y = espnowDataRecv.ypos + 0.25;
+                    move.y = comms.ypos + 0.25;
                     move.rotation = 180;
                 }
-                if(within(self.y, espnowDataRecv.ypos + 0.25, 0.05) && within(self.x, ballhide.mid_x, 0.05)){
+                if(within(self.y, comms.ypos + 0.25, 0.05) && within(self.x, ballhide.mid_x, 0.05)){
                     //signal that ready to ballhide
                     state.ballhide_stage = 2;
                     move.dont_move = true;
                 }
                 break;
             case 2:
-                if(espnowDataRecv.ypos > ballhide.mid_y - 0.5 && within(self.x, ballhide.mid_x, 0.05) && within(self.y, ballhide.mid_y, 0.05)){ //prioritise this so follower leaves ballhide without blocking leader
+                if(comms.ypos > ballhide.mid_y - 0.5 && within(self.x, ballhide.mid_x, 0.05) && within(self.y, ballhide.mid_y, 0.05)){ //prioritise this so follower leaves ballhide without blocking leader
                     //check if close to goal, then move to side to open up goal for leader
                     move.x = ballhide.mid_x - 0.5;
                     move.y = ballhide.mid_y;
@@ -679,7 +684,7 @@ class Bot{
                     state.ballhide_stage = 3;
                     move.dont_move = true;
                 }
-                else if(espnowDataRecv.bh_stage == 2){
+                else if(comms.bh_stage == 2){
                     //move up field
                     moveAlongY(ballhide.mid_x, ballhide.mid_y, 0);
                 }
@@ -689,8 +694,9 @@ class Bot{
                 move.dont_move = true;
                 break;
             default:
-                state.ballhide_stage = 1;
+                // state.ballhide_stage = 1;
                 move.dont_move = true;
+                break;
             }
         }
 

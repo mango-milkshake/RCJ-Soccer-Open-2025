@@ -240,7 +240,7 @@ void sendData(){ //send data here
     espnowData.bh_ready = state.ready_to_shoot;
     espnowData.bh_stage = state.ballhide_stage;
     espnowData.type = state.botType;
-    
+    DEBUG(state.ballhide_stage);
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espnowData, sizeof(espnowData));
 
@@ -493,14 +493,14 @@ void assignType(){
         }
     }
     else if (ballhide_strat == 2){
-        if(espnowDataRecv.type = 4){ 
+        if(espnowDataRecv.type == 4){ //grr
             state.botType = 5; //switch to leading
         } 
         else if (ball.ballCap > 0){ //check if other bot is leading
             state.botType = 4; //switch to following to help with ballhide
         }
         else{
-            state.ballhide_stage = 1; //reset for next ballhide
+            // state.ballhide_stage = 1; //reset for next ballhide
         } 
     }     
     if(switches.turnOff || switches.topOff){ //check if bot is off
@@ -579,6 +579,7 @@ void setup(){
     state.strategies = static_cast<State::Strategies>(0);
     state.curStratIdx = 0;
     state.lastChange = millis();
+
 
     leds.begin();
     leds.setBrightness(LEDS_BRIGHTNESS);
@@ -705,10 +706,10 @@ void loop(){
         state.strategies = static_cast<State::Strategies>(0);
         break;
     }
-    // DEBUG(state.botType);
-    // DEBUG(state.strategies);
-    // DEBUG(state.botID);
-    // DEBUG(espnowDataRecv.type); // here
+    DEBUG(state.botType);
+    DEBUG(state.strategies);
+    DEBUG(state.botID);
+    DEBUG(espnowDataRecv.type); // here
     // DEBUG(strats[state.curType][state.curStratIdx]);
     
     state.ready_to_shoot = false; // set back for rechecking (after type is assigned)
@@ -770,6 +771,12 @@ void loop(){
     else if(ball.dist <= 20) drib.desired = drib.maxspeed;
     else if(ball.dist <= 40) drib.desired = drib.maxspeed/2;
     else if(ball.noBall) drib.desired = 0;
+
+    comms.bh_stage = espnowDataRecv.bh_stage;
+    comms.xpos = espnowDataRecv.xpos;
+    comms.ypos = espnowDataRecv.ypos;
+    comms.isPresent = espnowDataRecv.isPresent;
+
 
     #ifdef TESTING
     state.strategies = State::Strategies::DRIBBLER_BALL_TRACK;
@@ -863,7 +870,12 @@ void loop(){
                 }
             }
             break;
-        
+        case State::Strategies::BALLHIDE_LEAD:
+            bot.ballHideLeader();
+            break;
+        case State::Strategies::BALLHIDE_FOLLOW:
+            bot.ballHideFollower();
+            break;
         case State::Strategies::ATTACK_MODE2:
             if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
                 move.dont_move = true;
@@ -888,7 +900,7 @@ void loop(){
     else movement(move.x, move.y, move.rotation);
     // DEBUG(move.x);
     // DEBUG(move.y);
-    DEBUG(move.rotation); // here
+    // DEBUG(move.rotation); // here
     // kicker
     if(move.kick) kicker.kick();
 

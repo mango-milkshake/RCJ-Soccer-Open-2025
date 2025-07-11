@@ -61,12 +61,17 @@ struct Dribbler{
     bool avg_filled = false, check_filled = false;
     float analogval = 0, voltage = 0, sum_avg = 0, sum_check = 0, avgV = 0;
 } drib;
+struct Comms{
+    float ypos = 0, xpos = 0;
+    int bh_stage = 0;
+    int isPresent = 0;
+} comms;
 
 struct State{
     bool isDefender = true;
     int lastChange = 0;
     int lastType = 0, curType = 0;
-    int botType = 0; //0 = score, 1 = def, 2 = atk, 3 = out 
+    int botType = 0;  
     int botID = 0;
     int curStratIdx = 0;
     bool ready_to_shoot = false;
