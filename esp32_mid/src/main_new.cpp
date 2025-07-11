@@ -481,7 +481,8 @@ void assignType(){
            // atkCount = 0;
         }
     }  
-    if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
+    if(ball.ballCap > 0){ // switch states but just dont move yet
+    // if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
         state.botType = 3; //switch to scoring
     } 
     if (espnowDataRecv.type == 3){ //check if other bot is scoring
@@ -685,6 +686,7 @@ void loop(){
     // DEBUG(espnowDataRecv.type); // here
     // DEBUG(strats[state.curType][state.curStratIdx]);
     
+    state.ready_to_shoot = false; // set back for rechecking (after type is assigned)
 
     if(ball.ballCap) {
         // state.curType = 2; // score
@@ -782,6 +784,12 @@ void loop(){
         
         case State::Strategies::DRIBBLER_SCORE:
             // Serial.println("dribbler score");
+            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+                // leds.setPixelColor(7, leds.Color(15, 15, 15));
+                // leds.show();
+                move.dont_move = true;
+                break;
+            }
             bot.dribblerAim();
             break;
         
@@ -810,6 +818,7 @@ void loop(){
             if(self.x < espnowDataRecv.xpos){
                 if (bot.ballHideLeft()){
                     state.ready_to_shoot = true; 
+                    move.dont_move = true;
                 }
                 else{
                     state.ready_to_shoot = false;
@@ -820,6 +829,7 @@ void loop(){
                     leds.setPixelColor(7, leds.Color(0, 15, 0));
                     leds.show();
                     state.ready_to_shoot = true; 
+                    move.dont_move = true;
                 }
                 else{
                     leds.setPixelColor(7, leds.Color(15, 0, 0));
@@ -853,7 +863,7 @@ void loop(){
     else movement(move.x, move.y, move.rotation);
     // DEBUG(move.x);
     // DEBUG(move.y);
-    // DEBUG(move.rotation); // here
+    DEBUG(move.rotation); // here
     // kicker
     if(move.kick) kicker.kick();
 

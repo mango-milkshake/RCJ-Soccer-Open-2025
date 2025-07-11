@@ -206,6 +206,7 @@ class Bot{
         } aiming;
 
         void dribblerAim(){
+            Serial.println("aiming!!!");
             // temporarily target goal corner - need to test
             // move.x = self.x < FIELD_WIDTH/2 ? OPP_GOAL_LEFT_X : OPP_GOAL_RIGHT_X;
             if(self.x < FIELD_WIDTH/2){
@@ -570,7 +571,7 @@ class Bot{
         }
 
         struct BallHide{
-            float left_x = 0.50, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 110;
+            float left_x = 0.50, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 80;
             float mid_x = 0.91, mid_y = 1.65, mid_angle = 180;
         } ballhide;
 
