@@ -70,6 +70,7 @@ struct State{
     int botID = 0;
     int curStratIdx = 0;
     bool ready_to_shoot = false;
+    int ballhide_stage = 0;
     int strip = true;
 
     enum StratType{
@@ -89,7 +90,9 @@ struct State{
         DEFEND = 7,
         BALLHIDE = 8,
         ATTACK_MODE2 = 9,
-        LOOK_AHEAD = 10
+        LOOK_AHEAD = 10,
+        BALLHIDE_LEAD = 11,
+        BALLHIDE_FOLLOW = 12
     } strategies;
 } state;
 

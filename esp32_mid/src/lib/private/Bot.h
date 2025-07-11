@@ -612,6 +612,76 @@ class Bot{
             else moveAlongY(ballhide.mid_x, ballhide.mid_y, ballhide.mid_angle);
         }
 
+        void ballHideLeader(){ //asymmetric ballhide
+            switch (state.ballhide_stage){
+            case 1:
+                //move to target
+                move.x = ballhide.mid_x;
+                move.y = 0.6;
+                    if(within(self.x, ballhide.mid_x, 0.05) && within(self.y, 0.6, 0.05)){
+                        state.ballhide_stage = 2;
+                    }
+                break;
+            case 2:
+                if(espnowDataRecv.bh_stage == 2 || espnowDataRecv.isPresent != 2){ //check if follower is in front
+                    //move up field
+                    moveAlongY(ballhide.mid_x, ballhide.mid_y, 0);
+                }
+                else move.dont_move = true;
+                if(within(self.x, ballhide.mid_x, 0.05) && within(self.y, ballhide.mid_y, 0.05)){
+                    //begin scoring
+                    state.ballhide_stage = 3;
+                }
+                break;
+            case 3:
+                if(espnowDataRecv.bh_stage == 3 || espnowDataRecv.isPresent != 2){ //score after checking that goal is open
+                    state.ready_to_shoot = true;
+                }
+                break;
+            default:
+                state.ballhide_stage = 1;
+                break;
+            }
+        }   
+
+        void ballHideFollower(){
+            switch(state.ballhide_stage){
+            case 1:
+                //move beside target
+                move.x = ballhide.mid_x - 0.3;
+                move.y = espnowDataRecv.ypos + 0.25;
+                if(within(self.y, espnowDataRecv.ypos + 0.25, 0.05) && within(self.x, ballhide.mid_x - 0.3, 0.05)){ 
+                    //move to target (in front of leader)
+                    move.x = ballhide.mid_x;
+                    move.y = espnowDataRecv.ypos + 0.25;
+                    move.rotation = 180;
+                }
+                else if(within(self.y, espnowDataRecv.ypos + 0.25, 0.05) && within(self.x, ballhide.mid_x, 0.05)){
+                    //signal that ready to ballhide
+                    state.ballhide_stage = 2;
+                }
+                break;
+            case 2:
+                if(espnowDataRecv.ypos > ballhide.mid_y - 0.5 && within(self.x, ballhide.mid_x, 0.05) && within(self.y, ballhide.mid_y, 0.05)){ //prioritise this so follower leaves ballhide without blocking leader
+                    //check if close to goal, then move to side to open up goal for leader
+                    move.x = ballhide.mid_x - 0.5;
+                    move.y = ballhide.mid_y;
+                    if(within(self.x, ballhide.mid_x - 0.5, 0.05))
+                        //signal that goal is open
+                        state.ballhide_stage = 3;
+                }
+                else if(espnowDataRecv.bh_stage == 2){
+                    //move up field
+                    moveAlongY(ballhide.mid_x, ballhide.mid_y, 0);
+                }
+                break;
+            case 3: //do nothing
+                break;
+            default:
+                state.ballhide_stage = 1;
+            }
+        }
+
         void defend(){
             float leftAngle = atan2(SELF_GOAL_Y - ball.absolute_y, SELF_GOAL_LEFT_X - ball.absolute_x);
             float rightAngle = atan2(SELF_GOAL_Y - ball.absolute_y, SELF_GOAL_RIGHT_X - ball.absolute_x);
@@ -658,7 +728,7 @@ class Bot{
                     move.x = 0.91;
                     move.y = 0.60;
                     move.rotation = 0;
-                Serial.println("Defender 2");
+                    Serial.println("Defender 2");
                 }
                 // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
                 else if (ball.absolute_y <  0.80f) {

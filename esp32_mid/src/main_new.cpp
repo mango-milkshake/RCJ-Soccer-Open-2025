@@ -142,6 +142,7 @@ typedef struct struct_message {
     bool hasBall; 
     int botID_comm;
     int bh_ready;
+    bool bh_stage;
     int type;
 } struct_message;
 struct_message espnowData;
@@ -228,7 +229,6 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
 }
 
 bool ready_to_ballhide = false;
-int ballhide_state = 0;
 void sendData(){ //send data here
     //Define what values to send
     espnowData.isPresent = 2;
@@ -238,6 +238,7 @@ void sendData(){ //send data here
     espnowData.hasBall = ball.ballCap > 0 ? true : false;
     espnowData.botID_comm = state.botID;
     espnowData.bh_ready = state.ready_to_shoot;
+    espnowData.bh_stage = state.ballhide_stage;
     espnowData.type = state.botType;
     
 
@@ -457,6 +458,7 @@ int assignTypeBuffer = 4;
 int defCount = 0;
 int atkCount = 0;
 #define DEFENDER_WAIT_TIME 0
+int ballhide_strat = 2;
 void assignType(){
     // from lowest to highest priority
     if(state.botID == 1){
@@ -481,20 +483,32 @@ void assignType(){
            // atkCount = 0;
         }
     }  
-    if(ball.ballCap > 0){ // switch states but just dont move yet
-    // if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
-        state.botType = 3; //switch to scoring
-    } 
-    if (espnowDataRecv.type == 3){ //check if other bot is scoring
-        state.botType = 3; //switch to 3 to help with ballhide
+    if(ballhide_strat == 1){
+        if(ball.ballCap > 0){ // switch states but just dont move yet
+        // if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
+            state.botType = 3; //switch to scoring
+        } 
+        if (espnowDataRecv.type == 3){ //check if other bot is scoring
+            state.botType = 3; //switch to 3 to help with ballhide
+        }
     }
-     
+    else if (ballhide_strat == 2){
+        if(espnowDataRecv.type = 4){ 
+            state.botType = 5; //switch to leading
+        } 
+        else if (ball.ballCap > 0){ //check if other bot is leading
+            state.botType = 4; //switch to following to help with ballhide
+        }
+        else{
+            state.ballhide_stage = 1; //reset for next ballhide
+        } 
+    }     
     if(switches.turnOff || switches.topOff){ //check if bot is off
         state.botType = 0;
         // DEBUG(switches.turnOff);
         // DEBUG(switches.topOff);
     }
-
+    
     //DEBUG(espnowDataRecv.inField);
 }
 //// ** TESTING ** ////
@@ -672,6 +686,17 @@ void loop(){
             state.strategies = static_cast<State::Strategies>(8);
             Serial.println("ballhide");
         }
+        break;
+    case 4: //leading
+        if(state.ready_to_shoot){
+            state.strategies = static_cast<State::Strategies>(6);
+        }
+        else{
+            state.strategies = static_cast<State::Strategies>(11);
+        }
+        break;
+    case 5: //following
+        state.strategies = static_cast<State::Strategies>(12);
         break;
     default:
         state.curType = 0;
