@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #define KICKER_DELAY 200
-#define MIN_TIME_BETWEEN_KICKS 5000
+#define MIN_TIME_BETWEEN_KICKS 2000
 
 class Kicker {
     public:
