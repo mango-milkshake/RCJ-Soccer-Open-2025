@@ -6,6 +6,7 @@
 #include <vector>
 
 #define DEBUGGING
+// #define TESTING
 
 #define led_pin 16
 #define led_count 1
@@ -73,6 +74,11 @@ void setup(){
 }
 
 void loop(){
+    #ifdef TESTING
+    float dist = lidargate.readRaw();
+    Serial.println(dist, 3);
+    #endif
+
     data_ready = false;
     sendBuffer[0] = 5;
     sendBuffer[1] = getLidarGateData();
