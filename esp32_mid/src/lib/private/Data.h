@@ -41,7 +41,7 @@ struct Movement{
     float last_x = 0, last_y = 0, last_rotation = 0;
     bool kick = false;
     bool dont_move = false;
-    int translation_default = 40, rotation_default = 30;
+    int translation_default = 40, rotation_default = 45;
     int translation_ballcap = 15, rotation_ballcap = 15, rotation_lowered = 10;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
