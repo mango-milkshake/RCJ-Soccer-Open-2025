@@ -1,0 +1,158 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <esp_task_wdt.h>
+#include <WebSerial.h>
+#include <esp_task_wdt.h>
+
+#define NO_SERIAL
+#define AP_MODE
+
+#define TX_PIN 8
+#define RX_PIN 9
+#define SERIAL_SIZE 128
+#define DATA_LEN 30
+
+byte buffer[DATA_LEN];
+int counter = 0, total = 0;
+
+AsyncWebServer server(80);
+
+#ifdef AP_MODE
+const char* ssid = "WSLDemo"; // WiFi AP SSID
+const char* password = ""; // WiFi AP Password
+#else
+const char* ssid = "heeheehaahaaheeheehaahaa"; // WiFi SSID
+const char* password = "lipofire"; // WiFi Password
+#endif
+
+void initWiFi() {
+    #ifdef AP_MODE
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(ssid, password);
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.softAPIP());
+    #else
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    Serial.print("Connecting to WiFi ..");
+    while (WiFi.status() != WL_CONNECTED) {
+        Serial.print('.');
+        delay(1000);
+    }
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
+    Serial.println(WiFi.localIP());
+    #endif
+}
+
+#define PRINT_DELAY 100
+bool started = false;
+int lastPrintTime = millis();
+int loopTime = millis();
+
+void setup(){
+    Serial.begin(115200);
+    // while(!Serial.available()) ;
+    // while(Serial.available()) Serial.read();
+    Serial.println("started");
+
+    initWiFi();
+
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        #ifdef AP_MODE
+        request->send(200, "text/plain", "Webserial interface at http://" + WiFi.softAPIP().toString() + "/webserial");
+        #else
+        request->send(200, "text/plain", "Webserial interface at http://" + WiFi.localIP().toString() + "/webserial");
+        #endif
+    });
+
+    // WebSerial is accessible at "<IP Address>/webserial" in browser
+    WebSerial.begin(&server);
+
+    /* Attach Message Callback */
+    WebSerial.onMessage([&](uint8_t *data, size_t len) {
+        Serial.printf("Received %u bytes from WebSerial: ", len);
+        Serial.write(data, len);
+        Serial.println();
+        WebSerial.println("Received Data...");
+        String d = "";
+            for(size_t i=0; i < len; i++){
+            d += char(data[i]);
+        }
+        WebSerial.println(d);
+    });
+
+    server.begin();
+
+    Serial1.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
+
+    esp_task_wdt_init(2, true); // timeout in seconds
+    enableLoopWDT();
+}
+
+void loop(){
+    if(!started){
+        Serial.println("main loop started");
+        started = true;
+    }
+    Serial.println("beginning of loop");
+    #ifdef NO_SERIAL
+    if(millis()-lastPrintTime >= PRINT_DELAY){
+        WebSerial.println("hi");
+        lastPrintTime = millis();
+    }
+    #else
+    // float loopStartTime = micros();
+    if(Serial1.available()>=DATA_LEN){
+        while(Serial1.available()>=DATA_LEN && Serial1.peek()!=1) {
+            Serial.println("first byte not 1");
+            Serial1.read();
+        }
+        // if(Serial1.available()>=DATA_LEN && Serial1.peek()==1){
+        // float startTime = micros();
+        int len = Serial1.readBytes(buffer, DATA_LEN);
+        // float endTime = micros();
+        // Serial.printf("Time: %f \n", endTime - startTime);
+        if(len!=DATA_LEN || buffer[0]!=1){
+            Serial.print("Received bad data: length: ");
+            Serial.print(len);
+            Serial.print(", data: ");
+            for (auto i : buffer) {
+                Serial.print(i);
+                Serial.print(" ");
+            }
+        }
+        else{
+            total++;
+            int sum = 0;
+            for (auto i : buffer){
+                sum += i;
+            }
+            if(sum!=465) counter++;
+            if(millis()-lastPrintTime > PRINT_DELAY){
+                for (auto i : buffer){
+                    WebSerial.print(String(i)+" ");
+                }
+                WebSerial.println();
+                WebSerial.printf("Errors: %d out of %d\n", counter, total);
+                WebSerial.printf("Error rate: %f percent\n", (float)counter*100/total); 
+                lastPrintTime = millis();  
+            }
+        } 
+        // }
+    }
+    // else{
+    //     Serial.println("No data received");
+    // }
+    // float loopEndTime = micros();
+    // Serial.printf("Loop Time: %f \n", loopEndTime - loopStartTime);
+    #endif
+    Serial.println("printed to web");
+
+    WebSerial.loop();
+
+    Serial.println("end of loop");
+    Serial.printf("loop time: %d\n", millis()-loopTime);
+    loopTime = millis();
+}

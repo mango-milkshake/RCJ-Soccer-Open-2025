@@ -10,6 +10,9 @@
 #include <esp_wifi.h>
 #include <esp_now.h>
 #include <esp_task_wdt.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <WebSerial.h>
 
 #define DEBUGGING
 #ifdef DEBUGGING
@@ -25,7 +28,7 @@
 //// ** DEFINITIONS ** ////
 
 // ESP NeoPixel LED
-#define ESP_LED 48
+#define ESP_LED 21
 int ESP_BRIGHTNESS = 50;
 #define BLINK_TIME 50
 Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
@@ -152,6 +155,14 @@ typedef struct struct_message {
 struct_message espnowData;
 struct_message espnowDataRecv;
 
+// Wifi / WebSerial Debugging
+#define WEB_PRINT_DELAY 50
+AsyncWebServer server(80);
+
+const char* ssid = "heeheehaahaaheeheehaahaa"; // WiFi SSID
+const char* password = "lipofire"; // WiFi Password
+int lastWebPrintTime = 0;
+
 // Thresholds
 #define BALLCAP_DURATION 250
 #define ALIGNED_THRESHOLD 0.015f
@@ -241,6 +252,47 @@ void checkFault(){
     else setLED(0, 0, strip.Color(0, 0, 0));
 }
 
+void initWiFi() {
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ssid, password);
+    Serial.print("Connecting to WiFi ..");
+    while (WiFi.status() != WL_CONNECTED) {
+        if(millis()-lastWebPrintTime>=1000) {
+            Serial.println("Wifi not connected");
+            lastWebPrintTime = millis();
+        }
+    }
+    WiFi.setTxPower(WIFI_POWER_8_5dBm);
+    Serial.println(WiFi.localIP());
+}
+
+void startWebSerial(){
+    initWiFi();
+
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        // request->send(200, "text/plain", "Webserial interface at http://" + WiFi.softAPIP().toString() + "/webserial");
+        request->send(200, "text/plain", "Webserial interface at http://" + WiFi.localIP().toString() + "/webserial");
+    });
+
+    // WebSerial is accessible at "<IP Address>/webserial" in browser
+    WebSerial.begin(&server);
+
+    /* Attach Message Callback */
+    WebSerial.onMessage([&](uint8_t *data, size_t len) {
+        Serial.printf("Received %u bytes from WebSerial: ", len);
+        Serial.write(data, len);
+        Serial.println();
+        WebSerial.println("Received Data...");
+        String d = "";
+            for(size_t i=0; i < len; i++){
+            d += char(data[i]);
+        }
+        WebSerial.println(d);
+    });
+
+    server.begin();
+}
+
 void readMacAddress(){ //read own mac address and set broadcast address to other bot
     WiFi.mode(WIFI_STA);
     esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
@@ -253,14 +305,17 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     //     Serial.println("Failed to read MAC address");
     // }
     //const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}; //cooked
-    const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x40};
+    const uint8_t MAC_1[6] = {0x28, 0x37, 0x2f, 0x86, 0xce, 0x4c};
     const uint8_t MAC_2[6] = {0x34, 0x85, 0x18, 0xbc, 0xf5, 0xe8};
-    //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
+    const uint8_t MAC_3[6] = {0x28, 0x37, 0x2f, 0x86, 0xce, 0x4c}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
     }
     else if (memcmp(own_mac_address, MAC_2, 6) == 0){
         memcpy(broadcastAddress, MAC_1, 6);
+    }
+    else{
+        memcpy(broadcastAddress, MAC_3, 6); //for testing
     }
     }
 }
@@ -285,8 +340,8 @@ void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //in
 }
 
 void set_up_esp_now(){
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_STA);
+    // WiFi.disconnect(true);
+    // WiFi.mode(WIFI_STA);
 
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
@@ -981,7 +1036,7 @@ void setup(){
     pinMode(STATE_SW, INPUT);
     analogSetAttenuation(ADC_11db);
 
-    esp_task_wdt_init(1, true); // timeout in seconds
+    esp_task_wdt_init(2, true); // timeout in seconds
     enableLoopWDT();
 
     Wire.begin(SDA_PIN, SCL_PIN, 400000);
@@ -991,6 +1046,7 @@ void setup(){
     dribblerMD.init();
     dribblerMD.setMode();
 
+    startWebSerial();
     readMacAddress();
     set_up_esp_now();
 
@@ -1055,7 +1111,8 @@ void loop(){
         otherBotExists = false;
     }
     assignDef();
-    sendData();
+    // sendData();
+
     if(!isDefender){
         LED_BRIGHTNESS = 255;
     }
@@ -1083,102 +1140,111 @@ void loop(){
     else if(codeState==1) setLED(11, 11, strip.Color(0, 15, 15)); // cyan
     else setLED(11, 11, strip.Color(0, 0, 15)); // blue
 
-    movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    // if (isDefender){
-    //     setLED(5, 5, strip.Color(0, 0, 15)); // blue
-    //     if(millis() - lastDribblerRev < 1000) ;
-    //     else if (ballCap) dribbler.setSpeed(1.0);
-    //     else if ((final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(0.8);
-    //     else if(noBall) dribbler.setSpeed(0);
-    //     else dribbler.setSpeed(0.3);
-    //     pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
-    //     pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
-    //     pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
-    //     if (!ballCap){
-    //         if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
-    //             movement(0.91f, 0.60f, 0);
-    //         }
-    //         // 2) Else if the ball is within the no-chase region near the goal
-    //         else if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f &&
-    //                 final_absolute_ball_y < 0.25f)
-    //         {
-    //             movement(0.91f, 0.60f, 0);
-    //         }
-    //         // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
-    //         else if (final_absolute_ball_y <  DEFENDER_MAX_YPOS) {
+    // movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
 
-    //             if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f && final_absolute_ball_y < self_y){
-    //                 pid_rotate.setConfig(0.5, 0, 0);
-    //                 pid_x.setConfig(1.9, 0, 0);
-    //                 pid_y.setConfig(1.9, 0, 0);                
-    //             }
-    //             else {
-    //                 pid_rotate.setConfig(0.5, 0, 0);
-    //                 pid_x.setConfig(2.2, 0, 0);
-    //                 pid_y.setConfig(2.2, 0, 0);  
-    //             }
-    //             if (noBall) {
-    //                 final_absolute_ball_x = last_ball_x;
-    //                 final_absolute_ball_y = last_ball_y;
-    //                 dribblerBallTrack();
-    //             }
-    //             // 3b) If we DO see the ball => track it with the dribbler
-    //             else {
-    //                 dribblerBallTrack();
-    //             }
-    //             pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
-    //             pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
-    //             pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
-    //         }
-    //         // 4) Otherwise => geometry-based blocking
-    //         else {
-    //             defend();
-    //         }
-    //     }
-    //     else sendI2C(zeroBuffer);
+    updateSelfVelocityEWMA(self_x, self_y);
+    if(millis()-lastWebPrintTime >= WEB_PRINT_DELAY){
+        WebSerial.printf("Vx: %f\n Vy: %f\n", self_velocityx, self_velocityy);
+        lastWebPrintTime = millis();
+    }
 
-    // }
-    // else {
-    //     setLED(5, 5, strip.Color(0, 15, 0)); // green
-    //     if(millis() - lastDribblerRev < 1000) ;
-    //     else if (ballCap) dribbler.setSpeed(1.0);
-    //     else if ((final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(0.8);
-    //     else if(noBall) dribbler.setSpeed(0);
-    //     else dribbler.setSpeed(0.3);
+    if (isDefender){
+        setLED(5, 5, strip.Color(0, 0, 15)); // blue
+        if(millis() - lastDribblerRev < 1000) ;
+        else if (ballCap) dribbler.setSpeed(1.0);
+        else if ((final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(0.8);
+        else if(noBall) dribbler.setSpeed(0);
+        else dribbler.setSpeed(0.3);
+        pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+        pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+        pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+        if (!ballCap){
+            if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
+                movement(0.91f, 0.60f, 0);
+            }
+            // 2) Else if the ball is within the no-chase region near the goal
+            else if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f &&
+                    final_absolute_ball_y < 0.25f)
+            {
+                movement(0.91f, 0.60f, 0);
+            }
+            // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
+            else if (final_absolute_ball_y <  DEFENDER_MAX_YPOS) {
 
-    //     pid_rotate.setConfig(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2]);
-    //     pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
-    //     pid_y.setConfig(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2]);
+                if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f && final_absolute_ball_y < self_y){
+                    pid_rotate.setConfig(0.5, 0, 0);
+                    pid_x.setConfig(1.9, 0, 0);
+                    pid_y.setConfig(1.9, 0, 0);                
+                }
+                else {
+                    pid_rotate.setConfig(0.5, 0, 0);
+                    pid_x.setConfig(2.2, 0, 0);
+                    pid_y.setConfig(2.2, 0, 0);  
+                }
+                if (noBall) {
+                    final_absolute_ball_x = last_ball_x;
+                    final_absolute_ball_y = last_ball_y;
+                    dribblerBallTrack();
+                }
+                // 3b) If we DO see the ball => track it with the dribbler
+                else {
+                    dribblerBallTrack();
+                }
+                pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+                pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+                pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+            }
+            // 4) Otherwise => geometry-based blocking
+            else {
+                defend();
+            }
+        }
+        else sendI2C(zeroBuffer);
 
-    //     if(codeState==2){
-    //         if(noBall) oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
-    //         else if(ballCap) aim();
-    //         else ballTrack();
-    //     }
-    //     else{
-    //         if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap){
-    //             if(codeState==0) ballHide();
-    //             else if(codeState==1) dribblerAim();
-    //         }
-    //         else if(ballCap) sendI2C(zeroBuffer);
-    //         else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
-    //             final_absolute_ball_x = last_ball_x;
-    //             final_absolute_ball_y = last_ball_y;
-    //             dribblerBallTrack();
-    //         }
-    //         else if(!noBall && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
-    //         // else if(!noBall){
-    //             dribblerBallTrack();
-    //             Serial.println("not my ball bro");
-    //         }
-    //         else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.60); 
-    //         // else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    //     }
-    // }
+    }
+    else {
+        setLED(5, 5, strip.Color(0, 15, 0)); // green
+        if(millis() - lastDribblerRev < 1000) ;
+        else if (ballCap) dribbler.setSpeed(1.0);
+        else if ((final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(0.8);
+        else if(noBall) dribbler.setSpeed(0);
+        else dribbler.setSpeed(0.3);
+
+        pid_rotate.setConfig(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2]);
+        pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
+        pid_y.setConfig(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2]);
+
+        if(codeState==2){
+            if(noBall) oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
+            else if(ballCap) aim();
+            else ballTrack();
+        }
+        else{
+            if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap){
+                if(codeState==0) ballHide();
+                else if(codeState==1) dribblerAim();
+            }
+            else if(ballCap) sendI2C(zeroBuffer);
+            else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
+                final_absolute_ball_x = last_ball_x;
+                final_absolute_ball_y = last_ball_y;
+                dribblerBallTrack();
+            }
+            else if(!noBall && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
+            // else if(!noBall){
+                dribblerBallTrack();
+                Serial.println("not my ball bro");
+            }
+            else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.60); 
+            // else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+        }
+    }
     if(!noBall) {
         last_ball_x = final_absolute_ball_x;
         last_ball_y = final_absolute_ball_y;
     }
+
+    WebSerial.loop();
 }
 
 /*

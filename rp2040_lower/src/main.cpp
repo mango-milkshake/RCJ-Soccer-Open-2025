@@ -48,7 +48,7 @@ Motor motorBR(IN1_pin[2], IN2_pin[2], NFAULT_pin[2], maxspeed, 1.0);
 float lastFault = 0;
 
 Drive bot(motorFR, motorBR, motorBL, motorFL);
-float speedX = 1.0, speedY = 1.0, speed_xdir = 1.0, speed_ydir = 1.0, moveAngle = 0.0, rotation = 0.0;
+float speedX = 0.0, speedY = 0.0, speed_xdir = 0.0, speed_ydir = 0.0, moveAngle = 0.0, rotation = 0.0;
 
 void checkFault(){
     bool faulted = false;
@@ -84,7 +84,12 @@ void receive(int num_bytes){
     }
     if(buffer[0]==0){
         Serial.println("Bot off");
-        bot.setDrive(0, 0, 0);
+        speedX = 0;
+        speedY = 0;
+        speed_xdir = 0;
+        speed_ydir = 0;
+        rotation = 0;
+        // bot.setDrive(0, 0, 0);
         return;
     }
     Serial.println("Received motor data");
@@ -104,7 +109,7 @@ void receive(int num_bytes){
     // speedX = speed_xdir * cosf(RAD(135)) + speed_ydir * cosf(RAD(45));
     // speedY = speed_xdir * sinf(RAD(135)) + speed_ydir * sinf(RAD(45));
     // bot.setDrive(speedX, speedY, rotation);
-    bot.setDrive(speed_xdir, speed_ydir, rotation);
+    // bot.setDrive(speed_xdir, speed_ydir, rotation);
 }
 
 void setup(){
@@ -125,7 +130,7 @@ void setup(){
 }
 
 void loop(){
-    Serial.println("running");
+    // Serial.println("running");
     // strip.setPixelColor(0, strip.Color(0, 0, 15));
     // strip.show();
     if(millis() - lastLED >= BLINK_TIME){
@@ -140,6 +145,7 @@ void loop(){
         strip.setPixelColor(0, strip.Color(0, 0, 0));
         strip.show();
     }
-    // checkFault();
+    checkFault();
+    bot.setDrive(speed_xdir, speed_ydir, rotation);
 }
 

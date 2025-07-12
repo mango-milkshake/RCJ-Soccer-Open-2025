@@ -4,7 +4,9 @@
 #include <Arduino.h>
 #include "../public/analog_iic.h"
 #include "../public/tofsense_f_iic.h"
-#define LIDAR_BALLCAP_THRESH 0.06f
+#define THRESH_LEFT 0.022
+#define THRESH_MID 0.030
+#define THRESH_RIGHT 0.050
 
 class LidarGate{
     public:
@@ -19,10 +21,12 @@ class LidarGate{
             return buffer.dis;
         }
 
-        bool checkBallCap(){
-            return readRaw() <= LIDAR_BALLCAP_THRESH; 
-            // if distance detected less than threshold, ball is in ballcap, return true
-            // else ball is not in ballcap, return false
+        uint8_t checkBallCap(){
+            float dist = readRaw();
+            if(dist <= THRESH_LEFT) return (uint8_t)1;
+            else if(dist <= THRESH_MID) return (uint8_t)2;
+            else if(dist <= THRESH_RIGHT) return (uint8_t)3;
+            else return (uint8_t)0; // not in ballcap
         }
     
     private:

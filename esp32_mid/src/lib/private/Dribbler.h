@@ -7,11 +7,13 @@ SPISettings MDSetting(100000, MSBFIRST, SPI_MODE1);
 
 class MotorDriver {
     public:
-        MotorDriver(uint8_t mosi, uint8_t miso, uint8_t sck, uint8_t cs, uint8_t nsleep, uint8_t drvoff) :
-            _mosi(mosi), _miso(miso), _sck(sck), _cs(cs), _nsleep(nsleep), _drvoff(drvoff) {
+        MotorDriver(uint8_t mosi, uint8_t miso, uint8_t sck, uint8_t cs, uint8_t nsleep, uint8_t drvoff, uint8_t ipropi) :
+            _mosi(mosi), _miso(miso), _sck(sck), _cs(cs), _nsleep(nsleep), _drvoff(drvoff), _ipropi(ipropi) {
             pinMode(_cs, OUTPUT);
             pinMode(_nsleep, OUTPUT);
             pinMode(_drvoff, OUTPUT);
+            pinMode(_ipropi, INPUT);
+            analogWriteFrequency(25000);
         }
 
         void init(){
@@ -19,6 +21,7 @@ class MotorDriver {
             digitalWrite(_nsleep, HIGH);
             digitalWrite(_drvoff, LOW);
             SPI.begin(_sck, _miso, _mosi, _cs);
+            analogSetAttenuation(ADC_11db);
         }
 
         void sendCommand(uint8_t addr, uint8_t data){
@@ -58,8 +61,14 @@ class MotorDriver {
             sendCommand(0b00001000, 0b10000000);
         }
 
+        float checkCurrent(){
+            float current = analogRead(_ipropi);
+            // Serial.printf("Analog value: %d\n", current);
+            return current;
+        }
+
     private:
-        const uint8_t _mosi, _miso, _sck, _cs, _nsleep, _drvoff;
+        const uint8_t _mosi, _miso, _sck, _cs, _nsleep, _drvoff, _ipropi;
 };
 
 #endif

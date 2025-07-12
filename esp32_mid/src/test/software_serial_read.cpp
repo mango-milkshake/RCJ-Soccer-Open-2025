@@ -1,13 +1,14 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 
-#define TX_PIN 2
-#define RX_PIN 3
+#define TX_PIN 8
+#define RX_PIN 9
 #define SERIAL_SIZE 128
 #define DATA_LEN 30
 
 byte buffer[DATA_LEN];
 SoftwareSerial swSerial(RX_PIN, TX_PIN);
+int counter = 0, total = 0;
 
 void setup(){
     Serial.begin(115200);
@@ -15,19 +16,21 @@ void setup(){
     // while(Serial.available()) Serial.read();
     Serial.println("started");
 
-    swSerial.begin(115200);
+    swSerial.begin(38400);
 }
 
 void loop(){
+    // float loopStartTime = micros();
     if(swSerial.available()>=DATA_LEN){
-        while(swSerial.peek()!=1) {
+        while(swSerial.available()>=DATA_LEN && swSerial.peek()!=1) {
             Serial.println("first byte not 1");
             swSerial.read();
         }
-        float startTime = micros();
+        // if(swSerial.available()>=DATA_LEN && swSerial.peek()==1){
+        // float startTime = micros();
         int len = swSerial.readBytes(buffer, DATA_LEN);
-        float endTime = micros();
-        Serial.printf("Time: %f \n", endTime - startTime);
+        // float endTime = micros();
+        // Serial.printf("Time: %f \n", endTime - startTime);
         if(len!=DATA_LEN || buffer[0]!=1){
             Serial.print("Received bad data: length: ");
             Serial.print(len);
@@ -38,14 +41,23 @@ void loop(){
             }
         }
         else{
+            total++;
+            int sum = 0;
             for (auto i : buffer){
+                sum += i;
                 Serial.print(i);
                 Serial.print(" ");
             }
+            if(sum!=465) counter++;
         }
         Serial.println();
+        Serial.printf("Errors: %d out of %d\n", counter, total);
+        Serial.printf("Error rate: %f percent\n", (float)counter*100/total);
+        // }
     }
-    else{
-        Serial.println("No data received");
-    }
+    // else{
+    //     Serial.println("No data received");
+    // }
+    // float loopEndTime = micros();
+    // Serial.printf("Loop Time: %f \n", loopEndTime - loopStartTime);
 }

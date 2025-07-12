@@ -14,7 +14,7 @@ void setup(){
     // while(Serial.available()) Serial.read();
     Serial.println("started");
 
-    swSerial.begin(115200);
+    swSerial.begin(38400);
     Serial.print("finished Serial setup");
 }
 

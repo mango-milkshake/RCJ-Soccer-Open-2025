@@ -24,11 +24,10 @@ sensor.set_gainceiling(32)
 sensor.set_auto_gain(False)
 sensor.set_auto_whitebal(False)
 sensor.set_contrast(0)
-sensor.set_auto_exposure(False, exposure_us=4000)
-sensor.set_auto_gain(False, gain_db=-5)
+sensor.set_auto_exposure(False, exposure_us=30000)
+sensor.set_auto_gain(False, gain_db=8)
 sensor.set_auto_whitebal(False)
 sensor.set_contrast(3)
-
 sensor.skip_frames(time=200)
 
 clock = time.clock()

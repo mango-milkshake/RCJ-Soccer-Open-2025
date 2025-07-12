@@ -25,20 +25,26 @@ Adafruit_NeoPixel strip(led_count, led_pin, NEO_GRB + NEO_KHZ800);
 
 byte buffer[DATA_LEN];
 
+#define CS_PIN 1
+#define NSLEEP_PIN 14
+#define DRVOFF_PIN 15
+#define MOSI_PIN 3 // TX
+#define MISO_PIN 0 // RX
+#define SCK_PIN 2
 MotorDriver motor_driver(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
 
 uint8_t IN1_pin[NUM_DRIVERS] = {7, 9, 11, 13};
 uint8_t IN2_pin[NUM_DRIVERS] = {6, 8, 10, 12};
 uint8_t NFAULT_pin[NUM_DRIVERS] = {26, 27, 28, 29};
 
-uint8_t maxspeed = 50;
+uint8_t maxspeed = 130;
 
 Motor motorFL(IN1_pin[0], IN2_pin[0], NFAULT_pin[0], maxspeed, 1.0);
 Motor motorFR(IN1_pin[3], IN2_pin[3], NFAULT_pin[3], maxspeed, 1.0);
 Motor motorBL(IN1_pin[1], IN2_pin[1], NFAULT_pin[1], maxspeed, 1.0);
 Motor motorBR(IN1_pin[2], IN2_pin[2], NFAULT_pin[2], maxspeed, 1.0);
 
-Drive bot(motorFR, motorBR, motorBL, motorFL);
+Drive bot(motorFR, motorBR, motorBL, motorFL, maxspeed);
 float speed = 1.0;
 float speedX, speedY, moveAngle;
 
@@ -51,14 +57,15 @@ void setup()
   // while(!Serial.available()) continue;
   // while(Serial.available()) Serial.read();
 
-  Serial2.setRX(RX_PIN);
-  Serial2.setTX(TX_PIN);
-  Serial2.begin(115200);
+  // Serial2.setRX(RX_PIN);
+  // Serial2.setTX(TX_PIN);
+  // Serial2.begin(115200);
 
   // analogWriteFreq(5000);
 
   motor_driver.init();
   motor_driver.setMode();
+  analogWriteFreq(25000);
 
   strip.begin();
   strip.setBrightness(brightness);
@@ -144,6 +151,7 @@ void loop()
   // }
 
 // testing
-  bot.setDriveOld(1.0, 45, 0);
+  // bot.setDriveOld(1.0, 45, 0);
+  bot.setDrive(30, 0, 0);
 
 }

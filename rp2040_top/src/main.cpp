@@ -4,13 +4,14 @@
 #include <RotatingCalipers.h>
 #include <CommonUtils.h>
 #include <IMU.h>
+#include <UARTComms.h>
 
 #define DEBUG(x) Serial.print(#x); Serial.print(": "); Serial.println(x);
 
 // #define PRINT_LIDARS
 // #define PRINT_RECT
 #define PRINT_COORDS
-#define PRINT_DUMMY_POINTS
+// #define PRINT_DUMMY_POINTS
 #define PRINT_HEADING
 #define PRINT_IMU
 
@@ -25,22 +26,22 @@
 Adafruit_NeoPixel pico_led(1, PICO_LED, NEO_GRB + NEO_KHZ800);
 
 #define STRIP_LED 28
-#define STRIP_COUNT 24
+#define STRIP_COUNT 23
 #define STRIP_BRIGHTNESS 100
 Adafruit_NeoPixel strip(STRIP_COUNT, STRIP_LED, NEO_GRB + NEO_KHZ800);
 
-#define NUM_LIDARS 24
-#define NUM_EACH_BUS 12
+#define NUM_LIDARS 20
+#define NUM_EACH_BUS 10
 #define BUS0_SW 27
 #define BUS1_SW 26
-#define LIDAR_DIST_FROM_CENTRE 0.065f
+#define LIDAR_DIST_FROM_CENTRE 0.060f
 float distRaw[NUM_LIDARS];
 std::vector<Lidar> lidar;
 uint8_t scl[2] = {9, 11}, sda[2] = {8, 10};
 float angle[NUM_LIDARS];
-float calib[NUM_LIDARS] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+float calib[NUM_LIDARS] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-#define NUM_POINTS 28
+#define NUM_POINTS 24
 Point coords[NUM_POINTS], hull[NUM_POINTS];
 float prev_heading = 0.0f, temp_heading = 0.0f;
 Point prev_coords = {0.0f, 0.0f};
@@ -54,6 +55,9 @@ float imu_angle_weight = DEFAULT_IMU_ANGLE_WEIGHT;
 
 #define TX_PIN 0
 #define RX_PIN 1
+#define DATA_LEN 9
+uint8_t buffer[DATA_LEN];
+UARTComms espUART(TX_PIN, RX_PIN, buffer, DATA_LEN, Serial1);
 
 #define CS0_PIN 5
 #define MISO0_PIN 4 // RX
@@ -94,7 +98,7 @@ void setup(){
     Serial.begin(115200);
 
     for (uint8_t i=0; i<NUM_LIDARS; i++){
-        angle[i] = (90 - i*15);
+        angle[i] = (90 - i*18);
         if(angle[i]<0) angle[i] += 360;
         if(angle[i]>=360) angle[i] -= 360;
         uint8_t bus;
@@ -107,9 +111,7 @@ void setup(){
         Analog_IIC_Init(scl[i], sda[i]);
     }
 
-    Serial1.setRX(RX_PIN);
-    Serial1.setTX(TX_PIN);
-    Serial1.begin(115200);
+    espUART.init();
 
     imuLock = spin_lock_instance(0);
 
@@ -180,9 +182,9 @@ void loop(){
     for (int i=0; i<NUM_LIDARS; i++){
         // distRaw[i] = lidar[i].readRaw();
         coords[i] = lidar[i].readCoords();
-        if(lidar[i].buffer.dis > MAX_LIDAR_DIST) strip.setPixelColor(i, strip.Color(15, 0, 15));
-        else if(lidar[i].buffer.dis<=0.10) strip.setPixelColor(i, strip.Color(15, 0, 0));
-        else strip.setPixelColor(i, strip.Color(0, 15, 0));
+        if(lidar[i].buffer.dis > MAX_LIDAR_DIST) strip.setPixelColor(i+3, strip.Color(15, 0, 15));
+        else if(lidar[i].buffer.dis<=0.10) strip.setPixelColor(i+3, strip.Color(15, 0, 0));
+        else strip.setPixelColor(i+3, strip.Color(0, 15, 0));
 
         #ifdef PRINT_LIDARS
         Serial.print("{");
@@ -206,10 +208,10 @@ void loop(){
     MinAreaRect rect = findMinAreaRect(hull, hullSize);
 
     if((rect.area < FIELD_MIN_THRESH * FIELD_AREA)){
-        coords[24] = dummyPoints.bl;
-        coords[25] = dummyPoints.br;
-        coords[26] = dummyPoints.tl;
-        coords[27] = dummyPoints.tr;
+        coords[20] = dummyPoints.bl;
+        coords[21] = dummyPoints.br;
+        coords[22] = dummyPoints.tl;
+        coords[23] = dummyPoints.tr;
 
         #ifdef PRINT_DUMMY_POINTS
         printPoint(dummyPoints.bl);
@@ -223,10 +225,10 @@ void loop(){
         rect = findMinAreaRect(hull, hullSize);
     }
     else{
-        coords[24] = {0.0f, 0.0f};
-        coords[25] = {0.0f, 0.0f};
-        coords[26] = {0.0f, 0.0f};
-        coords[27] = {0.0f, 0.0f};
+        coords[20] = {0.0f, 0.0f};
+        coords[21] = {0.0f, 0.0f};
+        coords[22] = {0.0f, 0.0f};
+        coords[23] = {0.0f, 0.0f};
     }
 
     #ifdef PRINT_RECT
@@ -327,10 +329,10 @@ void loop(){
     #endif
 
     float frontAngle = LIM_ANGLE_360(-final_heading);
-    int frontLED = frontAngle / 15;
-    uint32_t curColor = strip.getPixelColor(frontLED);
+    int frontLED = frontAngle / 18;
+    uint32_t curColor = strip.getPixelColor(frontLED+3);
     curColor += ((15<<16) + (15<<8) + 15);
-    strip.setPixelColor(frontLED, curColor);
+    strip.setPixelColor(frontLED+3, curColor);
     strip.show();
 
     prev_coords = cur_coords;
@@ -342,19 +344,21 @@ void loop(){
     int rounded_coord_y = floor(cur_coords.y * 128);
     int uart_heading = floor(abs(final_heading) * 128);
 
-    Serial1.write(5);
-    Serial1.write(rounded_coord_x & 0xFF);
-    Serial1.write((rounded_coord_x >> 8) & 0xFF);
-    Serial1.write(rounded_coord_y & 0xFF);
-    Serial1.write((rounded_coord_y >> 8) & 0xFF);
+    buffer[0] = 5;
+    buffer[1] = rounded_coord_x & 0xFF;
+    buffer[2] = (rounded_coord_x >> 8) & 0xFF;
+    buffer[3] = rounded_coord_y & 0xFF;
+    buffer[4] = (rounded_coord_y >> 8) & 0xFF;
 
-    if(copysign(1, final_heading)==1) Serial1.write(1);
-    else Serial1.write((uint8_t)0);
-    Serial1.write(uart_heading & 0xFF);
-    Serial1.write((uart_heading >> 8) & 0xFF);
+    if(copysign(1, final_heading)==1) buffer[5] = 1;
+    else buffer[5] = 0;
+    buffer[6] = uart_heading & 0xFF;
+    buffer[7] = (uart_heading >> 8) & 0xFF;
 
-    if(tilt_state) Serial1.write(1);
-    else Serial1.write((uint8_t)0);
+    if(tilt_state) buffer[8] = 1;
+    else buffer[8] = 0;
+
+    espUART.uartWrite();
 
     Serial.println();
 }

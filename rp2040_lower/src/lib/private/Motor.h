@@ -2,6 +2,7 @@
 #define MOTOR_H
 
 #include <Arduino.h>
+#define MAX_CHANGE 10
 
 class Motor {
     public:
@@ -17,12 +18,14 @@ class Motor {
 
         void setSpeed(float speed) {
             _speed = speed * _multiplier;
-            _speed = constrain(_speed, -1, 1);
-            _speedToSet = _speed * _maxspeed;
-            if(abs(_speedToSet) > 10){
-                _speedToSet += copysign(10, _speedToSet);
-            }
-            if (_speed > 0) {
+            // _speed = constrain(_speed, -1, 1);
+            // _speedToSet = _speed * _maxspeed;
+            _speedToSet = constrain(_speed, -_maxspeed, _maxspeed);
+            // if(abs(_speedToSet) > 2){
+            //     _speedToSet += copysign(27, _speedToSet);
+            // }
+            _speedToSet = constrain(_speedToSet, _lastSpeed-MAX_CHANGE, _lastSpeed+MAX_CHANGE);
+            if (_speedToSet > 0) {
                 analogWrite(_pin2, 0);
                 analogWrite(_pin1, abs(_speedToSet));
             } 
@@ -30,11 +33,7 @@ class Motor {
                 analogWrite(_pin1, 0);
                 analogWrite(_pin2, abs(_speedToSet));
             }
-            // Serial.print(_pin1);
-            // Serial.print(": ");
-            // Serial.print(abs(speed)*_maxspeed);
-            // Serial.print(" ");
-            // Serial.println(abs(_speed)*_maxspeed);
+            _lastSpeed = _speedToSet;
         }
 
     private:

@@ -14,6 +14,7 @@ class MotorDriver {
             pinMode(_cs, OUTPUT);
             pinMode(_nsleep, OUTPUT);
             pinMode(_drvoff, OUTPUT);
+            analogWriteFreq(25000);
         }
 
         uint8_t address[NUM_DRIVERS], data[NUM_DRIVERS];

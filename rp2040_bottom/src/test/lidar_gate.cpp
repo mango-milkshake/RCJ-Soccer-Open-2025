@@ -2,8 +2,8 @@
 #include <LidarGate.h>
 #include <Adafruit_NeoPixel.h>
 
-// #define PRINT_RAW_DIST
-#define PRINT_STATUS
+#define PRINT_RAW_DIST
+// #define PRINT_STATUS
 
 #define led_pin 16
 #define led_count 1
@@ -32,7 +32,7 @@ void loop(){
 
     #ifdef PRINT_RAW_DIST
     float dist = lidargate.readRaw();
-    Serial.println(dist);
+    Serial.println(dist, 3);
     #endif
 
     #ifdef PRINT_STATUS

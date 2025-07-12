@@ -1,16 +1,26 @@
 import sensor, time, math, pyb
 from pyb import UART
 
+def real(r_px):
+    return (-0.7938274173017964
+            + 1.5294566788791972*r_px
+            - 0.016771506764266992*(r_px**2)
+            + 0.00024722073358174443*(r_px**3)
+            - 1.2846712889870513e-6*(r_px**4))
+
 sensor.reset()
 sensor.set_pixformat(sensor.RGB565)
 sensor.set_framesize(sensor.QVGA)
 
-sensor.set_gainceiling(128)
-sensor.set_auto_whitebal(False) # must be turned off for color tracking
-
-sensor.skip_frames(time=500)
-sensor.set_auto_exposure(False, exposure_us=2000)
-sensor.set_auto_gain(False, gain_db = 8)
+sensor.set_gainceiling(32)
+sensor.set_auto_gain(False)
+sensor.set_auto_whitebal(False)
+sensor.set_contrast(0)
+sensor.set_auto_exposure(False, exposure_us=30000)
+sensor.set_auto_gain(False, gain_db=8)
+sensor.set_auto_whitebal(False)
+sensor.set_contrast(3)
+sensor.skip_frames(time=200)
 
 clock = time.clock()  # Create a clock object to track the FPS.
 #led1 = pyb.LED(1)
@@ -80,7 +90,7 @@ while True:
             ball_angle += 360
         ball_dist = (ball_x ** 2 + ball_y ** 2) ** 0.5
         print("angle ", ball_angle, "dist ", ball_dist)
-        actual_dist = 0.727104914847282 + 0.5147081989789882*(ball_dist) + 0.016366529704736815*(ball_dist)**2 - 0.00026196059702118856*(ball_dist)**3 + 1.4312212575440405e-6*(ball_dist)**4
+        actual_dist = real(ball_dist)
         print("actual dist: ")
         print(actual_dist)
         angle_uart = round(ball_angle * 128)
