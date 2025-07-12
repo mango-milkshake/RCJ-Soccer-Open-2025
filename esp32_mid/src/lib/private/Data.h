@@ -34,6 +34,7 @@ struct Times{
     int lastFault = 0;
     int curTime = 0;
     int motorTestPressed = 0, motorTestWait = 1000;
+    int lastBallhideTime = 0;
 } times;
 
 struct Movement{

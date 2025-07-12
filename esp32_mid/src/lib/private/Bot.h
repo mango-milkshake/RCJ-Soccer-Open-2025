@@ -574,7 +574,7 @@ class Bot{
 
         struct BallHide{
             float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 45;
-            float mid_x = 0.91, mid_y = 1.65, mid_angle = 180;
+            float mid_x = 0.91, mid_y = 1.45, mid_angle = 180;
         } ballhide;
 
         void ballHideSide(){
@@ -659,6 +659,7 @@ class Bot{
                 Serial.println("DEFAULT FOLLOWER");
                 state.ballhide_stage = 1;
                 move.dont_move = true;
+                times.lastBallhideTime = millis();
                 break;
             }
         }   
@@ -669,36 +670,44 @@ class Bot{
             switch(state.ballhide_stage){
             case 1:
                 //move beside target
-                move.x = self.x;
-                move.y = comms.ypos + 0.25;
-                move.rotation = 180;
-                if(within(self.y, comms.ypos + 0.25, 0.05)){ 
-                    //move to target (in front of leader)
-                    move.x = ballhide.mid_x;
-                    move.y = comms.ypos + 0.25;
+                if(within(self.x, comms.xpos, 0.3)){ // prevent collision
+                    move.x = comms.xpos + 0.3;
+                    move.y = self.y;
                     move.rotation = 180;
                 }
-                if(within(self.y, comms.ypos + 0.25, 0.05) && within(self.x, ballhide.mid_x, 0.05)){
+                else{   //move to up y beside leader
+                    move.x = self.x;
+                    move.y = comms.ypos + 0.4;
+                    move.rotation = 180;
+                }
+                if(within(self.y, comms.ypos + 0.4, 0.05)){ 
+                    //move to target (in front of leader)
+                    move.x = ballhide.mid_x;
+                    move.y = comms.ypos + 0.4;
+                    move.rotation = 180;
+                }
+                if(within(self.y, comms.ypos + 0.4, 0.05) && within(self.x, ballhide.mid_x, 0.05)){
                     //signal that ready to ballhide
                     state.ballhide_stage = 2;
                     move.dont_move = true;
                 }
                 break;
             case 2:
-                if(comms.ypos > ballhide.mid_y - 0.5 && within(self.x, ballhide.mid_x, 0.05) && within(self.y, ballhide.mid_y, 0.05)){ //prioritise this so follower leaves ballhide without blocking leader
-                    //check if close to goal, then move to side to open up goal for leader
-                    move.x = ballhide.mid_x - 0.5;
-                    move.y = ballhide.mid_y;
-                    move.rotation = 180;
-                }
-                else if(within(self.x, ballhide.mid_x - 0.5, 0.05)){
+
+                if(within(self.x, ballhide.mid_x -0.5, 0.05) && within(self.y, ballhide.mid_y+0.3, 0.05)){
                     //signal that goal is open
                     state.ballhide_stage = 3;
                     move.dont_move = true;
                 }
+                else if(within(self.y, ballhide.mid_y+0.3, 0.05)){ //prioritise this so follower leaves ballhide without blocking leader
+                    //check if close to goal, then move to side to open up goal for leader
+                    move.x = ballhide.mid_x - 0.5;
+                    move.y = ballhide.mid_y + 0.3;
+                    move.rotation = 180;
+                }
                 else if(comms.bh_stage == 2){
                     //move up field
-                    moveAlongY(ballhide.mid_x, ballhide.mid_y, 0);
+                    moveAlongY(ballhide.mid_x, ballhide.mid_y+0.3, 180);
                 }
                 else move.dont_move = true;
                 break;
