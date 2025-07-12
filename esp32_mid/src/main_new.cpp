@@ -142,7 +142,7 @@ typedef struct struct_message {
     bool hasBall; 
     int botID_comm;
     int bh_ready;
-    bool bh_stage;
+    int bh_stage; //aaaaaaaa
     int type;
 } struct_message;
 struct_message espnowData;
@@ -163,6 +163,13 @@ int lastRecvTime;
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
     memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
     lastRecvTime = millis();
+    comms.bh_stage = espnowDataRecv.bh_stage;
+    comms.xpos = espnowDataRecv.xpos;
+    comms.ypos = espnowDataRecv.ypos;
+    comms.isPresent = espnowDataRecv.isPresent;
+    Serial.println("Under onDataRecv");
+    DEBUG(espnowDataRecv.bh_stage);
+    DEBUG(comms.bh_stage);
     // DEBUG(espnowDataRecv.isPresent);
     // DEBUG(espnowDataRecv.inField);
     // DEBUG(espnowDataRecv.xpos);
@@ -231,6 +238,8 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
 bool ready_to_ballhide = false;
 void sendData(){ //send data here
     //Define what values to send
+    Serial.println("under SendData:");
+    DEBUG(state.ballhide_stage);
     espnowData.isPresent = 2;
     espnowData.xpos = self.x;
     espnowData.ypos = self.y;
@@ -496,12 +505,17 @@ void assignType(){
     else if (ballhide_strat == 2){
         if(espnowDataRecv.type == 4){ //grr
             state.botType = 5; //switch to leading
+            times.lastBallhideTime = millis();                
+
         } 
         else if (ball.ballCap > 0){ //check if other bot is leading
             state.botType = 4; //switch to following to help with ballhide
+            times.lastBallhideTime = millis();                
         }
         else{
-            // state.ballhide_stage = 1; //reset for next ballhide
+            if(abs(times.curTime - times.lastBallhideTime) > 2000){
+                state.ballhide_stage = 0; //reset for next ballhide
+            }
         } 
     }     
     if(switches.turnOff || switches.topOff){ //check if bot is off
@@ -773,10 +787,7 @@ void loop(){
     else if(ball.dist <= 40) drib.desired = drib.maxspeed/2;
     else if(ball.noBall) drib.desired = 0;
 
-    comms.bh_stage = espnowDataRecv.bh_stage;
-    comms.xpos = espnowDataRecv.xpos;
-    comms.ypos = espnowDataRecv.ypos;
-    comms.isPresent = espnowDataRecv.isPresent;
+
 
 
     #ifdef TESTING
