@@ -210,8 +210,8 @@ void readMacAddress(){ //read own mac address and set broadcast address to other
     // else{
     //     Serial.println("Failed to read MAC address");
     // }
-    const uint8_t MAC_1[6] = {0xfc, 0x01, 0x2c, 0x2d, 0xaa, 0x6c}; // id 1 (defender)
-    const uint8_t MAC_2[6] = {0xd8, 0x3b, 0xda, 0x7c, 0xf3, 0xc8}; // id 2 (attacker)
+    const uint8_t MAC_1[6] = {0xd8, 0x3b, 0xda, 0x7c, 0xf3, 0xc8}; // id 1 (defender)
+    const uint8_t MAC_2[6] = {0xfc, 0x01, 0x2c, 0x2d, 0xa6, 0x30}; // id 2 (attacker)
     //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
     if (memcmp(own_mac_address, MAC_1, 6) == 0){
         memcpy(broadcastAddress, MAC_2, 6);
@@ -370,7 +370,8 @@ void getBottomPlateData(){
 
     ball.ballCap = bottomRcvBuffer[1];
     if(ball.ballCap > 0) ball.lastBallCap = millis();
-    else ball.lastNoBallCap = millis();
+    if(ball.ballCap == 0 && millis() - ball.lastBallCap <= BALLCAP_DURATION) ball.ballCap = 2;
+    if(ball.ballCap == 0) ball.lastNoBallCap = millis();
     
     self.line_status = bottomRcvBuffer[2];
     if(self.line_status > 0) self.onLine = true;
@@ -458,7 +459,7 @@ int assignTypeBuffer = 4;
 int defCount = 0;
 int atkCount = 0;
 #define DEFENDER_WAIT_TIME 0
-int ballhide_strat = 2;
+int ballhide_strat = 1;
 void assignType(){
     // from lowest to highest priority
     if(state.botID == 1){
@@ -538,6 +539,7 @@ void moveForward(){
 //// ** LOOPS ** ////
 
 void setup(){
+    delay(5000); // wait to plug in mid plate power
     Serial.begin(115200);
 
     bottomUART.init();
@@ -641,7 +643,6 @@ void loop(){
     //     ball.lastNoBallCap = millis();
     // }
 
-    if(ball.ballCap == 0 && millis() - ball.lastBallCap <= BALLCAP_DURATION) ball.ballCap = 2;
     if(ball.noBall && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME){ //using memory
         ball.absolute_x = ball.last_x;
         ball.absolute_y = ball.last_y;
@@ -671,7 +672,7 @@ void loop(){
             // state.curType = 1;
             // state.curStratIdx = 1; //lookahead
             state.strategies = static_cast<State::Strategies>(10);
-            // Serial.println("lookahead"); // here
+            Serial.println("lookahead"); // here
         }
         break;
     case 3: //scoring
@@ -706,10 +707,10 @@ void loop(){
         state.strategies = static_cast<State::Strategies>(0);
         break;
     }
-    DEBUG(state.botType);
-    DEBUG(state.strategies);
-    DEBUG(state.botID);
-    DEBUG(espnowDataRecv.type); // here
+    // DEBUG(state.botType);
+    // DEBUG(state.strategies);
+    // DEBUG(state.botID);
+    // DEBUG(espnowDataRecv.type); // HEREE
     // DEBUG(strats[state.curType][state.curStratIdx]);
     
     state.ready_to_shoot = false; // set back for rechecking (after type is assigned)
@@ -779,7 +780,7 @@ void loop(){
 
 
     #ifdef TESTING
-    state.strategies = State::Strategies::DRIBBLER_BALL_TRACK;
+    state.strategies = State::Strategies::ATTACK_MODE2;
     #endif
 
     // carry out the strategy
@@ -838,6 +839,7 @@ void loop(){
             if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
                 leds.setPixelColor(7, leds.Color(15, 15, 15));
                 leds.show();
+                Serial.println("im not moving");
                 move.dont_move = true;
                 break;
             }
@@ -889,7 +891,7 @@ void loop(){
             break;
     }
 
-    if (times.curTime - esp_last_send >= 1000){
+    if (times.curTime - esp_last_send >= 250){
         sendData();
         esp_last_send = times.curTime;
     }
@@ -898,11 +900,16 @@ void loop(){
     if(switches.turnOff || switches.topOff) move.dont_move = true;
     if(move.dont_move) stop_motors();
     else movement(move.x, move.y, move.rotation);
-    // DEBUG(move.x);
-    // DEBUG(move.y);
-    // DEBUG(move.rotation); // here
-    // kicker
-    if(move.kick) kicker.kick();
+    DEBUG(move.x);
+    DEBUG(move.y);
+    DEBUG(move.rotation); // here
+
+    // kicker check if can kick
+    if(move.kick) {
+        // check if can and want to kick, make dribbler backspin first
+        bool can_kick = kicker.check_time();
+        if(can_kick) drib.desired = -100;
+    }
 
     // dribbler check current
     drib.analogval = dribblerMD.checkCurrent();
@@ -955,6 +962,19 @@ void loop(){
     dribbler.setSpeed(drib.speed);
     // DEBUG(drib.desired);
     // DEBUG(drib.speed);
+
+    // kicker - actually kick
+    if(move.kick){
+        bool kick_status = kicker.kick();
+        if(kick_status){ // successfully kicked, reset state
+            if(state.botID == 1){
+                state.botType = 1;
+            }
+            else if(state.botID == 2){
+                state.botType = 2;
+            }
+        }
+    }
 
     // if(!(move.x == move.last_x && move.y == move.last_y && move.rotation == move.last_rotation)){
     //     state.strip++;
