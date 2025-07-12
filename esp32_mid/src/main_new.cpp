@@ -459,7 +459,7 @@ int assignTypeBuffer = 4;
 int defCount = 0;
 int atkCount = 0;
 #define DEFENDER_WAIT_TIME 0
-int ballhide_strat = 1;
+int ballhide_strat = 2;
 void assignType(){
     // from lowest to highest priority
     if(state.botID == 1){
