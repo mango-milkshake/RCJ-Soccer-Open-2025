@@ -645,7 +645,8 @@ class Bot{
                 else move.dont_move = true;
                 break;
             default:
-                // state.ballhide_stage = 1;
+                Serial.println("DEFAULT FOLLOWER");
+                state.ballhide_stage = 1;
                 move.dont_move = true;
                 break;
             }
@@ -694,7 +695,8 @@ class Bot{
                 move.dont_move = true;
                 break;
             default:
-                // state.ballhide_stage = 1;
+                Serial.println("DEFAULT FOLLOWER");
+                state.ballhide_stage = 1;
                 move.dont_move = true;
                 break;
             }
