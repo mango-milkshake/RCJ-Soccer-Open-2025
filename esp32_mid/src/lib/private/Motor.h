@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#define MAX_CHANGE 1
+#define MAX_CHANGE 30
 
 class Motor {
     public:
