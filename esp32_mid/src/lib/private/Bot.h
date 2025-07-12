@@ -228,7 +228,7 @@ class Bot{
                 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 // goal is clear, can kick
                 move.kick = true;
-                drib.desired = -100;
+                // drib.desired = -100;
                 move.rotation = self.heading;
                 return;
             }
@@ -255,7 +255,7 @@ class Bot{
             // if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
             // if(ball.ballCap > 0 && self.y > 1.62 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
             //     move.kick = true;
-            //     drib.desired = -100;
+                // // drib.desired = -100;
             // }
         }
 
@@ -548,7 +548,7 @@ class Bot{
             // align y then move along x
             if(self.y >= target_y - along.margin && self.y <= target_y + along.margin){
                 move.x = target_x + copysign(along.margin, target_x - self.x);
-                move.y = self.y;
+                move.y = target_y;
             }
             else{
                 move.x = self.x;
@@ -560,18 +560,20 @@ class Bot{
         void moveAlongY(float target_x, float target_y, float target_angle){
             // align x then move along y
             if(self.x >= target_x - along.margin && self.x <= target_x + along.margin){
-                move.x = self.x;
+                move.x = target_x;
                 move.y = target_y + copysign(along.margin, target_y - self.y);
+                Serial.println("yyyyy");
             }
             else{
                 move.x = target_x;
                 move.y = self.y;
+                Serial.println("xxxxx");
             }
             move.rotation = target_angle;
         }
 
         struct BallHide{
-            float left_x = 0.50, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 80;
+            float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 45;
             float mid_x = 0.91, mid_y = 1.65, mid_angle = 180;
         } ballhide;
 
@@ -603,7 +605,16 @@ class Bot{
             //     return true;
             // }
             if(self.y >= ballhide.side_y) return true;
-            moveAlongY(ballhide.right_x, ballhide.side_y, ballhide.side_angle);
+            if(self.x < ballhide.right_x - 0.30) {
+                move.x = ballhide.right_x;
+                move.y = self.y;
+            }
+            else{
+                move.x = ballhide.right_x + 0.20;
+                move.y = ballhide.side_y;
+            }
+            move.rotation = ballhide.side_angle;
+            // moveAlongY(ballhide.right_x, ballhide.side_y, ballhide.side_angle);
             return false;
         }
 
