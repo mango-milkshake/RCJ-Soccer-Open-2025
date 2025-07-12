@@ -642,7 +642,11 @@ class Bot{
                     //move up field
                     moveAlongY(ballhide.mid_x, ballhide.mid_y, 0);
                 }
-                else move.dont_move = true;
+                else{
+                    move.x = ballhide.mid_x;
+                    move.y = self.y;
+                    move.rotation = 0;
+                } 
                 if(within(self.x, ballhide.mid_x, 0.05) && within(self.y, ballhide.mid_y, 0.05)){
                     //begin scoring
                     state.ballhide_stage = 3;
@@ -664,7 +668,7 @@ class Bot{
             }
         }   
 
-        float follower_start_x = 0.3, follower_end_x = -0.5, follower_dist_y = 0.3; //where to go beside leader, how far in front of leader to go
+        float follower_start_x_mag = 0.3, follower_start_x = 0, follower_end_x = -0.5, follower_dist_y = 0.3; //where to go beside leader, how far in front of leader to go
 
         
         void ballHideFollower(){
@@ -673,7 +677,13 @@ class Bot{
             switch(state.ballhide_stage){
             case 1: //preparation
                 //move beside target
-                if(within(self.x, comms.xpos, 0.3)){ // prevent collision
+                if(self.x < comms.xpos){
+                    follower_start_x = -1*follower_start_x_mag;
+                }
+                else{
+                    follower_start_x = follower_start_x_mag;
+                }
+                if(within(self.x, comms.xpos, follower_start_x - 0.05)){ // prevent collision
                     move.x = comms.xpos + follower_start_x;
                     move.y = self.y;
                     move.rotation = 180;

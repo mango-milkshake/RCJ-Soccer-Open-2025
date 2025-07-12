@@ -61,11 +61,13 @@ def longest_consecutive_subarray(arr):
 
 def pixel_blocked(lab):
     #if (lab[1] < -15 or lab[0] > 60):
-    if (lab[0] > 60 and lab[1] > -25): #white
+    if (lab[0] > 20 and lab[1] > -40): #white
         return False
-    if (lab[1] < -15 and lab[1] > -45): #green
+    if (lab[1] < -15 and lab[1] > -55): #green
         return False
     if (lab[2] < 5 and lab[1] < -5 and lab[1] > -30): #blue
+        return False
+    if (lab[1] > -20 and lab[1] < 10 and lab[2]>45): #yellow
         return False
     else:
         return True
@@ -81,7 +83,7 @@ sensor.set_pixformat(sensor.RGB565)  # Set pixel format to RGB565 (or GRAYSCALE)
 sensor.set_framesize(sensor.QVGA)  # Set frame size to QVGA (320x240)
 clock = time.clock()  # Create a clock object to track the FPS.
 sensor.set_auto_whitebal(False, rgb_gain_db =(1,0,1))
-sensor.set_auto_exposure(False, exposure_us=2000)  # Disable auto exposure
+sensor.set_auto_exposure(False, exposure_us=8000)  # Disable auto exposure
 sensor.set_auto_gain(False, gain_db = 3) # must be turned off for colour tracking
 sensor.skip_frames(time=200)  # Wait for settings take effect.
 
@@ -129,10 +131,10 @@ while True:
     columns = 24
     y_separation = 10
     goal_width = 5
-    central_bar_start = 55
+    central_bar_start = 75
     for i in range(columns): #check path to goal
        for j in range(rows):
-            pixel_x = int((i)*((320-central_bar_start)/columns)+central_bar_start)
+            pixel_x = int((i-3)*((320-central_bar_start)/columns)+central_bar_start)
             pixel_y = int((120-y_separation*rows/2)+y_separation*j)
             rgb = img.get_pixel(pixel_x, pixel_y, rgbtuple = True)
             lab = image.rgb_to_lab(rgb)
