@@ -240,7 +240,12 @@ class Bot{
 
             if(aiming.start_heading < aiming.right_heading) aiming.start_heading = aiming.right_heading;
             if(aiming.end_heading > aiming.left_heading) aiming.end_heading = aiming.left_heading;
+            LIM_ANGLE_180(aiming.start_heading); LIM_ANGLE_180(aiming.end_heading);
             aiming.target_heading = 0.5 * (aiming.start_heading + aiming.end_heading);
+            float angle_diff = max(aiming.start_heading, aiming.end_heading) - min(aiming.start_heading, aiming.end_heading);
+            if(angle_diff > 180) aiming.target_heading += 180;
+            LIM_ANGLE_180(aiming.target_heading);
+
             move.rotation = self.heading - aiming.target_heading;
             move.rotation = constrain(move.rotation, minAngleFace, maxAngleFace);
 
