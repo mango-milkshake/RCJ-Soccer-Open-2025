@@ -22,6 +22,8 @@
 #define BOT_RADIUS_CM 8.5 // in cm
 #define BOT_RADIUS_M 0.085 // in metres
 #define Y_BOUND 1.50 
+#define DEF_Y_DEFAULT 0.60
+#define DEF_Y_MAX 0.80
 
 // Thresholds
 #define OSCILLATE_WAIT_TIME 2000
@@ -217,7 +219,7 @@ class Bot{
                 if(within(self.x, OPP_GOAL_RIGHT_X, 0.10)) move.x = OPP_GOAL_CENTRE_X;
                 else move.x = OPP_GOAL_RIGHT_X;
             }
-            move.y = OPP_GOAL_MIDDLE_Y; 
+            move.y = OPP_GOAL_MIDDLE_Y - 0.30; 
 
             float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
             float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - self.x));
@@ -583,12 +585,39 @@ class Bot{
         } ballhide;
 
         void ballHideSide(){
-            if(self.y >= ballhide.side_y) dribblerAim();
-            else{
-                if(self.x < FIELD_WIDTH/2) moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
-                else moveAlongY(FIELD_WIDTH - ballhide.left_x, ballhide.side_y, ballhide.side_angle);
+            if(self.y >= ballhide.side_y) {
+                dribblerAim();
+                return;
             }
+            if(self.x > FIELD_WIDTH/2){
+                if(self.x < ballhide.right_x - 0.30) {
+                    move.x = ballhide.right_x;
+                    move.y = self.y;
+                }
+                else{
+                    move.x = ballhide.right_x + 0.08;
+                    move.y = ballhide.side_y + 0.10;
+                }
+                move.rotation = ballhide.side_angle;
+            }
+            else{
+                if(self.x > ballhide.left_x + 0.30) {
+                    move.x = ballhide.left_x;
+                    move.y = self.y;
+                }
+                else{
+                    move.x = ballhide.left_x - 0.08;
+                    move.y = ballhide.side_y + 0.10;
+                }
+                move.rotation = -ballhide.side_angle;
+            }
+            // if(self.y >= ballhide.side_y) dribblerAim();
+            // else{
+            //     if(self.x < FIELD_WIDTH/2) moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
+            //     else moveAlongY(FIELD_WIDTH - ballhide.left_x, ballhide.side_y, ballhide.side_angle);
+            // }
         }
+
         bool ballHideLeft(){
             // if(!(within(self.x, ballhide.left_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){ //not at shooting point 
             //     moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
@@ -765,8 +794,8 @@ class Bot{
                 float dydefend = (new_y - 0.12f);
                 new_x = 0.91f + (dydefend / slope);
             }
-            DEBUG(new_x);
-            DEBUG(new_y);
+            // DEBUG(new_x);
+            // DEBUG(new_y);
             move.x = new_x;
             move.y = new_y;
             move.rotation = 90-DEG(atan2(ball.absolute_y - self.y, ball.absolute_x - self.x));

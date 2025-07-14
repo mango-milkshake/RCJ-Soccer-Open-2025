@@ -42,8 +42,8 @@ struct Movement{
     float last_x = 0, last_y = 0, last_rotation = 0;
     bool kick = false;
     bool dont_move = false;
-    int translation_default = 40, rotation_default = 45;
-    int translation_ballcap = 15, rotation_ballcap = 15, rotation_lowered = 10;
+    int translation_default = 60, rotation_default = 60;
+    int translation_ballcap = 20, rotation_ballcap = 15, rotation_lowered = 5;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
     int x_offset = 18, y_offset = 18, rotation_offset = 12;
@@ -51,7 +51,7 @@ struct Movement{
 
 struct Dribbler{
     //dribbler
-    int maxspeed = 170, minspeed = 40;
+    int maxspeed = 170, track_speed = 120, minspeed = 40;
     int speed = 0, desired = 0;
     float max_voltage = 0.1, exceed_thresh = 0.70;
     int inc = 1, dec = 2;
@@ -98,7 +98,9 @@ struct State{
         ATTACK_MODE2 = 9,
         LOOK_AHEAD = 10,
         BALLHIDE_LEAD = 11,
-        BALLHIDE_FOLLOW = 12
+        BALLHIDE_FOLLOW = 12, 
+        ATTACK_BASIC = 13,
+        DEFEND_BASIC = 14
     } strategies;
 } state;
 

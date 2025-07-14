@@ -25,6 +25,8 @@
 
 // #define TESTING
 
+#define SINGLE_BOT
+
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
 // #define NO_DRIBBLER
@@ -104,9 +106,9 @@ Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, drib.maxspeed, 1.0);
 Kicker kicker(KICKER_PIN);
 
 // PID
-float pid_def_rotate_default[3] = {12, 0, 0}; // 0.7
-float pid_def_x_default[3] = {120, 0, 0}; // 3.5
-float pid_def_y_default[3] = {120, 0, 0}; // 3.5
+float pid_def_rotate_default[3] = {8, 0, 0}; // 0.7
+float pid_def_x_default[3] = {140, 0, 0}; // 3.5
+float pid_def_y_default[3] = {140, 0, 0}; // 3.5
 
 float pid_att_rotate_default[3] = {12, 0, 0};
 float pid_att_x_default[3] = {120, 0, 0};
@@ -322,8 +324,15 @@ void getMidPlateData(){
     ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
     ball.dist = (float)(midRcvBuffer[3] + (midRcvBuffer[4]<<8)) / 128;
 
-    if(midRcvBuffer[5] == 1) goal.frontPathClear = true;
-    else goal.frontPathClear = false;
+    if(midRcvBuffer[5] == 1) {
+        goal.frontPathClear = true;
+        // leds.setPixelColor(1, leds.Color(0, 15, 0));
+    }
+    else {
+        goal.frontPathClear = false;
+        // leds.setPixelColor(1, leds.Color(0, 0, 15));
+    }
+    // leds.show();
     goal.open_rows_start = midRcvBuffer[6];
     goal.open_rows_end = midRcvBuffer[7];
 
@@ -386,7 +395,7 @@ void getBottomPlateData(){
     if(self.line_status > 0) self.onLine = true;
     else self.onLine = false;
 
-    // DEBUG(ball.ballCap);
+    DEBUG(ball.ballCap);
     // DEBUG(self.onLine);
 }
 
@@ -395,7 +404,7 @@ void sendMotorData(){ // fill bottomSendBuffer with desired data before calling 
 }
 
 void movement(float target_x, float target_y, float target_rotation){
-    target_x = constrain(target_x, 0.20, FIELD_WIDTH - 0.20);
+    target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
     if(self.x > FIELD_MARGIN_X && self.x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
     else target_y = constrain(target_y, 0.20, FIELD_HEIGHT - 0.20);
 
@@ -624,7 +633,7 @@ void loop(){
 
     getTopPlateData();
     getMidPlateData();
-    sendMidPlateData();
+    // sendMidPlateData();
     getBottomPlateData();
 
     if(digitalRead(MOTOR_TEST_SW)==HIGH){
@@ -661,12 +670,27 @@ void loop(){
         ball.absolute_x = ball.last_x;
         ball.absolute_y = ball.last_y;
         ball.dist = ball.last_dist;
-        // ball.noBall = false;
+        ball.noBall = false;
         ball.tooklastball = true;
     }
     else ball.tooklastball = false;
 
     assignType();
+
+    #ifdef SINGLE_BOT
+    state.botType = state.botID + 10;
+    #endif
+
+    if(ball.ballCap == 0 && (state.botType == 1 || state.botType == 11)){
+        pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
+        pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
+        pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
+    }
+    else{
+        pid_rotate.setConfig(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2]);
+        pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
+        pid_y.setConfig(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2]);
+    }
 
     // decide strategy type
     switch (state.botType){
@@ -721,8 +745,8 @@ void loop(){
         state.strategies = static_cast<State::Strategies>(0);
         break;
     }
-    // DEBUG(state.botType);
-    // DEBUG(state.strategies);
+    DEBUG(state.botType);
+    DEBUG(state.strategies);
     // DEBUG(state.botID);
     // DEBUG(espnowDataRecv.type); // HEREE
     // DEBUG(strats[state.curType][state.curStratIdx]);
@@ -783,16 +807,16 @@ void loop(){
     // dribbler setting speed (may be changed again in strategies)
     if(switches.turnOff || switches.topOff || switches.dribOff) drib.desired = 0;
     else if(ball.ballCap > 0) drib.desired = drib.maxspeed;
-    else if(ball.dist <= 20) drib.desired = drib.maxspeed;
-    else if(ball.dist <= 40) drib.desired = drib.maxspeed/2;
+    else if(ball.dist <= 20) drib.desired = drib.track_speed;
+    else if(ball.dist <= 40) drib.desired = drib.track_speed/2;
     else if(ball.noBall) drib.desired = 0;
-
-
-
 
     #ifdef TESTING
     state.strategies = State::Strategies::ATTACK_MODE2;
     #endif
+
+    if(state.botType == 11) state.strategies = State::Strategies::DEFEND_BASIC;
+    else if(state.botType == 12) state.strategies = State::Strategies::ATTACK_BASIC;
 
     // carry out the strategy
     switch (state.strategies){
@@ -828,7 +852,7 @@ void loop(){
         
         case State::Strategies::DRIBBLER_SCORE:
             // Serial.println("dribbler score");
-            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.maxspeed)){
                 // leds.setPixelColor(7, leds.Color(15, 15, 15));
                 // leds.show();
                 move.dont_move = true;
@@ -847,7 +871,7 @@ void loop(){
 
         case State::Strategies::BALLHIDE: //ballhide + decoy
             // Serial.println("ball hide");
-            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.maxspeed)){
                 leds.setPixelColor(7, leds.Color(15, 15, 15));
                 leds.show();
                 Serial.println("im not moving");
@@ -890,7 +914,7 @@ void loop(){
             bot.ballHideFollower();
             break;
         case State::Strategies::ATTACK_MODE2:
-            if(ball.ballCap && millis() - ball.lastNoBallCap < ball.ballCapTime){
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.maxspeed)){
                 move.dont_move = true;
                 break;
             }
@@ -899,6 +923,33 @@ void loop(){
         
         case State::Strategies::LOOK_AHEAD:
             bot.triggerLookAhead();
+            break;
+        
+        case State::Strategies::ATTACK_BASIC:
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.maxspeed)){
+                move.dont_move = true;
+                break;
+            }
+            else if(ball.ballCap) bot.ballHideSide();
+            else if(ball.noBall) bot.moveToPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+            else bot.triggerLookAhead();
+            break;
+        
+        case State::Strategies::DEFEND_BASIC:
+            if(ball.ballCap){
+                if(millis() - ball.lastNoBallCap > DEFENDER_WAIT_TIME) bot.ballHideSide();
+                else move.dont_move = true;
+            }
+            else{
+                if (ball.noBall || (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < 0.25f))
+                    bot.moveToPoint(FIELD_WIDTH/2, DEF_Y_DEFAULT, 0);
+                else if (ball.absolute_y <  0.80f) bot.dribblerBallTrack();
+                else bot.defend();
+            }
+            break;
+        
+        default:
+            bot.moveToPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
             break;
     }
 
@@ -911,9 +962,9 @@ void loop(){
     if(switches.turnOff || switches.topOff) move.dont_move = true;
     if(move.dont_move) stop_motors();
     else movement(move.x, move.y, move.rotation);
-    DEBUG(move.x);
-    DEBUG(move.y);
-    DEBUG(move.rotation); // here
+    // DEBUG(move.x);
+    // DEBUG(move.y);
+    // DEBUG(move.rotation); // here
 
     // kicker check if can kick
     if(move.kick) {
