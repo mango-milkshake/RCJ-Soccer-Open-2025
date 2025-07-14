@@ -83,8 +83,8 @@ sensor.set_pixformat(sensor.RGB565)  # Set pixel format to RGB565 (or GRAYSCALE)
 sensor.set_framesize(sensor.QVGA)  # Set frame size to QVGA (320x240)
 clock = time.clock()  # Create a clock object to track the FPS.
 sensor.set_auto_whitebal(False, rgb_gain_db =(1,0,1))
-sensor.set_auto_exposure(False, exposure_us=8000)  # Disable auto exposure
-sensor.set_auto_gain(False, gain_db = 3) # must be turned off for colour tracking
+sensor.set_auto_exposure(False, exposure_us=4000)  # Disable auto exposure
+sensor.set_auto_gain(False, gain_db = 2) # must be turned off for colour tracking
 sensor.skip_frames(time=200)  # Wait for settings take effect.
 
 led2 = pyb.LED(2)
@@ -127,8 +127,8 @@ while True:
         no_ball = True
     blocked_pixels = 0
     blocked_pixels_goal = 0
-    rows = 6
-    columns = 24
+    rows = 8
+    columns = 20
     y_separation = 10
     goal_width = 5
     central_bar_start = 75

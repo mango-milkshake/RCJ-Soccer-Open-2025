@@ -33,6 +33,9 @@
 
 //// ** DEFINITIONS ** ////
 
+
+#define DEF_Y_DEFAULT 0.60
+
 // ESP NeoPixel LED
 #define ESP_LED 48
 int ESP_BRIGHTNESS = 20;
@@ -477,7 +480,7 @@ int assignTypeBuffer = 4;
 int defCount = 0;
 int atkCount = 0;
 #define DEFENDER_WAIT_TIME 0
-int ballhide_strat = 2;
+int ballhide_strat = 1;
 void assignType(){
     // from lowest to highest priority
     if(state.botID == 1){
