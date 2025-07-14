@@ -1,8 +1,8 @@
 #ifndef PID_H
 #define PID_H
 
-#define DECAY 0.99
-#define MAX_I 0.3
+#define DECAY 0.86
+#define MAX_I 5
 
 #include <Arduino.h>
 class PID {
