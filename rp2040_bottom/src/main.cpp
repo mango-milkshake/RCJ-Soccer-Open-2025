@@ -5,7 +5,7 @@
 #include <LidarGate.h>
 #include <vector>
 
-#define DEBUGGING
+// #define DEBUGGING
 // #define TESTING
 
 #define led_pin 16
