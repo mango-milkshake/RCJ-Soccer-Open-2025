@@ -22,7 +22,7 @@
 #define BOT_RADIUS_CM 8.5 // in cm
 #define BOT_RADIUS_M 0.085 // in metres
 #define Y_BOUND 1.50 
-#define DEF_Y_DEFAULT 0.60
+#define DEF_Y_DEFAULT 0.50
 #define DEF_Y_MAX 0.80
 
 // Thresholds
@@ -211,37 +211,55 @@ class Bot{
             Serial.println("aiming!!!");
             // temporarily target goal corner - need to test
             // move.x = self.x < FIELD_WIDTH/2 ? OPP_GOAL_LEFT_X : OPP_GOAL_RIGHT_X;
-            if(self.x < FIELD_WIDTH/2){
-                if(within(self.x, OPP_GOAL_LEFT_X, 0.10)) {
-                    // move.x = OPP_GOAL_CENTRE_X;
-                    // move.y = OPP_GOAL_MIDDLE_Y; 
-                    move.x = OPP_GOAL_LEFT_X - 0.10;
-                    move.y = OPP_GOAL_MIDDLE_Y - 0.10;
-                }
-                else {
-                    move.x = OPP_GOAL_LEFT_X - 0.10;
-                    move.y = OPP_GOAL_MIDDLE_Y - 0.10;
-                    // move.x = OPP_GOAL_CENTRE_X;
-                    // move.y = OPP_GOAL_MIDDLE_Y; 
-                }
-                // if(within(self.x, OPP_GOAL_LEFT_X, 0.10)) move.x = FIELD_WIDTH/2;
-                // else move.x = FIELD_WIDTH/2;
+            // if(self.x < FIELD_WIDTH/2){
+            //     if(within(self.x, OPP_GOAL_LEFT_X, 0.10)) {
+            //         // move.x = OPP_GOAL_CENTRE_X;
+            //         // move.y = OPP_GOAL_MIDDLE_Y; 
+            //         move.x = OPP_GOAL_LEFT_X - 0.10;
+            //         move.y = OPP_GOAL_MIDDLE_Y - 0.10;
+            //     }
+            //     else {
+            //         move.x = OPP_GOAL_LEFT_X - 0.10;
+            //         move.y = OPP_GOAL_MIDDLE_Y - 0.10;
+            //         // move.x = OPP_GOAL_CENTRE_X;
+            //         // move.y = OPP_GOAL_MIDDLE_Y; 
+            //     }
+            //     // if(within(self.x, OPP_GOAL_LEFT_X, 0.10)) move.x = FIELD_WIDTH/2;
+            //     // else move.x = FIELD_WIDTH/2;
+            // }
+            // else{
+            //     if(within(self.x, OPP_GOAL_RIGHT_X, 0.10)) {
+            //         // move.x = OPP_GOAL_CENTRE_X;
+            //         // move.y = OPP_GOAL_MIDDLE_Y;
+            //         move.x = OPP_GOAL_RIGHT_X + 0.10;
+            //         move.y = OPP_GOAL_MIDDLE_Y - 0.10; 
+            //     }
+            //     else {
+            //         move.x = OPP_GOAL_RIGHT_X + 0.10;
+            //         move.y = OPP_GOAL_MIDDLE_Y - 0.10;
+            //         // move.x = OPP_GOAL_CENTRE_X;
+            //         // move.y = OPP_GOAL_MIDDLE_Y; 
+            //     }
+            //     // if(within(self.x, OPP_GOAL_LEFT_X, 0.10)) move.x = FIELD_WIDTH/2;
+            //     // else move.x = FIELD_WIDTH/2;
+            // }
+
+            // NEW AIMING TEST IMPT TESTTT
+            if(self.y >= OPP_GOAL_MIDDLE_Y - 0.10){
+                // oscillate about mid of goal
+                oscillateAboutPoint(OPP_GOAL_MIDDLE_X, OPP_GOAL_MIDDLE_Y - 0.10, 0.30);
+                // sets move.x and y, and rotation is default 0 but we re-set rotation below
             }
-            else{
-                if(within(self.x, OPP_GOAL_RIGHT_X, 0.10)) {
-                    // move.x = OPP_GOAL_CENTRE_X;
-                    // move.y = OPP_GOAL_MIDDLE_Y;
-                    move.x = OPP_GOAL_RIGHT_X + 0.10;
-                    move.y = OPP_GOAL_MIDDLE_Y - 0.10; 
+            else {
+                // target respective corner
+                if(self.x < FIELD_WIDTH/2){
+                    move.x = OPP_GOAL_LEFT_X - 0.10;
+                    move.y = OPP_GOAL_MIDDLE_Y - 0.10;
                 }
                 else {
                     move.x = OPP_GOAL_RIGHT_X + 0.10;
                     move.y = OPP_GOAL_MIDDLE_Y - 0.10;
-                    // move.x = OPP_GOAL_CENTRE_X;
-                    // move.y = OPP_GOAL_MIDDLE_Y; 
                 }
-                // if(within(self.x, OPP_GOAL_LEFT_X, 0.10)) move.x = FIELD_WIDTH/2;
-                // else move.x = FIELD_WIDTH/2;
             }
 
             float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));

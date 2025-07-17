@@ -25,7 +25,8 @@
 
 // #define TESTING
 
-// #define SINGLE_BOT
+// #define NO_COMMS
+#define SINGLE_BOT
 
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
@@ -34,7 +35,7 @@
 //// ** DEFINITIONS ** ////
 
 
-#define DEF_Y_DEFAULT 0.60
+// #define DEF_Y_DEFAULT 0.50
 
 // ESP NeoPixel LED
 #define ESP_LED 48
@@ -507,6 +508,10 @@ void assignType(){
         }
     }  
     if(ballhide_strat == 1){
+        #ifdef SINGLE_BOT // IMPT TESTTTT
+        if(ball.ballCap > 0) state.botType = 3;
+        else if(espnowDataRecv.type == 3) state.botType = 1; // go to defend if other bot is ballcapped
+        #else
         if(ball.ballCap == 0 && espnowDataRecv.hasBall == false) state.botType = state.botID;
         else if(ball.ballCap > 0){ // switch states but just dont move yet
         // if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
@@ -515,6 +520,7 @@ void assignType(){
         else if (espnowDataRecv.type == 3){ //check if other bot is scoring
             state.botType = 3; //switch to 3 to help with ballhide
         }
+        #endif
     }
     else if (ballhide_strat == 2){
         if(espnowDataRecv.type == 4){ //grr
@@ -682,7 +688,7 @@ void loop(){
 
     assignType();
 
-    #ifdef SINGLE_BOT
+    #ifdef NO_COMMS
     state.botType = state.botID + 10;
     #endif
 
@@ -709,7 +715,7 @@ void loop(){
         if(ball.noBall && millis() - ball.lastSeenBall > 1500){
             // state.curType = 0;
             // state.curStratIdx = 0;
-            state.strategies = static_cast<State::Strategies>(1);
+            state.strategies = static_cast<State::Strategies>(2);
         }
         else{ 
             // state.curType = 1;
@@ -719,6 +725,9 @@ void loop(){
         }
         break;
     case 3: //scoring
+        #ifdef SINGLE_BOT
+        state.strategies = static_cast<State::Strategies>(9); // TEST IMPT
+        #else
         if(state.ready_to_shoot && (espnowDataRecv.bh_ready == true || espnowDataRecv.type != 3)){ //check if both ready to shoot
             // state.curType = 2;
             // state.curStratIdx = 0; //score
@@ -731,6 +740,7 @@ void loop(){
             state.strategies = static_cast<State::Strategies>(8);
             Serial.println("ballhide");
         }
+        #endif
         break;
     case 4: //leading
         if(state.ready_to_shoot){
@@ -892,7 +902,15 @@ void loop(){
             //     bot.dribblerAim();
             //     break;
             // }
-            if(self.x < espnowDataRecv.xpos){
+            bool goleft = false;
+            if(espnowDataRecv.type == 0){ // other bot is off
+                if(self.x < FIELD_WIDTH/2) goleft = true;
+                else goleft = false;
+            }
+            else if(self.x < espnowDataRecv.xpos) goleft = true;
+            else goleft = false;
+            // if(self.x < espnowDataRecv.xpos){
+            if(goleft){
                 if (bot.ballHideLeft()){
                     state.ready_to_shoot = true; 
                     move.dont_move = true;
@@ -901,7 +919,8 @@ void loop(){
                     state.ready_to_shoot = false;
                 }
             }
-            else if(self.x > espnowDataRecv.xpos){
+            // else if(self.x > espnowDataRecv.xpos){
+            else{
                 if (bot.ballHideRight()){
                     leds.setPixelColor(7, leds.Color(0, 15, 0));
                     leds.show();
@@ -921,12 +940,13 @@ void loop(){
         case State::Strategies::BALLHIDE_FOLLOW:
             bot.ballHideFollower();
             break;
-        case State::Strategies::ATTACK_MODE2:
+        case State::Strategies::ATTACK_MODE2: // single ballhide IMPT TESTT
             if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
                 move.dont_move = true;
                 break;
             }
-            bot.ballHideSide();
+            if(state.topStrat == 1) bot.ballHideSide();
+            else bot.ballHideMid();
             break;
         
         case State::Strategies::LOOK_AHEAD:
