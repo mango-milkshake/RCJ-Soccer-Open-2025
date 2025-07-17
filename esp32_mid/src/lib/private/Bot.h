@@ -418,8 +418,10 @@ class Bot{
         bool rotateBot_LA = true;
         // bool tooklastball = false;
         bool lookAheadConfirm;
+        float v = 0;
         void lookAhead(){
-            float v = 10;
+            v = 1.5;
+            // v = ball.dist < 0.3 ? 1000 : 1.5;
             float latency = 0.2;
             lookAheadConfirm = false;
             float t;
