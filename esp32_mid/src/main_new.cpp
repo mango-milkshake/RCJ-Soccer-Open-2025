@@ -717,7 +717,8 @@ void loop(){
         }
         break;
     case 3: //scoring
-        if(state.ready_to_shoot && (espnowDataRecv.bh_ready == true || espnowDataRecv.type != 3)){ //check if both ready to shoot
+        if(state.ready_to_shoot && (espnowDataRecv.bh_ready == true || espnowDataRecv.type != 3 || abs(times.bhScore_timeout - times.curTime) > 5000)){ 
+            //shoot if other bot ready or other bot not scoring or timeout reached
             // state.curType = 2;
             // state.curStratIdx = 0; //score
             // Serial.println("score");
@@ -727,7 +728,7 @@ void loop(){
             // state.curType = 2;
             // state.curStratIdx = 1; //ballhide
             state.strategies = static_cast<State::Strategies>(8);
-            Serial.println("ballhide");
+            Serial.println("ballhide");            
         }
         break;
     case 4: //leading
@@ -891,9 +892,13 @@ void loop(){
                 if (bot.ballHideLeft()){
                     state.ready_to_shoot = true; 
                     move.dont_move = true;
+                    if(times.bhScore_timeout == 0){
+                        times.bhScore_timeout = times.curTime;
+                    } 
                 }
                 else{
                     state.ready_to_shoot = false;
+                    times.bhScore_timeout = 0;
                 }
             }
             else if(self.x > espnowDataRecv.xpos){
@@ -901,12 +906,16 @@ void loop(){
                     leds.setPixelColor(7, leds.Color(0, 15, 0));
                     leds.show();
                     state.ready_to_shoot = true; 
+                    if(times.bhScore_timeout == 0){
+                        times.bhScore_timeout = times.curTime;
+                    }
                     move.dont_move = true;
                 }
                 else{
                     leds.setPixelColor(7, leds.Color(15, 0, 0));
                     leds.show();
                     state.ready_to_shoot = false;
+                    times.bhScore_timeout = 0;
                 }
             }
             break;

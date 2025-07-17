@@ -35,6 +35,7 @@ struct Times{
     int curTime = 0;
     int motorTestPressed = 0, motorTestWait = 1000;
     int lastBallhideTime = 0;
+    int bhScore_timeout = 0;
 } times;
 
 struct Movement{
