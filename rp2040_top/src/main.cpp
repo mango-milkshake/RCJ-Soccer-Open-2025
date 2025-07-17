@@ -15,6 +15,8 @@
 #define PRINT_HEADING
 #define PRINT_IMU
 
+#define COMMS_MOD
+
 #define FIELD_WIDTH 1.82f
 #define FIELD_HEIGHT 2.43f
 #define FIELD_AREA 4.4226f
@@ -390,8 +392,11 @@ void loop1(){
     }
     // else imu_tilt_state = false;
 
-    // if(digitalRead(OFF_BUTTON)==HIGH || digitalRead(CM_OUT1)==LOW || digitalRead(CM_OUT2)==LOW){
+    #ifdef COMMS_MOD
+    if(digitalRead(OFF_BUTTON)==HIGH || digitalRead(CM_OUT1)==LOW || digitalRead(CM_OUT2)==LOW){
+    #else
     if(digitalRead(OFF_BUTTON)==HIGH){
+    #endif
         imu_tilt_state = true;
         pico_led.setPixelColor(0, pico_led.Color(0, 0, 15));
         pico_led.show();
