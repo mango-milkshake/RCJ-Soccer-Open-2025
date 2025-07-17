@@ -15,7 +15,7 @@
 #define PRINT_HEADING
 #define PRINT_IMU
 
-#define COMMS_MOD
+// #define COMMS_MOD
 
 #define FIELD_WIDTH 1.82f
 #define FIELD_HEIGHT 2.43f

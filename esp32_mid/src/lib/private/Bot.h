@@ -26,7 +26,7 @@
 #define DEF_Y_MAX 0.80
 
 // Thresholds
-#define OSCILLATE_WAIT_TIME 2000
+#define OSCILLATE_WAIT_TIME 500
 #define MOVING_BACK_DURATION 200
 #define BALLCAP_DISTANCE -0.03f
 #define BALLCAP_WIDTH 0.0355f
@@ -82,7 +82,7 @@ class Bot{
             }
             move.x = new_x;
             move.y = new_y;
-            move.rotation = 0.0;
+            move.rotation = 180.0;
         }
 
         struct BallTrack{
@@ -268,6 +268,7 @@ class Bot{
             LIM_ANGLE_180(maxAngleFace);
             if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
             if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear 
+            // if(ball.ballCap > 0 && self.y > 1.62 // here
                 // && (within(self.x, OPP_GOAL_LEFT_X -0.1, 0.2) || within(self.x, OPP_GOAL_RIGHT_X+0.1, 0.2))
                 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 // goal is clear, can kick
@@ -419,7 +420,7 @@ class Bot{
         // bool tooklastball = false;
         bool lookAheadConfirm;
         void lookAhead(){
-            float v = 10;
+            float v = ball.dist <= 0.3 ? 100 : 100;
             float latency = 0.2;
             lookAheadConfirm = false;
             float t;
@@ -620,7 +621,7 @@ class Bot{
         }
 
         struct BallHide{
-            float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 45;
+            float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 70;
             // float mid_x = 0.5, mid_y = 1.45, mid_angle = 180;
             float mid_x = 0.91, mid_y = 1.45, mid_angle = 180;
             bool state = false, done_turning = false;
@@ -740,6 +741,7 @@ class Bot{
                 LIM_ANGLE_180(maxAngleFace);
                 if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
                 if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear && within(self.x, FIELD_WIDTH/2, 0.2)
+                // if(ball.ballCap > 0 && self.y > 1.62 && within(self.x, FIELD_WIDTH/2, 0.2) // here
                     && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                     // goal is clear, can kick
                     move.kick = true;
@@ -928,6 +930,11 @@ class Bot{
                     move.rotation = 0;
                 Serial.println("Defender 1");
                 }
+                else if (comms.hasBall == true) {
+                    move.x = 0.91;
+                    move.y = 0.60;
+                    move.rotation = 0;
+                }
                 // 2) Else if the ball is within the no-chase region near the goal
                 else if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < 0.25f){
                     move.x = 0.91;
@@ -938,13 +945,13 @@ class Bot{
                 // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
                 else if (ball.absolute_y <  0.80f) {
                     // if(millis() - lastDribblerRev < 1000) ;
-                    if(ball.ballCap > 0 || (ball.dist>0 && ball.dist<=40) || 
-                    (ball.last_dist>0 && ball.last_dist<=40 && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME)) {
-                        // dribbler.setSpeed(1.0);
-                        drib.desired = drib.maxspeed;
-                    }
-                    else if(ball.noBall) drib.desired = 0;
-                    else drib.desired = 0.5*drib.maxspeed;
+                    // if(ball.ballCap > 0 || (ball.dist>0 && ball.dist<=40) || 
+                    // (ball.last_dist>0 && ball.last_dist<=40 && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME)) {
+                    //     // dribbler.setSpeed(1.0);
+                    //     drib.desired = drib.maxspeed;
+                    // }
+                    // else if(ball.noBall) drib.desired = 0;
+                    // else drib.desired = 0.5*drib.maxspeed;
                     if (ball.noBall) {
                         // ball.absolute_x = ball.last_x;
                         // ball.absolute_y = ball.last_y;
@@ -959,7 +966,13 @@ class Bot{
                 }
                 // 4) Otherwise => geometry-based blocking
                 else {
-                    defend();
+                    if((!ball.noBall && (checkv(30, 0.1) && within(pbvx[-1], 0, 0.1) && comms.type == 0)) || abs(times.curTime - times.defender_balltrack) < 2000){
+                        triggerLookAhead();
+                        times.defender_balltrack = times.curTime;
+                    }
+                    else{
+                        defend();
+                    }
                 }
             }
         }

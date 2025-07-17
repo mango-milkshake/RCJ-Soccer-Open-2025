@@ -16,7 +16,7 @@
 // #include <AsyncTCP.h>
 // #include <ESPAsyncWebServer.h>
 
-#define DEBUGGING
+// #define DEBUGGING
 #ifdef DEBUGGING
 #define DEBUG(x) Serial.println(String(#x) + String(": ") + String(x) + String('\r')); 
 #else
@@ -114,9 +114,10 @@ float pid_def_rotate_default[3] = {8, 0, 0}; // 0.7
 float pid_def_x_default[3] = {140, 0, 0}; // 3.5
 float pid_def_y_default[3] = {140, 0, 0}; // 3.5
 
-float pid_att_rotate_default[3] = {12, 0, 0};
-float pid_att_x_default[3] = {120, 0, 0};
-float pid_att_y_default[3] = {120, 0, 0};
+float pid_att_rotate_default[3] = {10, 0, 0};
+float pid_att_x_default[3] = {80, 0, 0};
+float pid_att_y_default[3] = {80, 0, 0};
+float pid_att_rotate_bc[3] = {6, 0, 0};
 
 PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
 PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000);
@@ -173,6 +174,8 @@ void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //in
     comms.xpos = espnowDataRecv.xpos;
     comms.ypos = espnowDataRecv.ypos;
     comms.isPresent = espnowDataRecv.isPresent;
+    comms.type = espnowDataRecv.type;
+    comms.hasBall = espnowDataRecv.hasBall;
     Serial.println("Under onDataRecv");
     DEBUG(espnowDataRecv.bh_stage);
     DEBUG(comms.bh_stage);
@@ -697,6 +700,11 @@ void loop(){
         pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
         pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
     }
+    else if(ball.ballCap == 0){
+        pid_rotate.setConfig(pid_att_rotate_bc[0], pid_att_rotate_bc[1], pid_att_rotate_bc[2]);
+        pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
+        pid_y.setConfig(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2]);
+    }
     else{
         pid_rotate.setConfig(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2]);
         pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
@@ -883,9 +891,9 @@ void loop(){
         case State::Strategies::DEFEND:
             // Serial.println("defend");
             bot.triggerDefend();
-            if(move.y > MAX_DEF_Y){
-                move.y = MAX_DEF_Y;
-            }
+            // if(move.y > MAX_DEF_Y){
+            //     move.y = MAX_DEF_Y;
+            // }
             break;
 
         case State::Strategies::BALLHIDE: //ballhide + decoy
@@ -993,6 +1001,15 @@ void loop(){
         sendData();
         esp_last_send = times.curTime;
     }
+
+    if(state.botType == 1 && espnowDataRecv.type != 0){
+        if(move.y > MAX_DEF_Y){
+            move.y = MAX_DEF_Y;
+        }
+    }
+    // else if(state.botType == 2 && espnowDataRecv.type != 0){
+    //     if(move.y < MAX_DEF_Y) move.y = MAX_DEF_Y;
+    // }
 
     // send moving command to motors
     if(switches.turnOff || switches.topOff) move.dont_move = true;

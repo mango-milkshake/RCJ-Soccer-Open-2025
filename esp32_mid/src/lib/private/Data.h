@@ -38,6 +38,7 @@ struct Times{
     int motorTestPressed = 0, motorTestWait = 1000;
     int lastBallhideTime = 0;
     int bhScore_timeout = 0;
+    int defender_balltrack = 0;
 } times;
 
 struct Movement{
@@ -49,12 +50,12 @@ struct Movement{
     int translation_ballcap = 20, rotation_ballcap = 10, rotation_lowered = 5;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
-    int x_offset = 18, y_offset = 18, rotation_offset = 12;
+    int x_offset = 18, y_offset = 18, rotation_offset = 6;
 } move;
 
 struct Dribbler{
     //dribbler
-    int maxspeed = 170, reach_speed = 140, track_speed = 120, minspeed = 40;
+    int maxspeed = 200, reach_speed = 150, track_speed = 120, minspeed = 40;
     int speed = 0, desired = 0;
     #ifdef HIGHER_DRIB_THRESH
     float max_voltage = 0.15;
@@ -70,10 +71,13 @@ struct Dribbler{
     bool avg_filled = false, check_filled = false;
     float analogval = 0, voltage = 0, sum_avg = 0, sum_check = 0, avgV = 0;
 } drib;
+
 struct Comms{
     float ypos = 0, xpos = 0;
     int bh_stage = 0;
     int isPresent = 0;
+    int type = 0;
+    bool hasBall = false;
 } comms;
 
 struct State{
