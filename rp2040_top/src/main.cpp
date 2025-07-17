@@ -15,6 +15,8 @@
 #define PRINT_HEADING
 #define PRINT_IMU
 
+#define COMMS_MOD
+
 #define FIELD_WIDTH 1.82f
 #define FIELD_HEIGHT 2.43f
 #define FIELD_AREA 4.4226f
@@ -55,7 +57,7 @@ float imu_angle_weight = DEFAULT_IMU_ANGLE_WEIGHT;
 
 #define TX_PIN 0
 #define RX_PIN 1
-#define DATA_LEN 9
+#define DATA_LEN 10
 uint8_t buffer[DATA_LEN];
 UARTComms espUART(TX_PIN, RX_PIN, buffer, DATA_LEN, Serial1);
 
@@ -74,6 +76,10 @@ IMU imu0(MOSI0_PIN, MISO0_PIN, SCK0_PIN, CS0_PIN, SPI);
 IMU imu1(MOSI1_PIN, MISO1_PIN, SCK1_PIN, CS1_PIN, SPI1);
 
 #define OFF_BUTTON 27
+#define CM_OUT1 6
+#define CM_OUT2 7
+#define STRAT_SW 26
+uint8_t strat_num = 1;
 
 spin_lock_t *imuLock;
 float shared_imu0 = 0.0f, shared_imu1 = 0.0f; // use mutex for accessing on both cores
@@ -113,6 +119,8 @@ void setup(){
 
     espUART.init();
 
+    pinMode(STRAT_SW, INPUT);
+
     imuLock = spin_lock_instance(0);
 
     strip.begin();
@@ -129,6 +137,8 @@ void setup(){
 void setup1(){
     pinMode(TARE_BUTTON, INPUT);
     pinMode(OFF_BUTTON, INPUT);
+    pinMode(CM_OUT1, INPUT);
+    pinMode(CM_OUT2, INPUT);
     imu0.init();
     imu1.init();
 }
@@ -141,8 +151,11 @@ void loop(){
         prev_heading = 0.0f;
         temp_heading = 0.0f;
         prev_coords = {0.0f, 0.0f};
-        tilt_state = false;
+        // tilt_state = false;
     }
+
+    if(digitalRead(STRAT_SW)==HIGH) strat_num = 2; // HIGH = right side = switch strat
+    else strat_num = 1;
 
     if (!is_spin_locked(imuLock)) {  
         uint32_t irq_state = spin_lock_blocking(imuLock);
@@ -357,6 +370,7 @@ void loop(){
 
     if(tilt_state) buffer[8] = 1;
     else buffer[8] = 0;
+    buffer[9] = strat_num;
 
     espUART.uartWrite();
 
@@ -378,7 +392,11 @@ void loop1(){
     }
     // else imu_tilt_state = false;
 
+    #ifdef COMMS_MOD
+    if(digitalRead(OFF_BUTTON)==HIGH || digitalRead(CM_OUT1)==LOW || digitalRead(CM_OUT2)==LOW){
+    #else
     if(digitalRead(OFF_BUTTON)==HIGH){
+    #endif
         imu_tilt_state = true;
         pico_led.setPixelColor(0, pico_led.Color(0, 0, 15));
         pico_led.show();

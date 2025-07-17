@@ -1,6 +1,8 @@
 #ifndef DATA_H
 #define DATA_H
 
+// #define HIGHER_DRIB_THRESH
+
 struct Localisation{
     float x = 0, y = 0, heading = 0;
     bool onLine = false;
@@ -44,7 +46,7 @@ struct Movement{
     bool kick = false;
     bool dont_move = false;
     int translation_default = 60, rotation_default = 60;
-    int translation_ballcap = 20, rotation_ballcap = 15, rotation_lowered = 5;
+    int translation_ballcap = 20, rotation_ballcap = 10, rotation_lowered = 5;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
     int x_offset = 18, y_offset = 18, rotation_offset = 12;
@@ -52,9 +54,14 @@ struct Movement{
 
 struct Dribbler{
     //dribbler
-    int maxspeed = 170, track_speed = 120, minspeed = 40;
+    int maxspeed = 170, reach_speed = 140, track_speed = 120, minspeed = 40;
     int speed = 0, desired = 0;
-    float max_voltage = 0.1, exceed_thresh = 0.70;
+    #ifdef HIGHER_DRIB_THRESH
+    float max_voltage = 0.15;
+    #else
+    float max_voltage = 0.1;
+    #endif
+    float exceed_thresh = 0.70;
     int inc = 1, dec = 2;
     int num_frames = 5, num_check = 10; // used as size of arrays below respectively
     float v[5] = {0, 0, 0, 0, 0}; 
@@ -79,6 +86,7 @@ struct State{
     bool ready_to_shoot = false;
     int ballhide_stage = 0;
     int strip = true;
+    int topStrat = 1;
 
     enum StratType{
         NO_BALL = 0,

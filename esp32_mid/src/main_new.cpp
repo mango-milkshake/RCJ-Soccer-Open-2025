@@ -25,7 +25,7 @@
 
 // #define TESTING
 
-#define SINGLE_BOT
+// #define SINGLE_BOT
 
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
@@ -61,7 +61,7 @@ Adafruit_NeoPixel leds(NUM_LEDS, LEDS_PIN, NEO_GRB + NEO_KHZ800);
 // UART Comms with top plate
 #define TOP_TX_PIN 16
 #define TOP_RX_PIN 17
-#define TOP_DATA_LEN 9
+#define TOP_DATA_LEN 10
 byte topBuffer[TOP_DATA_LEN];
 UARTComms topUART(TOP_TX_PIN, TOP_RX_PIN, topBuffer, TOP_DATA_LEN, Serial2);
 
@@ -369,6 +369,7 @@ void getTopPlateData(){
         if(topBuffer[5]==0) self.heading *= -1;
         if(topBuffer[8]==1) switches.topOff = true;
         else switches.topOff = false;
+        state.topStrat = topBuffer[9];
     }
 }
 
@@ -407,7 +408,7 @@ void sendMotorData(){ // fill bottomSendBuffer with desired data before calling 
 }
 
 void movement(float target_x, float target_y, float target_rotation){
-    target_x = constrain(target_x, 0.12, FIELD_WIDTH - 0.12);
+    target_x = constrain(target_x, 0.20, FIELD_WIDTH - 0.20);
     if(self.x > FIELD_MARGIN_X && self.x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
     else target_y = constrain(target_y, 0.20, FIELD_HEIGHT - 0.20);
 
@@ -506,11 +507,12 @@ void assignType(){
         }
     }  
     if(ballhide_strat == 1){
-        if(ball.ballCap > 0){ // switch states but just dont move yet
+        if(ball.ballCap == 0 && espnowDataRecv.hasBall == false) state.botType = state.botID;
+        else if(ball.ballCap > 0){ // switch states but just dont move yet
         // if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
             state.botType = 3; //switch to scoring
         } 
-        if (espnowDataRecv.type == 3){ //check if other bot is scoring
+        else if (espnowDataRecv.type == 3){ //check if other bot is scoring
             state.botType = 3; //switch to 3 to help with ballhide
         }
     }
@@ -684,7 +686,7 @@ void loop(){
     state.botType = state.botID + 10;
     #endif
 
-    if(ball.ballCap == 0 && (state.botType == 1 || state.botType == 11)){
+    if(ball.ballCap != 0 && (state.botType == 1 || state.botType == 11)){
         pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
         pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
         pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
@@ -751,6 +753,7 @@ void loop(){
     }
     DEBUG(state.botType);
     DEBUG(state.strategies);
+    DEBUG(espnowDataRecv.type);
     // DEBUG(state.botID);
     // DEBUG(espnowDataRecv.type); // HEREE
     // DEBUG(strats[state.curType][state.curStratIdx]);
@@ -779,7 +782,8 @@ void loop(){
     }
     leds.show();
 
-    if(ball.ballCap > 0 || ball.dist <= 20 || state.botType == 3 || state.botType == 4 || state.botType == 5 ){
+    // if(ball.ballCap > 0 || ball.dist <= 20 || state.botType == 3 || state.botType == 4 || state.botType == 5 ){
+    if(ball.ballCap > 0 || ball.dist <= 20 || state.botType == 4 || state.botType == 5 ){
         move.max_translation = move.translation_ballcap, move.min_translation = -move.translation_ballcap;
         // rotation positive is counterclockwise
         if(ball.ballCap == 1){
@@ -836,7 +840,7 @@ void loop(){
         
         case State::Strategies::OSCILLATE_ABOUT_POINT:
             // Serial.println("oscillate");
-            bot.oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.50);
+            bot.oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.80);
             break;
 
         case State::Strategies::NO_DRIBBLER_BALL_TRACK:
@@ -856,7 +860,8 @@ void loop(){
         
         case State::Strategies::DRIBBLER_SCORE:
             // Serial.println("dribbler score");
-            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.maxspeed)){
+            state.ready_to_shoot = true;
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
                 // leds.setPixelColor(7, leds.Color(15, 15, 15));
                 // leds.show();
                 move.dont_move = true;
@@ -875,7 +880,7 @@ void loop(){
 
         case State::Strategies::BALLHIDE: //ballhide + decoy
             // Serial.println("ball hide");
-            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.maxspeed)){
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
                 leds.setPixelColor(7, leds.Color(15, 15, 15));
                 leds.show();
                 Serial.println("im not moving");
@@ -926,7 +931,7 @@ void loop(){
             bot.ballHideFollower();
             break;
         case State::Strategies::ATTACK_MODE2:
-            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.maxspeed)){
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
                 move.dont_move = true;
                 break;
             }
@@ -938,18 +943,18 @@ void loop(){
             break;
         
         case State::Strategies::ATTACK_BASIC:
-            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.maxspeed)){
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
                 move.dont_move = true;
                 break;
             }
-            else if(ball.ballCap) bot.ballHideSide();
+            else if(ball.ballCap) bot.newScoring();
             else if(ball.noBall) bot.moveToPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
             else bot.triggerLookAhead();
             break;
         
         case State::Strategies::DEFEND_BASIC:
             if(ball.ballCap){
-                if(millis() - ball.lastNoBallCap > DEFENDER_WAIT_TIME) bot.ballHideSide();
+                if(millis() - ball.lastNoBallCap > DEFENDER_WAIT_TIME) bot.newScoring();
                 else move.dont_move = true;
             }
             else{
