@@ -55,7 +55,7 @@ struct Movement{
 
 struct Dribbler{
     //dribbler
-    int maxspeed = 200, reach_speed = 150, track_speed = 120, minspeed = 40;
+    int maxspeed = 180, reach_speed = 150, track_speed = 120, minspeed = 40;
     int speed = 0, desired = 0;
     #ifdef HIGHER_DRIB_THRESH
     float max_voltage = 0.15;
