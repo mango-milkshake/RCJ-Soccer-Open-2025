@@ -87,6 +87,7 @@ struct State{
     int ballhide_stage = 0;
     int strip = true;
     int topStrat = 1;
+    bool goleft = false;
 
     enum StratType{
         NO_BALL = 0,

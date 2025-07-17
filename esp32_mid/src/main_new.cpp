@@ -903,15 +903,14 @@ void loop(){
             //     bot.dribblerAim();
             //     break;
             // }
-            bool goleft = false;
             if(espnowDataRecv.type == 0){ // other bot is off
-                if(self.x < FIELD_WIDTH/2) goleft = true;
-                else goleft = false;
+                if(self.x < FIELD_WIDTH/2) state.goleft = true;
+                else state.goleft = false;
             }
-            else if(self.x < espnowDataRecv.xpos) goleft = true;
-            else goleft = false;
+            else if(self.x < espnowDataRecv.xpos) state.goleft = true;
+            else state.goleft = false;
             // if(self.x < espnowDataRecv.xpos){
-            if(goleft){
+            if(state.goleft){
                 if (bot.ballHideLeft()){
                     state.ready_to_shoot = true; 
                     move.dont_move = true;
