@@ -63,7 +63,7 @@ def pixel_blocked(lab):
     #if (lab[1] < -15 or lab[0] > 60):
     if (lab[0] > 60 and lab[1] > -60): #white
         return False
-    if (lab[1] < 10 and lab[1] > -40 and lab[0] > 20): #green
+    if (lab[1] < 10 and lab[1] > -40 and lab[0] > 15): #green
         return False
     if (lab[2] < 20 and lab[1] < -30 and lab[1] > -70): #blue
         return False
@@ -73,7 +73,8 @@ def pixel_blocked(lab):
         return True
 
 
-threshold = (0, 100, 24, 79, 52, 94) # orange ball
+threshold = (0, 100, 12, 86, 8, 91)
+#orange ball
 threshold_field = (0, 84, -50, -14, 33, 44)
 threshold_goal_blue = (0, 100, -20, 6, -29, -5)
 x = 0
@@ -83,8 +84,9 @@ sensor.reset()  # Reset and initialize the sensor.
 sensor.set_pixformat(sensor.RGB565)  # Set pixel format to RGB565 (or GRAYSCALE)
 sensor.set_framesize(sensor.QVGA)  # Set frame size to QVGA (320x240)
 clock = time.clock()  # Create a clock object to track the FPS.
+
 sensor.set_auto_whitebal(False, rgb_gain_db =(1,1,1))
-sensor.set_auto_exposure(False, exposure_us=10000)  # Disable auto exposure
+sensor.set_auto_exposure(False, exposure_us=5000)  # Disable auto exposure
 sensor.set_auto_gain(False, gain_db = 5) # must be turned off for colour tracking
 sensor.skip_frames(time=200)  # Wait for settings take effect.
 
