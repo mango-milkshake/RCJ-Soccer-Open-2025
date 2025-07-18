@@ -267,8 +267,8 @@ class Bot{
             LIM_ANGLE_180(minAngleFace);
             LIM_ANGLE_180(maxAngleFace);
             if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
-            if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear 
-            // if(ball.ballCap > 0 && self.y > 1.62 // here
+            // if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear 
+            if(ball.ballCap > 0 && self.y > 1.62 // here
                 // && (within(self.x, OPP_GOAL_LEFT_X -0.1, 0.2) || within(self.x, OPP_GOAL_RIGHT_X+0.1, 0.2))
                 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 // goal is clear, can kick
@@ -741,8 +741,8 @@ class Bot{
                 LIM_ANGLE_180(minAngleFace);
                 LIM_ANGLE_180(maxAngleFace);
                 if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
-                if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear && within(self.x, FIELD_WIDTH/2, 0.2)
-                // if(ball.ballCap > 0 && self.y > 1.62 && within(self.x, FIELD_WIDTH/2, 0.2) // here
+                // if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear && within(self.x, FIELD_WIDTH/2, 0.2)
+                if(ball.ballCap > 0 && self.y > 1.62 && within(self.x, FIELD_WIDTH/2, 0.2) // here
                     && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                     // goal is clear, can kick
                     move.kick = true;

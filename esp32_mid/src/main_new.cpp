@@ -315,7 +315,8 @@ void sendMidPlateData(){
 void getMidPlateData(){
     byte num_bytes = Wire.requestFrom(MID_I2C_ADDR, MID_I2C_RCV_DATA_LEN);
     if(num_bytes != MID_I2C_RCV_DATA_LEN){
-        // Serial.print("Received bad data: ");
+        DEBUG(num_bytes);
+        Serial.print("Received bad data: ");
         return;
     }
     // else Serial.print("Received: ");
@@ -339,6 +340,7 @@ void getMidPlateData(){
         goal.frontPathClear = false;
         // leds.setPixelColor(1, leds.Color(0, 0, 15));
     }
+    // DEBUG(goal.frontPathClear);
     // leds.show();
     goal.open_rows_start = midRcvBuffer[6];
     goal.open_rows_end = midRcvBuffer[7];
@@ -403,7 +405,7 @@ void getBottomPlateData(){
     if(self.line_status > 0) self.onLine = true;
     else self.onLine = false;
 
-    DEBUG(ball.ballCap);
+    // DEBUG(ball.ballCap);
     // DEBUG(self.onLine);
 }
 
@@ -769,9 +771,9 @@ void loop(){
         state.strategies = static_cast<State::Strategies>(0);
         break;
     }
-    DEBUG(state.botType);
-    DEBUG(state.strategies);
-    DEBUG(espnowDataRecv.type);
+    // DEBUG(state.botType);
+    // DEBUG(state.strategies);
+    // DEBUG(espnowDataRecv.type); // HEREEEEE
     // DEBUG(state.botID);
     // DEBUG(espnowDataRecv.type); // HEREE
     // DEBUG(strats[state.curType][state.curStratIdx]);

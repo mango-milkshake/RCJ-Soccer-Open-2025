@@ -73,6 +73,9 @@ int rounded_ball_angle = 0, rounded_ball_dist = 0;
 void send(){
     if(data_ready) Wire.write((const uint8_t*)espSendBuffer, ESP_SEND_DATA_LEN);
     else Wire.write(lastBuffer, ESP_SEND_DATA_LEN);
+    // Serial.println("sent");
+    // for(auto i : espSendBuffer) Serial.print(i);
+    // Serial.println();
 }
 
 void receive(int num_bytes){
@@ -252,5 +255,5 @@ void loop(){
 
     memcpy(&lastBuffer, (const uint8_t*) espSendBuffer, ESP_SEND_DATA_LEN);
 
-    readAllLidars();
+    // readAllLidars();
 }
