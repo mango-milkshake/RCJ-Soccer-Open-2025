@@ -14,7 +14,7 @@ struct Ball{
     float relative_x = 0, relative_y = 0;
     float absolute_x = 0, absolute_y = 0;
     float last_x = 0, last_y = 0, last_dist = 0;
-    bool noBall = false, tooklastball = false, tooklastballcap = false;
+    bool noBall = false, tooklastball = false, tooklastballcap = false, commedball = true;
     int ballCap = 0;
     int lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = 0;
     int ballCapTime = 1000;
@@ -55,7 +55,7 @@ struct Movement{
 
 struct Dribbler{
     //dribbler
-    int maxspeed = 150, reach_speed = 120, track_speed = 120, minspeed = 40;
+    int maxspeed = 170, reach_speed = 100, track_speed = 120, minspeed = 40;
     int speed = 0, desired = 0;
     #ifdef HIGHER_DRIB_THRESH
     float max_voltage = 0.15;

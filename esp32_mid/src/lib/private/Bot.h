@@ -252,23 +252,25 @@ class Bot{
             }
             else {
                 // target respective corner
-                if(self.x < FIELD_WIDTH/2){
-                    move.x = OPP_GOAL_LEFT_X - 0.10;
-                    move.y = OPP_GOAL_MIDDLE_Y - 0.10;
-                }
-                else {
-                    move.x = OPP_GOAL_RIGHT_X + 0.10;
-                    move.y = OPP_GOAL_MIDDLE_Y - 0.10;
-                }
+                // if(self.x < FIELD_WIDTH/2){
+                //     move.x = OPP_GOAL_LEFT_X - 0.10;
+                //     move.y = OPP_GOAL_MIDDLE_Y - 0.10;
+                // }
+                // else {
+                //     move.x = OPP_GOAL_RIGHT_X + 0.10;
+                //     move.y = OPP_GOAL_MIDDLE_Y - 0.10;
+                // }
+                move.x = OPP_GOAL_MIDDLE_X;
+                move.y = OPP_GOAL_MIDDLE_Y;
             }
 
-            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
-            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - self.x));
+            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X + 0.05 - self.x));
+            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - 0.05 - self.x));
             LIM_ANGLE_180(minAngleFace);
             LIM_ANGLE_180(maxAngleFace);
             if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
-            // if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear 
-            if(ball.ballCap > 0 && self.y > 1.62 // here
+            if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear 
+            // if(ball.ballCap > 0 && self.y > 1.62 // here
                 // && (within(self.x, OPP_GOAL_LEFT_X -0.1, 0.2) || within(self.x, OPP_GOAL_RIGHT_X+0.1, 0.2))
                 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 // goal is clear, can kick
@@ -421,7 +423,7 @@ class Bot{
         bool lookAheadConfirm;
         float v = 0;
         void lookAhead(){
-            float v = ball.dist <= 0.3 ? 100 : 100;
+            float v = ball.dist <= 0.3 ? 100 : 2;
             float latency = 0.2;
             lookAheadConfirm = false;
             float t;
@@ -509,11 +511,11 @@ class Bot{
             }
 
             updateSelfVelocityEWMA(RAD(self.heading), self.x, self.y); 
-            if(!ball.noBall){
-                ball.last_x = ball.absolute_x;
-                ball.last_y = ball.absolute_y;
-                noBallTimer = 0;
-            }
+            // if(!ball.noBall){
+            //     ball.last_x = ball.absolute_x;
+            //     ball.last_y = ball.absolute_y;
+            //     noBallTimer = 0;
+            // }
             
             if(ball.tooklastball){
                 targetballposx = lastLAtargetx;
@@ -639,7 +641,7 @@ class Bot{
                     move.y = self.y;
                 }
                 else{
-                    move.x = ballhide.right_x + 0.05;
+                    move.x = ballhide.right_x;
                     move.y = ballhide.side_y + 0.10;
                 }
                 move.rotation = ballhide.side_angle;
@@ -650,7 +652,7 @@ class Bot{
                     move.y = self.y;
                 }
                 else{
-                    move.x = ballhide.left_x - 0.05;
+                    move.x = ballhide.left_x;
                     move.y = ballhide.side_y + 0.10;
                 }
                 move.rotation = -ballhide.side_angle;
@@ -661,6 +663,23 @@ class Bot{
             //     else moveAlongY(FIELD_WIDTH - ballhide.left_x, ballhide.side_y, ballhide.side_angle);
             // }
         }
+
+        void ballHideLeftOnly(){
+            if(self.y >= ballhide.side_y) {
+                dribblerAim();
+                return;
+            }
+            if(self.x > ballhide.left_x + 0.30) {
+                move.x = ballhide.left_x;
+                move.y = self.y;
+            }
+            else{
+                move.x = ballhide.left_x;
+                move.y = ballhide.side_y + 0.10;
+            }
+            move.rotation = -ballhide.side_angle;
+        }
+
         bool ballHideLeft(){
             // if(!(within(self.x, ballhide.left_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){ //not at shooting point 
             //     moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
@@ -741,8 +760,8 @@ class Bot{
                 LIM_ANGLE_180(minAngleFace);
                 LIM_ANGLE_180(maxAngleFace);
                 if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
-                // if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear && within(self.x, FIELD_WIDTH/2, 0.2)
-                if(ball.ballCap > 0 && self.y > 1.62 && within(self.x, FIELD_WIDTH/2, 0.2) // here
+                if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear && within(self.x, FIELD_WIDTH/2, 0.2)
+                // if(ball.ballCap > 0 && self.y > 1.62 && within(self.x, FIELD_WIDTH/2, 0.2) // here
                     && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                     // goal is clear, can kick
                     move.kick = true;
