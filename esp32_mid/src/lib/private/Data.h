@@ -55,7 +55,7 @@ struct Movement{
 
 struct Dribbler{
     //dribbler
-    int maxspeed = 170, reach_speed = 100, track_speed = 120, minspeed = 40;
+    int maxspeed = 190, reach_speed = 100, track_speed = 120, minspeed = 40;
     int speed = 0, desired = 0;
     #ifdef HIGHER_DRIB_THRESH
     float max_voltage = 0.15;
@@ -92,6 +92,7 @@ struct State{
     int strip = true;
     int topStrat = 1;
     bool goleft = false;
+    int ssidx = 0;
 
     enum StratType{
         NO_BALL = 0,
@@ -114,7 +115,8 @@ struct State{
         BALLHIDE_LEAD = 11,
         BALLHIDE_FOLLOW = 12, 
         ATTACK_BASIC = 13,
-        DEFEND_BASIC = 14
+        DEFEND_BASIC = 14,
+        ATTACK_MODE3 = 15
     } strategies;
 } state;
 

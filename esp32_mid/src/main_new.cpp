@@ -114,9 +114,9 @@ float pid_def_rotate_default[3] = {101, 0, 0}; // 0.7
 float pid_def_x_default[3] = {140, 0, 0}; // 3.5
 float pid_def_y_default[3] = {140, 0, 0}; // 3.5
 
-float pid_att_rotate_default[3] = {12, 0, 0};
-float pid_att_x_default[3] = {120, 0, 0};
-float pid_att_y_default[3] = {120, 0, 0};
+float pid_att_rotate_default[3] = {14, 0, 0};
+float pid_att_x_default[3] = {140, 0, 0};
+float pid_att_y_default[3] = {140, 0, 0};
 float pid_att_rotate_bc[3] = {12, 0, 0};
 
 PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
@@ -132,6 +132,7 @@ PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000
 #define MAX_NUM_STRATS 2
 int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
 int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{0}, {7, 10}, {6, 8}};
+int ss[NUM_SCORE_STRAT] = {9, 15};
 
 // Variables
 float lastLoopTime = 0;
@@ -419,19 +420,32 @@ void getBottomPlateData(){
 void sendMotorData(){ // fill bottomSendBuffer with desired data before calling this function
     bottomUART.uartWrite();
 }
-float dist(int x1, int y1, int x2, int y2){
-    return(pow((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2), 0.5));
+float dist(float x1, float y1, float x2, float y2){
+    return(sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)));
 }
 
-#define NO_COLLIDE_RADIUS 0.30
+#define NO_COLLIDE_RADIUS 0.25
 void movement(float target_x, float target_y, float target_rotation){
-    if(millis() - lastRecvTime <= RECV_TIME && dist(comms.xpos, comms.ypos, target_x, target_y) <= NO_COLLIDE_RADIUS){
-        float lx = target_x - comms.xpos; //find vector from comm bot position to target position
-        float ly = target_y - comms.ypos; 
+
+    if(millis() - lastRecvTime <= RECV_TIME && dist(comms.xpos, comms.ypos, self.x, self.y) <= NO_COLLIDE_RADIUS){
+        DEBUG(dist(comms.xpos, comms.ypos, self.x, self.y));
+        float lx = self.x - comms.xpos; //find vector from comm bot position to target position
+        float ly = self.y - comms.ypos; 
         lx /= pow((lx*lx + ly*ly), 0.5); //normalise vector
         ly /= pow((lx*lx + ly*ly), 0.5);
-        target_x = comms.xpos + NO_COLLIDE_RADIUS * lx; //using normalised vector, find point on circle that bot should go to
-        target_y = comms.ypos + NO_COLLIDE_RADIUS * ly;
+        float no_collide_x1 = comms.xpos + NO_COLLIDE_RADIUS * lx; //using normalised vector, find two points on circle that bot should go to
+        float no_collide_y1 = comms.ypos + NO_COLLIDE_RADIUS * ly;
+        float no_collide_x2 = comms.xpos - NO_COLLIDE_RADIUS * lx; 
+        float no_collide_y2 = comms.ypos - NO_COLLIDE_RADIUS * ly;
+
+        if(dist(self.x, self.y, no_collide_x1, no_collide_y1) < dist(self.x, self.y, no_collide_x2, no_collide_y2)){ //go to closer of two points
+            target_x = no_collide_x1;
+            target_y = no_collide_y1;
+        }
+        else{
+            target_x = no_collide_x2;
+            target_y = no_collide_y2;          
+        }
     }
     target_x = constrain(target_x, 0.20, FIELD_WIDTH - 0.20);
     if(self.x > FIELD_MARGIN_X && self.x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
@@ -755,7 +769,8 @@ void loop(){
         // state.curType = 1;
         // state.curStratIdx = 0; //Defend
         state.strategies = static_cast<State::Strategies>(7);
-        Serial.println("defend"); 
+        // state.lastChange = millis();
+        // Serial.println("defend"); 
         break;
     case 2: //attacker
         if(ball.noBall && millis() - ball.lastSeenBall > 1500){
@@ -769,10 +784,17 @@ void loop(){
             state.strategies = static_cast<State::Strategies>(10);
             Serial.println("lookahead"); // here
         }
+        // state.lastChange = millis();
         break;
     case 3: //scoring
         #ifdef SINGLE_BOT
-        state.strategies = static_cast<State::Strategies>(9); // TEST IMPT
+        // if(millis() - state.lastChange >= CHANGE_TIME){
+        //     state.ssidx++;
+        //     state.ssidx %= NUM_SCORE_STRAT;
+        //     state.lastChange = millis();
+        // }
+        // state.strategies = static_cast<State::Strategies>(ss[state.ssidx]); // TEST IMPT
+        state.strategies = static_cast<State::Strategies>(9); 
         #else
         if(state.ready_to_shoot && (espnowDataRecv.bh_ready == true || espnowDataRecv.type != 3 || abs(times.bhScore_timeout - times.curTime) > 5000)){ 
             //shoot if other bot ready or other bot not scoring or timeout reached
@@ -787,6 +809,7 @@ void loop(){
             state.strategies = static_cast<State::Strategies>(8);
             Serial.println("ballhide");            
         }
+        // state.lastChange = millis(); // idk
         #endif
         break;
     case 4: //leading
@@ -796,18 +819,21 @@ void loop(){
         else{
             state.strategies = static_cast<State::Strategies>(11);
         }
+        // state.lastChange = millis();
         break;
     case 5: //following
         state.strategies = static_cast<State::Strategies>(12);
+        // state.lastChange = millis();
         break;
     default:
         state.curType = 0;
         state.curStratIdx = 0;
         // Serial.println("out");
         state.strategies = static_cast<State::Strategies>(0);
+        // state.lastChange = millis();
         break;
     }
-    // DEBUG(state.botType);
+    DEBUG(state.botType);
     // DEBUG(state.strategies);
     // DEBUG(espnowDataRecv.type); // HEREEEEE
     // DEBUG(state.botID);
@@ -1006,6 +1032,17 @@ void loop(){
             else bot.ballHideMid();
             break;
         
+        case State::Strategies::ATTACK_MODE3:
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
+                move.dont_move = true;
+                break;
+            }
+            if(state.topStrat == 1) {
+                bot.ballHideMid();
+            }
+            else bot.ballHideSide();
+            break;
+        
         case State::Strategies::LOOK_AHEAD:
             bot.triggerLookAhead();
             break;
@@ -1022,7 +1059,7 @@ void loop(){
         
         case State::Strategies::DEFEND_BASIC:
             if(ball.ballCap){
-                if(millis() - ball.lastNoBallCap > DEFENDER_WAIT_TIME) bot.newScoring();
+                if(millis() - ball.lastNoBallCap > DEFENDER_WAIT_TIME) bot.ballHideSide();
                 else move.dont_move = true;
             }
             else{
