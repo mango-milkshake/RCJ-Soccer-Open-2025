@@ -10,23 +10,20 @@ sensor.set_framesize(sensor.QVGA)
 sensor.set_gainceiling(32)
 sensor.set_auto_whitebal(False)
 sensor.set_auto_exposure(False, exposure_us=8000)
-sensor.set_auto_gain(False, gain_db=2)
-#sensor.set_contrast(1)
+sensor.set_auto_gain(False, gain_db=4)
 sensor.skip_frames(time=200)
-
 clock = time.clock()
 led2 = pyb.LED(2)
 led2.on()
-window_x = 169
-window_y = 111
-window_width = 270
+window_x = 196
+window_y = 125
+window_width = 280
 mask_radius = 100
 roi_width=280
 sensor.set_windowing(window_x - int((window_width/2)), window_y - int((window_width/2)), window_width, window_width)
-
-centre_x = 132
-centre_y = 111
-thresh_ball = (0, 100, 12, 58, 14, 65)
+centre_x = 127
+centre_y = 124
+thresh_ball = (43, 76, 27, 53, 18, 57)
 thresh_yellow_goal = (45, 100, -25, 15, 24, 72)
 thresh_blue_goal = (46, 58, -27, -7, -34, -17)
 uart = UART(3, 115200)
