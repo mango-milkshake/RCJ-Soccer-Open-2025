@@ -13,6 +13,8 @@
 #define DEBUG(x) 123;
 #endif
 
+#define CONT_CLR
+
 #define TX_PIN 4
 #define RX_PIN 5
 #define DATA_LEN 7
@@ -79,14 +81,22 @@ void checkFault(){
         // Serial.println("0 ");
     }
     // else Serial.println("1 ");
+    #ifdef CONT_CLR
+    float curTime = millis();
+    if(curTime - lastFault >= 1000){
+        motor_driver.readRegister(0b01000001);
+        lastFault = millis();
+    }
+    #else
     if(faulted){
-        // Serial.println("faulted");
+        Serial.println("faulted");
         float curTime = millis();
         if(curTime - lastFault >= 500){
             motor_driver.readRegister(0b01000001);
             lastFault = millis();
         }
     } 
+    #endif
 }
 
 void setup(){

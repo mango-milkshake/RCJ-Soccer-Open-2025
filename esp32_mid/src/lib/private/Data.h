@@ -14,7 +14,7 @@ struct Ball{
     float relative_x = 0, relative_y = 0;
     float absolute_x = 0, absolute_y = 0;
     float last_x = 0, last_y = 0, last_dist = 0;
-    bool noBall = false, tooklastball = false, tooklastballcap = false;
+    bool noBall = false, tooklastball = false, tooklastballcap = false, commedball = true;
     int ballCap = 0;
     int lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = 0;
     int ballCapTime = 1000;
@@ -38,6 +38,7 @@ struct Times{
     int motorTestPressed = 0, motorTestWait = 1000;
     int lastBallhideTime = 0;
     int bhScore_timeout = 0;
+    int defender_balltrack = 0;
 } times;
 
 struct Movement{
@@ -49,12 +50,12 @@ struct Movement{
     int translation_ballcap = 20, rotation_ballcap = 10, rotation_lowered = 5;
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
-    int x_offset = 18, y_offset = 18, rotation_offset = 12;
+    int x_offset = 18, y_offset = 18, rotation_offset = 6;
 } move;
 
 struct Dribbler{
     //dribbler
-    int maxspeed = 170, reach_speed = 140, track_speed = 120, minspeed = 40;
+    int maxspeed = 190, reach_speed = 100, track_speed = 120, minspeed = 40;
     int speed = 0, desired = 0;
     #ifdef HIGHER_DRIB_THRESH
     float max_voltage = 0.15;
@@ -70,10 +71,13 @@ struct Dribbler{
     bool avg_filled = false, check_filled = false;
     float analogval = 0, voltage = 0, sum_avg = 0, sum_check = 0, avgV = 0;
 } drib;
+
 struct Comms{
     float ypos = 0, xpos = 0;
     int bh_stage = 0;
     int isPresent = 0;
+    int type = 0;
+    bool hasBall = false;
 } comms;
 
 struct State{
@@ -88,6 +92,7 @@ struct State{
     int strip = true;
     int topStrat = 1;
     bool goleft = false;
+    int ssidx = 0;
 
     enum StratType{
         NO_BALL = 0,
@@ -110,7 +115,8 @@ struct State{
         BALLHIDE_LEAD = 11,
         BALLHIDE_FOLLOW = 12, 
         ATTACK_BASIC = 13,
-        DEFEND_BASIC = 14
+        DEFEND_BASIC = 14,
+        ATTACK_MODE3 = 15
     } strategies;
 } state;
 

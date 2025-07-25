@@ -26,7 +26,7 @@
 #define DEF_Y_MAX 0.80
 
 // Thresholds
-#define OSCILLATE_WAIT_TIME 2000
+#define OSCILLATE_WAIT_TIME 500
 #define MOVING_BACK_DURATION 200
 #define BALLCAP_DISTANCE -0.03f
 #define BALLCAP_WIDTH 0.0355f
@@ -82,7 +82,7 @@ class Bot{
             }
             move.x = new_x;
             move.y = new_y;
-            move.rotation = 0.0;
+            move.rotation = 180.0;
         }
 
         struct BallTrack{
@@ -252,22 +252,25 @@ class Bot{
             }
             else {
                 // target respective corner
-                if(self.x < FIELD_WIDTH/2){
-                    move.x = OPP_GOAL_LEFT_X - 0.10;
-                    move.y = OPP_GOAL_MIDDLE_Y - 0.10;
-                }
-                else {
-                    move.x = OPP_GOAL_RIGHT_X + 0.10;
-                    move.y = OPP_GOAL_MIDDLE_Y - 0.10;
-                }
+                // if(self.x < FIELD_WIDTH/2){
+                //     move.x = OPP_GOAL_LEFT_X - 0.10;
+                //     move.y = OPP_GOAL_MIDDLE_Y - 0.10;
+                // }
+                // else {
+                //     move.x = OPP_GOAL_RIGHT_X + 0.10;
+                //     move.y = OPP_GOAL_MIDDLE_Y - 0.10;
+                // }
+                move.x = OPP_GOAL_MIDDLE_X;
+                move.y = OPP_GOAL_MIDDLE_Y;
             }
 
-            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
-            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - self.x));
+            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X + 0.05 - self.x));
+            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - 0.05 - self.x));
             LIM_ANGLE_180(minAngleFace);
             LIM_ANGLE_180(maxAngleFace);
             if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
             if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear 
+            // if(ball.ballCap > 0 && self.y > 1.62 // here
                 // && (within(self.x, OPP_GOAL_LEFT_X -0.1, 0.2) || within(self.x, OPP_GOAL_RIGHT_X+0.1, 0.2))
                 && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                 // goal is clear, can kick
@@ -420,8 +423,7 @@ class Bot{
         bool lookAheadConfirm;
         float v = 0;
         void lookAhead(){
-            v = 1.5;
-            // v = ball.dist < 0.3 ? 1000 : 1.5;
+            float v = ball.dist <= 0.3 ? 100 : 2;
             float latency = 0.2;
             lookAheadConfirm = false;
             float t;
@@ -509,11 +511,11 @@ class Bot{
             }
 
             updateSelfVelocityEWMA(RAD(self.heading), self.x, self.y); 
-            if(!ball.noBall){
-                ball.last_x = ball.absolute_x;
-                ball.last_y = ball.absolute_y;
-                noBallTimer = 0;
-            }
+            // if(!ball.noBall){
+            //     ball.last_x = ball.absolute_x;
+            //     ball.last_y = ball.absolute_y;
+            //     noBallTimer = 0;
+            // }
             
             if(ball.tooklastball){
                 targetballposx = lastLAtargetx;
@@ -622,7 +624,7 @@ class Bot{
         }
 
         struct BallHide{
-            float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 45;
+            float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 70;
             // float mid_x = 0.5, mid_y = 1.45, mid_angle = 180;
             float mid_x = 0.91, mid_y = 1.45, mid_angle = 180;
             bool state = false, done_turning = false;
@@ -639,7 +641,7 @@ class Bot{
                     move.y = self.y;
                 }
                 else{
-                    move.x = ballhide.right_x + 0.05;
+                    move.x = ballhide.right_x;
                     move.y = ballhide.side_y + 0.10;
                 }
                 move.rotation = ballhide.side_angle;
@@ -650,7 +652,7 @@ class Bot{
                     move.y = self.y;
                 }
                 else{
-                    move.x = ballhide.left_x - 0.05;
+                    move.x = ballhide.left_x;
                     move.y = ballhide.side_y + 0.10;
                 }
                 move.rotation = -ballhide.side_angle;
@@ -661,6 +663,23 @@ class Bot{
             //     else moveAlongY(FIELD_WIDTH - ballhide.left_x, ballhide.side_y, ballhide.side_angle);
             // }
         }
+
+        void ballHideLeftOnly(){
+            if(self.y >= ballhide.side_y) {
+                dribblerAim();
+                return;
+            }
+            if(self.x > ballhide.left_x + 0.30) {
+                move.x = ballhide.left_x;
+                move.y = self.y;
+            }
+            else{
+                move.x = ballhide.left_x;
+                move.y = ballhide.side_y + 0.10;
+            }
+            move.rotation = -ballhide.side_angle;
+        }
+
         bool ballHideLeft(){
             // if(!(within(self.x, ballhide.left_x, 0.05) && within(self.y, ballhide.side_y, 0.05))){ //not at shooting point 
             //     moveAlongY(ballhide.left_x, ballhide.side_y, -ballhide.side_angle);
@@ -742,6 +761,7 @@ class Bot{
                 LIM_ANGLE_180(maxAngleFace);
                 if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
                 if(ball.ballCap > 0 && self.y > 1.62 && goal.frontPathClear && within(self.x, FIELD_WIDTH/2, 0.2)
+                // if(ball.ballCap > 0 && self.y > 1.62 && within(self.x, FIELD_WIDTH/2, 0.2) // here
                     && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
                     // goal is clear, can kick
                     move.kick = true;
@@ -930,6 +950,11 @@ class Bot{
                     move.rotation = 0;
                 Serial.println("Defender 1");
                 }
+                else if (comms.hasBall == true) {
+                    move.x = 0.91;
+                    move.y = 0.60;
+                    move.rotation = 0;
+                }
                 // 2) Else if the ball is within the no-chase region near the goal
                 else if (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < 0.25f){
                     move.x = 0.91;
@@ -940,13 +965,13 @@ class Bot{
                 // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
                 else if (ball.absolute_y <  0.80f) {
                     // if(millis() - lastDribblerRev < 1000) ;
-                    if(ball.ballCap > 0 || (ball.dist>0 && ball.dist<=40) || 
-                    (ball.last_dist>0 && ball.last_dist<=40 && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME)) {
-                        // dribbler.setSpeed(1.0);
-                        drib.desired = drib.maxspeed;
-                    }
-                    else if(ball.noBall) drib.desired = 0;
-                    else drib.desired = 0.5*drib.maxspeed;
+                    // if(ball.ballCap > 0 || (ball.dist>0 && ball.dist<=40) || 
+                    // (ball.last_dist>0 && ball.last_dist<=40 && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME)) {
+                    //     // dribbler.setSpeed(1.0);
+                    //     drib.desired = drib.maxspeed;
+                    // }
+                    // else if(ball.noBall) drib.desired = 0;
+                    // else drib.desired = 0.5*drib.maxspeed;
                     if (ball.noBall) {
                         // ball.absolute_x = ball.last_x;
                         // ball.absolute_y = ball.last_y;
@@ -961,7 +986,13 @@ class Bot{
                 }
                 // 4) Otherwise => geometry-based blocking
                 else {
-                    defend();
+                    if((!ball.noBall && (checkv(30, 0.1) && within(pbvx[-1], 0, 0.1) && comms.type == 0)) || abs(times.curTime - times.defender_balltrack) < 2000){
+                        triggerLookAhead();
+                        times.defender_balltrack = times.curTime;
+                    }
+                    else{
+                        defend();
+                    }
                 }
             }
         }
