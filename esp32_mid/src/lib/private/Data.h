@@ -2,6 +2,7 @@
 #define DATA_H
 
 // #define HIGHER_DRIB_THRESH
+#define SUPERTEAM
 
 struct Localisation{
     float x = 0, y = 0, heading = 0;
@@ -46,8 +47,13 @@ struct Movement{
     float last_x = 0, last_y = 0, last_rotation = 0;
     bool kick = false;
     bool dont_move = false;
+    #ifdef SUPERTEAM
+    int translation_default = 90, rotation_default = 90;
+    int translation_ballcap = 30, rotation_ballcap = 15, rotation_lowered = 9;
+    #else
     int translation_default = 60, rotation_default = 60;
     int translation_ballcap = 20, rotation_ballcap = 10, rotation_lowered = 5;
+    #endif
     int min_translation = -translation_default, max_translation = translation_default;
     int min_rotation = -rotation_default, max_rotation = rotation_default;
     int x_offset = 18, y_offset = 18, rotation_offset = 6;
@@ -93,6 +99,7 @@ struct State{
     int topStrat = 1;
     bool goleft = false;
     int ssidx = 0;
+    int st = 0;
 
     enum StratType{
         NO_BALL = 0,

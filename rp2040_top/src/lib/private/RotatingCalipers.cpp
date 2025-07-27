@@ -1,9 +1,18 @@
 #include "RotatingCalipers.h"
 #include <CommonUtils.h>
 #define NUM_POINTS 28
+
+#define SUPERTEAM
+
+#ifdef SUPERTEAM
+#define FIELD_WIDTH 4.00f
+#define FIELD_HEIGHT 6.00f
+#define SHIFT_AMT 0.30
+#else
 #define FIELD_WIDTH 1.82f // 0.91f
 #define FIELD_HEIGHT 2.43f // 1.21f
 #define SHIFT_AMT 0.12
+#endif
 
 Point nextToTop(stack<Point> &S)
 {

@@ -5,25 +5,48 @@
 #include <Data.h>
 #include <CommonUtils.h>
 
+#define SUPERTEAM
+
 // Dimensions
+#ifdef SUPERTEAM
+#define FIELD_WIDTH 4.00
+#define FIELD_HEIGHT 6.00
+#define FIELD_MARGIN 0.30
+#define SELF_GOAL_LEFT_X 1.45
+#define SELF_GOAL_RIGHT_X 2.55
+#define SELF_GOAL_Y 0.30
+#define OPP_GOAL_CENTRE_X 2.00
+#define OPP_GOAL_CENTRE_Y 5.78
+#define OPP_GOAL_MIDDLE_X 2.00
+#define OPP_GOAL_MIDDLE_Y 5.35
+#define OPP_GOAL_LEFT_X 1.45
+#define OPP_GOAL_RIGHT_X 2.55
+#define OPP_GOAL_Y 5.88
+#define Y_BOUND 3.70
+#define DEF_Y_DEFAULT 0.80
+#define DEF_Y_MAX 1.50
+#define SHOOT_Y 4.00
+#else
 #define FIELD_WIDTH 1.82
 #define FIELD_HEIGHT 2.43
 #define FIELD_MARGIN 0.12
-#define SELF_GOAL_LEFT_X 0.61
-#define SELF_GOAL_RIGHT_X 1.21
+#define SELF_GOAL_LEFT_X 0.51
+#define SELF_GOAL_RIGHT_X 1.31
 #define SELF_GOAL_Y 0.12
 #define OPP_GOAL_CENTRE_X 0.91
 #define OPP_GOAL_CENTRE_Y 2.384
 #define OPP_GOAL_MIDDLE_X 0.91
 #define OPP_GOAL_MIDDLE_Y 2.06
-#define OPP_GOAL_LEFT_X 0.61
-#define OPP_GOAL_RIGHT_X 1.21
+#define OPP_GOAL_LEFT_X 0.51
+#define OPP_GOAL_RIGHT_X 1.31
 #define OPP_GOAL_Y 2.31
-#define BOT_RADIUS_CM 8.5 // in cm
-#define BOT_RADIUS_M 0.085 // in metres
 #define Y_BOUND 1.50 
 #define DEF_Y_DEFAULT 0.50
 #define DEF_Y_MAX 0.80
+#define SHOOT_Y 1.62
+#endif
+#define BOT_RADIUS_CM 8.5 // in cm
+#define BOT_RADIUS_M 0.085 // in metres
 
 // Thresholds
 #define OSCILLATE_WAIT_TIME 500
@@ -69,7 +92,11 @@ class Bot{
             if(osc.oscState) new_x = pointx - oscDist;
             else new_x = pointx + oscDist;
             float distToPoint = sqrt((new_x - self.x)*(new_x - self.x) + (new_y - self.y)*(new_y - self.y));
+            #ifdef SUPERTEAM
+            if(distToPoint <= 0.20){
+            #else
             if(distToPoint <= 0.10){
+            #endif
                 if(!osc.reachTargetOsc) {
                     osc.reachTargetOsc = true;
                     osc.reachOscTime = millis();
@@ -423,7 +450,11 @@ class Bot{
         bool lookAheadConfirm;
         float v = 0;
         void lookAhead(){
+            #ifdef SUPERTEAM
+            float v = ball.dist <= 0.6 ? 100 : 10; 
+            #else
             float v = ball.dist <= 0.3 ? 100 : 2;
+            #endif
             float latency = 0.2;
             lookAheadConfirm = false;
             float t;
@@ -591,6 +622,64 @@ class Bot{
             // DEBUG(ballAngle_LA);
         }
 
+        void staim(){
+            float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self.y, OPP_GOAL_CENTRE_X - self.x);
+            if(self.y >= OPP_GOAL_MIDDLE_Y - 0.10){
+                // oscillate about mid of goal
+                oscillateAboutPoint(OPP_GOAL_MIDDLE_X, OPP_GOAL_MIDDLE_Y - 0.10, 0.30);
+                move.rotation = 90-DEG(angleToFace);
+                // sets move.x and y, and rotation is default to centre of goal but we re-set rotation below
+            }
+            else {
+                move.x = self.x <= FIELD_WIDTH/2 ? OPP_GOAL_LEFT_X - 0.20 : OPP_GOAL_RIGHT_X + 0.20;
+                move.y = OPP_GOAL_MIDDLE_Y - 0.45;
+            }
+
+            float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X + 0.05 - self.x));
+            float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - 0.05 - self.x));
+            LIM_ANGLE_180(minAngleFace);
+            LIM_ANGLE_180(maxAngleFace);
+            if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
+            if(ball.ballCap > 0 && self.y > SHOOT_Y && goal.frontPathClear 
+            // if(ball.ballCap > 0 && self.y > 1.62 // here
+                // && (within(self.x, OPP_GOAL_LEFT_X -0.1, 0.2) || within(self.x, OPP_GOAL_RIGHT_X+0.1, 0.2))
+                && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
+                // goal is clear, can kick
+                move.kick = true;
+                // drib.desired = -100;
+                move.rotation = self.heading;
+                return;
+            }
+            
+            aiming.start_heading = goal.open_rows_start * (goal.fov/goal.total_rows) - goal.fov/2;
+            aiming.end_heading = goal.open_rows_end * (goal.fov/goal.total_rows) - goal.fov/2;
+            aiming.right_heading = DEG(atan2(self.x - OPP_GOAL_RIGHT_X, OPP_GOAL_Y - self.y));
+            aiming.left_heading = DEG(atan2(self.x - OPP_GOAL_LEFT_X, OPP_GOAL_Y - self.y));
+
+            if(aiming.start_heading < aiming.right_heading) aiming.start_heading = aiming.right_heading;
+            if(aiming.end_heading > aiming.left_heading) aiming.end_heading = aiming.left_heading;
+            aiming.target_heading = 0.5 * (aiming.start_heading + aiming.end_heading);
+            move.rotation = self.heading - aiming.target_heading;
+            if(move.rotation < minAngleFace || move.rotation > maxAngleFace){
+                move.rotation = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_CENTRE_X - self.x));
+            }
+
+            // old
+            // float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self.y, OPP_GOAL_CENTRE_X - self.x);
+            // move.x = self.x <= FIELD_WIDTH/2 ? OPP_GOAL_LEFT_X - 0.20 : OPP_GOAL_RIGHT_X + 0.20;
+            // move.y = OPP_GOAL_MIDDLE_Y - 0.45;
+            // move.rotation = 90-DEG(angleToFace);
+            // float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_LEFT_X - self.x));
+            // float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self.y, OPP_GOAL_RIGHT_X - self.x));
+            // LIM_ANGLE_180(minAngleFace);
+            // LIM_ANGLE_180(maxAngleFace);
+            // if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
+            // if(ball.ballCap > 0 && self.y > SHOOT_Y && (self.heading >= minAngleFace && self.heading <= maxAngleFace)) {
+            //     move.kick = true;
+            //     // drib.desired = -100;
+            // }
+        }
+
         struct Along{
             float margin = 0.10;
         } along;
@@ -624,10 +713,11 @@ class Bot{
         }
 
         struct BallHide{
-            float left_x = 0.30, right_x = FIELD_WIDTH - left_x, side_y = 1.65, side_angle = 70;
+            float left_x = 0.60, right_x = FIELD_WIDTH - left_x, side_y = SHOOT_Y, side_angle = 180;
             // float mid_x = 0.5, mid_y = 1.45, mid_angle = 180;
-            float mid_x = 0.91, mid_y = 1.45, mid_angle = 180;
+            float mid_x = FIELD_WIDTH/2, mid_y = SHOOT_Y, mid_angle = 180;
             bool state = false, done_turning = false;
+            // edited for superteam
         } ballhide;
 
         void ballHideSide(){
@@ -666,7 +756,7 @@ class Bot{
 
         void ballHideLeftOnly(){
             if(self.y >= ballhide.side_y) {
-                dribblerAim();
+                staim();
                 return;
             }
             if(self.x > ballhide.left_x + 0.30) {
@@ -678,6 +768,22 @@ class Bot{
                 move.y = ballhide.side_y + 0.10;
             }
             move.rotation = -ballhide.side_angle;
+        }
+
+        void ballHideRightOnly(){
+            if(self.y >= ballhide.side_y) {
+                staim();
+                return;
+            }
+            if(self.x < ballhide.right_x - 0.30) {
+                move.x = ballhide.right_x;
+                move.y = self.y;
+            }
+            else{
+                move.x = ballhide.right_x;
+                move.y = ballhide.side_y + 0.10;
+            }
+            move.rotation = ballhide.side_angle;
         }
 
         bool ballHideLeft(){
@@ -715,7 +821,7 @@ class Bot{
         }
 
         void ballHideMid(){
-            if(self.y >= ballhide.mid_y) dribblerAim();
+            if(self.y >= ballhide.mid_y) staim();
             else moveAlongY(ballhide.mid_x, ballhide.mid_y, ballhide.mid_angle);
         }
 
@@ -928,12 +1034,12 @@ class Bot{
             newDistToBall = BOT_RADIUS_M / sinHalfAngle;
             new_x = ball.absolute_x + newDistToBall * cosf(midAngle);
             new_y = ball.absolute_y + newDistToBall * sinf(midAngle);
-            if(new_y > 0.80){
-                float denom = (new_x - 0.91f);
-                float slope = (new_y - 0.12f)/ (denom);
-                new_y = 0.80f;
-                float dydefend = (new_y - 0.12f);
-                new_x = 0.91f + (dydefend / slope);
+            if(new_y > DEF_Y_MAX){
+                float denom = (new_x - FIELD_WIDTH/2);
+                float slope = (new_y - FIELD_MARGIN)/ (denom);
+                new_y = DEF_Y_MAX;
+                float dydefend = (new_y - FIELD_MARGIN);
+                new_x = FIELD_WIDTH/2 + (dydefend / slope);
             }
             // DEBUG(new_x);
             // DEBUG(new_y);

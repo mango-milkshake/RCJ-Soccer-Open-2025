@@ -5,7 +5,14 @@
 #include "../public/tofsense_f_iic.h"
 #include <CommonUtils.h>
 #include <RotatingCalipers.h>
+
+#define SUPERTEAM
+
+#ifdef SUPERTEAM
+#define MAX_LIDAR_DIST 7.3f
+#else
 #define MAX_LIDAR_DIST 3.2f
+#endif
 
 class Lidar{
     public:

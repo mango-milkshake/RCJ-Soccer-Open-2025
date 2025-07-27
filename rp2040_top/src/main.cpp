@@ -13,13 +13,20 @@
 #define PRINT_COORDS
 // #define PRINT_DUMMY_POINTS
 #define PRINT_HEADING
-#define PRINT_IMU
+// #define PRINT_IMU
 
-// #define COMMS_MOD
+#define COMMS_MOD
+#define SUPERTEAM
 
+#ifdef SUPERTEAM
+#define FIELD_WIDTH 4.00f
+#define FIELD_HEIGHT 6.00f
+#define FIELD_AREA 24.00f
+#else
 #define FIELD_WIDTH 1.82f
 #define FIELD_HEIGHT 2.43f
 #define FIELD_AREA 4.4226f
+#endif
 #define FIELD_MIN_THRESH 0.8
 #define FIELD_MAX_THRESH 1.2
 
