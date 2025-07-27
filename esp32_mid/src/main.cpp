@@ -6,20 +6,27 @@
 #include <Dribbler.h>
 #include <Motor.h>
 #include <Kicker.h>
+#include <UARTComms.h>
+#include <Data.h>
+#include <Bot.h>
 #include <WiFi.h>
 #include <esp_wifi.h>
 #include <esp_now.h>
 #include <esp_task_wdt.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#include <WebSerial.h>
+// #include <AsyncTCP.h>
+// #include <ESPAsyncWebServer.h>
 
-#define DEBUGGING
+// #define DEBUGGING
 #ifdef DEBUGGING
 #define DEBUG(x) Serial.println(String(#x) + String(": ") + String(x) + String('\r')); 
 #else
 #define DEBUG(x) 123;
 #endif
+
+// #define TESTING
+
+// #define NO_COMMS
+#define SINGLE_BOT
 
 // #define SECOND_BOT
 //  #define LOOK_AHEAD
@@ -27,321 +34,168 @@
 
 //// ** DEFINITIONS ** ////
 
+
+// #define DEF_Y_DEFAULT 0.50
+
 // ESP NeoPixel LED
-#define ESP_LED 21
-int ESP_BRIGHTNESS = 50;
+#define ESP_LED 48
+int ESP_BRIGHTNESS = 20;
 #define BLINK_TIME 50
 Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
 // to check if code is running
 bool esp_led_state = true;
 float lastLED = 0;
 
-// Debug LEDs
-#define LED_PIN 18
-#define LED_COUNT 12
-int LED_BRIGHTNESS = 100;
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+// LEDs on middle plate (small)
+#define LEDS_PIN 18
+#define LEDS_BRIGHTNESS 50
+#define NUM_LEDS 8
+Adafruit_NeoPixel leds(NUM_LEDS, LEDS_PIN, NEO_GRB + NEO_KHZ800);
 
 // Switches
-// Motor software switch
-#define TURN_OFF_SW 40
-bool turnOff = false;
-// state switch
-#define STATE_SW 41
-#define STATE_SWAP_TIME 1000
-#define TOTAL_STATES 3
-float lastStateSwap = 0;
-int codeState = 0; // 0 = dribbler + ball hide, 1 = dribbler + normal scoring, 2 = without dribbler
-// pause switches
-#define PAUSE_SW1 38
-#define PAUSE_SW2 39
+// Dribbler software switch
+#define DRIB_SW 38
 
-// Voltage checker
-#define VOLTAGE_PIN 2
-#define VOLTAGE_ANALOG_THRESH 3300
-
-// Dimensions
-#define FIELD_WIDTH 1.82
-#define FIELD_HEIGHT 2.43
-#define SELF_GOAL_LEFT_X 0.61
-#define SELF_GOAL_RIGHT_X 1.21
-#define SELF_GOAL_Y 0.12
-#define OPP_GOAL_CENTRE_X 0.91
-#define OPP_GOAL_CENTRE_Y 2.384
-#define OPP_GOAL_MIDDLE_X 0.91
-#define OPP_GOAL_MIDDLE_Y 2.06
-#define OPP_GOAL_LEFT_X 0.61
-#define OPP_GOAL_RIGHT_X 1.21
-#define OPP_GOAL_Y 2.31
-#define BOT_RADIUS_CM 8.5 // in cm
-#define BOT_RADIUS_M 0.085 // in metres
-#define Y_BOUND 1.50 
-
-// I2C Comms with bottom plate
-#define SDA_PIN 8
-#define SCL_PIN 9
-#define I2C_RCV_DATA_LEN 18
-#define I2C_SEND_DATA_LEN 7
-#define I2C_RCV_PICO_ADDR 0x08
-#define I2C_SEND_PICO_ADDR 0x09
-
-#define FRONT_CAM_DATA_POS 1
-#define LIDAR_GATE_POS 13
-#define LINE_DATA_POS 14
-
-byte rcvBuffer[I2C_RCV_DATA_LEN+1], sendBuffer[I2C_SEND_DATA_LEN];
-byte zeroBuffer[I2C_SEND_DATA_LEN];
+// Motor testing switch
+#define MOTOR_TEST_SW 4
 
 // UART Comms with top plate
-#define PICO_TX_PIN 16
-#define PICO_RX_PIN 17
-#define PICO_SERIAL_DATA_LEN 9
-byte uartBufferPico[PICO_SERIAL_DATA_LEN];
+#define TOP_TX_PIN 16
+#define TOP_RX_PIN 17
+#define TOP_DATA_LEN 10
+byte topBuffer[TOP_DATA_LEN];
+UARTComms topUART(TOP_TX_PIN, TOP_RX_PIN, topBuffer, TOP_DATA_LEN, Serial2);
 
-// UART Comms with camera
-#define CAM_TX_PIN 10
-#define CAM_RX_PIN 11
-#define CAM_SERIAL_DATA_LEN 11
-byte uartBufferCam[CAM_SERIAL_DATA_LEN];
+// UART Comms with bottom plate (motor drive RP2040)
+#define BOTTOM_TX_PIN 41
+#define BOTTOM_RX_PIN 42
+#define BOTTOM_DATA_LEN 7
+byte bottomSendBuffer[BOTTOM_DATA_LEN];
+UARTComms bottomUART(BOTTOM_TX_PIN, BOTTOM_RX_PIN, bottomSendBuffer, BOTTOM_DATA_LEN, Serial1);
 
-// PID
-float pid_def_rotate_default[3] = {0.7, 0, 0};
-float pid_def_x_default[3] = {3.5, 0, 0};
-float pid_def_y_default[3] = {3.5, 0, 0};
+// I2C Comms with middle plate RP2040
+#define MID_SDA_PIN 1
+#define MID_SCL_PIN 2
+#define MID_I2C_SEND_DATA_LEN 8
+#define MID_I2C_RCV_DATA_LEN 8
+#define MID_I2C_ADDR 0x09
+byte midSendBuffer[MID_I2C_SEND_DATA_LEN];
+byte midRcvBuffer[MID_I2C_RCV_DATA_LEN];
+byte firstbyte = 5;
 
-float pid_att_rotate_default[3] = {0.3, 0, 0};
-float pid_att_x_default[3] = {2.2, 0, 0};
-float pid_att_y_default[3] = {2.2, 0, 0};
-
-PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
-PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000);
-PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000);
-float max_translation_pid_value = 1, max_rotation_pid_value = 1;
+// I2C Comms with bottom plate (sensor RP2040)
+#define BOTTOM_SDA_PIN 40
+#define BOTTOM_SCL_PIN 39
+#define BOTTOM_I2C_DATA_LEN 3
+#define BOTTOM_I2C_ADDR 0x08
+byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN];
 
 // Dribbler
 #define MOSI_PIN 12
 #define MISO_PIN 13
 #define SCK_PIN 14
 #define CS_PIN 15
-#define DRIBBLER_IN1 34
-#define DRIBBLER_IN2 33
-#define DRIBBLER_NFAULT 35
-#define NSLEEP_PIN 36
-#define DRVOFF_PIN 37
-MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN);
-
-uint8_t dribbler_maxspeed = 80;
-Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, dribbler_maxspeed, 1.0);
-float lastFault = 0;
+#define DRIBBLER_IN1 47
+#define DRIBBLER_IN2 48
+#define DRIBBLER_NFAULT 21
+#define NSLEEP_PIN 6
+#define DRVOFF_PIN 7
+#define IPROPI_PIN 5
+MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN, IPROPI_PIN);
+Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, drib.maxspeed, 1.0);
 
 // Kicker
-#define KICKER_PIN 42
+#define KICKER_PIN 11
+#define KICKER_SW 8
 Kicker kicker(KICKER_PIN);
 
-// Line Sensors
-#define NUM_LINE_MUX 4
+// PID
+float pid_def_rotate_default[3] = {101, 0, 0}; // 0.7
+float pid_def_x_default[3] = {140, 0, 0}; // 3.5
+float pid_def_y_default[3] = {140, 0, 0}; // 3.5
+
+float pid_att_rotate_default[3] = {14, 0, 0};
+float pid_att_x_default[3] = {140, 0, 0};
+float pid_att_y_default[3] = {140, 0, 0};
+float pid_att_rotate_bc[3] = {12, 0, 0};
+
+PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
+PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000);
+PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000);
+
+// Strategies
+#define CHANGE_TIME 5000
+#define NUM_STRAT_TYPES 3
+#define NUM_NO_BALL_STRAT 1
+#define NUM_BALL_STRAT 1
+#define NUM_SCORE_STRAT 2
+#define MAX_NUM_STRATS 2
+int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
+int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{0}, {7, 10}, {6, 8}};
+int ss[NUM_SCORE_STRAT] = {9, 15};
+
+// Variables
+float lastLoopTime = 0;
+float speed_xdir, speed_ydir, rotation;
 
 // ESP Bluetooth Communication
+float esp_last_send = 0;
 uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
 uint8_t own_mac_address[6];
 typedef struct struct_message {
-    int isPresent;
-    bool def;
-    float xpos; 
-    float ypos;
-    bool hasBall; 
-    bool inField;
+    int isPresent = 0;
+    float xpos = 0; 
+    float ypos = 0;
+    float heading = 0;
+    bool hasBall = false; 
+    int botID_comm = 0;
+    int bh_ready = 0;
+    int bh_stage = 0; //aaaaaaaa
+    int type = 0;
+    bool noBall = true;
+    float ballx = 0;
+    float bally = 0;
 } struct_message;
 struct_message espnowData;
 struct_message espnowDataRecv;
+struct_message default_message;
 
-// Wifi / WebSerial Debugging
-#define WEB_PRINT_DELAY 50
-AsyncWebServer server(80);
+// Game logic
+#define MAX_DEF_Y 0.80
 
-const char* ssid = "heeheehaahaaheeheehaahaa"; // WiFi SSID
-const char* password = "lipofire"; // WiFi Password
-int lastWebPrintTime = 0;
-
-// Thresholds
-#define BALLCAP_DURATION 250
-#define ALIGNED_THRESHOLD 0.015f
-#define MOVING_BACK_DURATION 200
-#define INITIAL_CHANGE 35.0f
-#define GRADUAL_CHANGE 250.0f
-#define ALIGN_DURATION 2000
-#define ALIGN_THRESHOLD 3000
-#define BALLCAP_DISTANCE -0.10f
-#define BALLCAP_WIDTH 0.0335f
-#define CLEARANCE_X 0.20f
-#define CLEARANCE_Y 0.15f
-#define FIELD_MARGIN 0.12f
-#define FIELD_MARGIN_X 0.51f
-#define FIELD_MARGIN_Y 0.37f
-#define LAST_SEEN_BALL_TIME 1000
-#define SCORING_WAIT_TIME 500
-#define DEFENDER_WAIT_TIME 1500
-#define DEFENDER_MAX_YPOS 0.70
-#define ATTACKER_MIN_BALL_YPOS 0.70
-#define OSCILLATE_WAIT_TIME 2000
-
-// Variables
-float self_x = 0, self_y = 0, self_heading = 0;
-float top_ball_angle = 0, top_ball_dist = 0;
-float ball_vx = 0, ball_vy = 0;
-float top_ball_vx = 0, top_ball_vy = 0;
-float top_relative_ball_x = 0, top_relative_ball_y = 0;
-float top_absolute_ball_x = 0, top_absolute_ball_y = 0;
-float front_ball_x = 0, front_ball_y = 0, front_ball_vx = 0, front_ball_vy = 0;
-float front_relative_ball_x = 0, front_relative_ball_y = 0;
-float front_absolute_ball_x = 0, front_absolute_ball_y = 0;
-float final_ball_dist = 0, final_absolute_ball_x = 0, final_absolute_ball_y = 0;
-float last_ball_x = 0, last_ball_y = 0;
-int current_target_x = 999, current_target_y = 999;
-float self_velocityx = 0, self_velocityy = 0;
-float last_self_x = 0, last_self_y = 0;
-unsigned long last_vel_time = 0;
-bool otherBotExists = false;
-bool reachTargetOscillation = false;
-float reachOscillatePointTime = 0;
-
-float line_status[NUM_LINE_MUX];
-bool noBall = false, ballCap = false, isTilted = false, isOnLine = false;
-bool oscillateState = false, ballHideState = false;
-float lastLoopTime = 0, lastBallCap = 0, lastNoBallCap = 0, lastSeenBall = millis();
-float speed_xdir, speed_ydir, rotation;
-float lastDribblerRev = 0;
-float other_x = 0, other_y = 0;
-bool isDefender = true;
-bool lookingAhead = false;
-
-bool moving_back = false;
-unsigned long last_moving_back = 0;
-bool aligned = false;
-float initial_change = 0.0f, initial_magnitude = 0.0f;
-unsigned long last_aligning = 0;
-bool time_to_score = false;
 
 //// ** FUNCTIONS ** ////
-
-void setLED(int first, int last, uint32_t color){
-    for (int i=first; i<=last; i++){
-        strip.setPixelColor(i, color);
-    }
-    strip.show();
-}
-
-void readVoltage(){
-    float value = analogRead(VOLTAGE_PIN);
-    if(value < VOLTAGE_ANALOG_THRESH) setLED(0, LED_COUNT, strip.Color(50, 0, 0));
-}
-
-void checkFault(){
-    bool faulted = false;
-    if(digitalRead(dribbler.nfault)==LOW) faulted = true;
-    if(faulted){
-        // Serial.println("faulted");
-        setLED(0, 0, strip.Color(15, 15, 15));
-        float curTime = millis();
-        if(curTime - lastFault >= 500){
-            dribblerMD.clearFault();
-            dribblerMD.readRegister(0b01000001);
-            lastFault = millis();
-        }
-    } 
-    else setLED(0, 0, strip.Color(0, 0, 0));
-}
-
-void initWiFi() {
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
-    Serial.print("Connecting to WiFi ..");
-    while (WiFi.status() != WL_CONNECTED) {
-        if(millis()-lastWebPrintTime>=1000) {
-            Serial.println("Wifi not connected");
-            lastWebPrintTime = millis();
-        }
-    }
-    WiFi.setTxPower(WIFI_POWER_8_5dBm);
-    Serial.println(WiFi.localIP());
-}
-
-void startWebSerial(){
-    initWiFi();
-
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        // request->send(200, "text/plain", "Webserial interface at http://" + WiFi.softAPIP().toString() + "/webserial");
-        request->send(200, "text/plain", "Webserial interface at http://" + WiFi.localIP().toString() + "/webserial");
-    });
-
-    // WebSerial is accessible at "<IP Address>/webserial" in browser
-    WebSerial.begin(&server);
-
-    /* Attach Message Callback */
-    WebSerial.onMessage([&](uint8_t *data, size_t len) {
-        Serial.printf("Received %u bytes from WebSerial: ", len);
-        Serial.write(data, len);
-        Serial.println();
-        WebSerial.println("Received Data...");
-        String d = "";
-            for(size_t i=0; i < len; i++){
-            d += char(data[i]);
-        }
-        WebSerial.println(d);
-    });
-
-    server.begin();
-}
-
-void readMacAddress(){ //read own mac address and set broadcast address to other bot
-    WiFi.mode(WIFI_STA);
-    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
-    if (ret == ESP_OK) {
-    // Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
-    //               own_mac_address[0], own_mac_address[1], own_mac_address[2],
-    //               own_mac_address[3], own_mac_address[4], own_mac_address[5]);
-    // } 
-    // else{
-    //     Serial.println("Failed to read MAC address");
-    // }
-    //const uint8_t MAC_1[6] = {0x34, 0x85, 0x18, 0xbc, 0xe0, 0x60}; //cooked
-    const uint8_t MAC_1[6] = {0x28, 0x37, 0x2f, 0x86, 0xce, 0x4c};
-    const uint8_t MAC_2[6] = {0x34, 0x85, 0x18, 0xbc, 0xf5, 0xe8};
-    const uint8_t MAC_3[6] = {0x28, 0x37, 0x2f, 0x86, 0xce, 0x4c}; 
-    if (memcmp(own_mac_address, MAC_1, 6) == 0){
-        memcpy(broadcastAddress, MAC_2, 6);
-    }
-    else if (memcmp(own_mac_address, MAC_2, 6) == 0){
-        memcpy(broadcastAddress, MAC_1, 6);
-    }
-    else{
-        memcpy(broadcastAddress, MAC_3, 6); //for testing
-    }
-    }
-}
-
 void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
-    // Serial.print("\r\nLast Packet Send Status:\t");
-    // Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+    Serial.print("\r\nLast Packet Send Status:\t");
+    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
-
+ 
 int lastRecvTime;
+#define RECV_TIME 2000
 void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
     memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
-    otherBotExists = true;
     lastRecvTime = millis();
+    comms.bh_stage = espnowDataRecv.bh_stage;
+    comms.xpos = espnowDataRecv.xpos;
+    comms.ypos = espnowDataRecv.ypos;
+    comms.isPresent = espnowDataRecv.isPresent;
+    comms.type = espnowDataRecv.type;
+    comms.hasBall = espnowDataRecv.hasBall;
+    Serial.println("Under onDataRecv");
+    DEBUG(espnowDataRecv.bh_stage);
+    DEBUG(comms.bh_stage);
     // DEBUG(espnowDataRecv.isPresent);
     // DEBUG(espnowDataRecv.inField);
     // DEBUG(espnowDataRecv.xpos);
     // DEBUG(espnowDataRecv.ypos);
     // DEBUG(espnowDataRecv.def);
     // DEBUG(espnowDataRecv.hasBall);
-   // Serial.println(espnowDataRecv.isPresent);
+    // Serial.println("received data");
 }
 
 void set_up_esp_now(){
-    // WiFi.disconnect(true);
-    // WiFi.mode(WIFI_STA);
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_STA);
 
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
@@ -365,320 +219,269 @@ void set_up_esp_now(){
     }
 }
 
+
+void readMacAddress(){ //read own mac address and set broadcast address to other bot
+    WiFi.mode(WIFI_AP_STA);
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
+    if (ret == ESP_OK) {
+    // Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+    //               own_mac_address[0], own_mac_address[1], own_mac_address[2],
+    //               own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    // } 
+    // else{
+    //     Serial.println("Failed to read MAC address");
+    // }
+    const uint8_t MAC_1[6] = {0xd8, 0x3b, 0xda, 0x7c, 0xf3, 0xc8}; // {0xd8, 0x3b, 0xda, 0x7c, 0x38, 0xa8}; // id 1 (defender)
+    const uint8_t MAC_2[6] = {0xfc, 0x01, 0x2c, 0x2d, 0xa6, 0x30}; // {0xd8, 0x3b, 0xda, 0x7c, 0x42, 0xc0}; // id 2 (attacker)
+    //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
+    if (memcmp(own_mac_address, MAC_1, 6) == 0){
+        memcpy(broadcastAddress, MAC_2, 6);
+        state.botID = 1;
+    }
+    else if (memcmp(own_mac_address, MAC_2, 6) == 0){
+        memcpy(broadcastAddress, MAC_1, 6);
+        state.botID = 2;
+    }
+    else{
+        memcpy(broadcastAddress, MAC_2, 6);
+        state.botID = 3;
+    }
+    }
+}
+
+bool ready_to_ballhide = false;
 void sendData(){ //send data here
     //Define what values to send
+    Serial.println("under SendData:");
+    DEBUG(state.ballhide_stage);
     espnowData.isPresent = 2;
-    espnowData.def = isDefender ? true : false;
-    espnowData.xpos = self_x;
-    espnowData.ypos = self_y;
-    espnowData.hasBall = ballCap ? true : false;
-    espnowData.inField = isTilted ? false: true;
+    espnowData.xpos = self.x;
+    espnowData.ypos = self.y;
+    espnowData.heading = self.heading;
+    espnowData.hasBall = ball.ballCap > 0 ? true : false;
+    espnowData.botID_comm = state.botID;
+    espnowData.bh_ready = state.ready_to_shoot;
+    espnowData.bh_stage = state.ballhide_stage;
+    espnowData.type = state.botType;
+    espnowData.noBall = ball.commedball ? true : ball.noBall;
+    espnowData.ballx = ball.absolute_x;
+    espnowData.bally = ball.absolute_y;
+    DEBUG(state.ballhide_stage);
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espnowData, sizeof(espnowData));
 
-    // switch (result) {
-    //     case ESP_OK:
-    //         Serial.println("✅ ESP-NOW: Data sent successfully.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_NOT_INIT:
-    //         Serial.println("❌ ESP-NOW: Not initialized.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_ARG:
-    //         Serial.println("❌ ESP-NOW: Invalid argument.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_INTERNAL:
-    //         Serial.println("❌ ESP-NOW: Internal error.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_NO_MEM:
-    //         Serial.println("❌ ESP-NOW: Out of memory.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_NOT_FOUND:
-    //         Serial.println("❌ ESP-NOW: Peer not found.");
-    //         break;
-    //     case ESP_ERR_ESPNOW_IF:
-    //         Serial.println("❌ ESP-NOW: Interface error.");
-    //         break;
-    //     default:
-    //         Serial.print("❌ ESP-NOW: Unknown error: ");
-    //         Serial.println(result);
-    //         break;
-    // }
+    switch (result) {
+        case ESP_OK:
+            Serial.println("✅ ESP-NOW: Data sent successfully.");
+            break;
+        case ESP_ERR_ESPNOW_NOT_INIT:
+            Serial.println("❌ ESP-NOW: Not initialized.");
+            break;
+        case ESP_ERR_ESPNOW_ARG:
+            Serial.println("❌ ESP-NOW: Invalid argument.");
+            break;
+        case ESP_ERR_ESPNOW_INTERNAL:
+            Serial.println("❌ ESP-NOW: Internal error.");
+            break;
+        case ESP_ERR_ESPNOW_NO_MEM:
+            Serial.println("❌ ESP-NOW: Out of memory.");
+            break;
+        case ESP_ERR_ESPNOW_NOT_FOUND:
+            Serial.println("❌ ESP-NOW: Peer not found.");
+            break;
+        case ESP_ERR_ESPNOW_IF:
+            Serial.println("❌ ESP-NOW: Interface error.");
+            break;
+        default:
+            Serial.print("❌ ESP-NOW: Unknown error: ");
+            Serial.println(result);
+            break;
+    }
 }
 
-int assignDefBuffer = 4;
-int defCount = 0;
-int atkCount = 0;
-void assignDef(){
-    // from lowest to highest priority
-    if(espnowDataRecv.def == true){  //check if other bot is defending
-        defCount++;
-        atkCount = 0;
-        if(defCount >= assignDefBuffer){
-            isDefender = false;
-           // defCount = 0;
+void sendMidPlateData(){
+    int rounded_coord_x = floor(self.x * 128);
+    int rounded_coord_y = floor(self.y * 128);
+    int uart_heading = floor(abs(self.heading) * 128);
+
+    midSendBuffer[0] = 5;
+    midSendBuffer[1] = rounded_coord_x & 0xFF;
+    midSendBuffer[2] = (rounded_coord_x >> 8) & 0xFF;
+    midSendBuffer[3] = rounded_coord_y & 0xFF;
+    midSendBuffer[4] = (rounded_coord_y >> 8) & 0xFF;
+
+    if(copysign(1, self.heading)==1) midSendBuffer[5] = 1;
+    else midSendBuffer[5] = 0;
+    midSendBuffer[6] = uart_heading & 0xFF;
+    midSendBuffer[7] = (uart_heading >> 8) & 0xFF;
+    
+    Wire.beginTransmission(MID_I2C_ADDR);
+    Wire.write(midSendBuffer, MID_I2C_SEND_DATA_LEN);
+    Wire.endTransmission();
+}
+
+void getMidPlateData(){
+    byte num_bytes = Wire.requestFrom(MID_I2C_ADDR, MID_I2C_RCV_DATA_LEN);
+    if(num_bytes != MID_I2C_RCV_DATA_LEN){
+        DEBUG(num_bytes);
+        Serial.print("Received bad data: ");
+        return;
+    }
+    // else Serial.print("Received: ");
+    for (int i=0; i<MID_I2C_RCV_DATA_LEN; i++) {
+        if (Wire.available()) {
+            midRcvBuffer[i] = Wire.read();
         }
     }
-    else if (espnowDataRecv.def == false){
-        atkCount++;
-        defCount = 0;
-        if(atkCount >= assignDefBuffer){
-            isDefender = true;
-           // atkCount = 0;
-        }
-    }    
-    if(isTilted){
-        isDefender = false;
+    if(midRcvBuffer[0]!=firstbyte) {
+        // Serial.print("Received mid bad data");
+        return;
     }
-    if(ballCap && millis() - lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
-        isDefender = false;
+    ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
+    ball.dist = (float)(midRcvBuffer[3] + (midRcvBuffer[4]<<8)) / 128;
+
+    if(midRcvBuffer[5] == 1) {
+        goal.frontPathClear = true;
+        // leds.setPixelColor(1, leds.Color(0, 15, 0));
     }
-    if(espnowDataRecv.inField == false || otherBotExists == false){ //check if the other bot is in the field
-        isDefender = true;
+    else {
+        goal.frontPathClear = false;
+        // leds.setPixelColor(1, leds.Color(0, 0, 15));
     }
-    //DEBUG(espnowDataRecv.inField);
+    // DEBUG(goal.frontPathClear);
+    // leds.show();
+    goal.open_rows_start = midRcvBuffer[6];
+    goal.open_rows_end = midRcvBuffer[7];
+
+    if(ball.angle==0 && ball.dist==0) {
+        ball.noBall = true;
+    }
+    else {
+        ball.noBall = false;
+        ball.lastSeenBall = millis();
+    }
+    // DEBUG(ball.angle);
+    // DEBUG(ball.dist);
+
+    float relative_angle = 90 - (ball.angle + self.heading); 
+    ball.relative_x = (ball.dist * cosf(RAD(relative_angle))) / 100;
+    ball.relative_y = (ball.dist * sinf(RAD(relative_angle))) / 100;
+
+    ball.absolute_x = ball.relative_x + self.x;
+    ball.absolute_y = ball.relative_y + self.y;
+
+    // DEBUG(ball.absolute_x);
+    // DEBUG(ball.absolute_y);
 }
 
 void getTopPlateData(){
-    if(Serial2.available()>=PICO_SERIAL_DATA_LEN){
-        while(Serial2.available()>=PICO_SERIAL_DATA_LEN && Serial2.peek()!=5) {
-            Serial.println("Pico first byte not 5");
-            Serial2.read();
-        }
-        int len = Serial2.readBytes(uartBufferPico, PICO_SERIAL_DATA_LEN);
-        // while(Serial2.available()) Serial2.read();
-        if(len!=PICO_SERIAL_DATA_LEN || uartBufferPico[0]!=5){
-            Serial.print("Received bad data: length: ");
-            Serial.print(len);
-            Serial.print(", data: ");
-            for (auto i : uartBufferPico) {
-                Serial.print(i);
-                Serial.print(" ");
-            }
-        }
-        else{
-            self_x = (float)(uartBufferPico[1] + (uartBufferPico[2]<<8)) / 128;
-            self_y = (float)(uartBufferPico[3] + (uartBufferPico[4]<<8)) / 128;
-            self_heading = (float)(uartBufferPico[6] + (uartBufferPico[7]<<8)) / 128;
-            if(uartBufferPico[5]==0) self_heading *= -1;
-            if(uartBufferPico[8]==1) isTilted = true;
-            else isTilted = false;
-            setLED(1, 2, strip.Color(15, 0, 15));
-            // DEBUG(self_x);
-            // DEBUG(self_y);
-            // DEBUG(self_heading);
-        }
-    }
-    else setLED(1, 2, strip.Color(0, 15, 15));
-}
-
-void getTopCamData(){
-    if(Serial1.available()>=CAM_SERIAL_DATA_LEN){
-        while(Serial1.available()>=CAM_SERIAL_DATA_LEN && Serial1.peek()!=5) {
-            Serial.println("Camera first byte not 5");
-            Serial1.read();
-        }
-        int len = Serial1.readBytes(uartBufferCam, CAM_SERIAL_DATA_LEN);
-        // while(Serial1.available()) Serial1.read();
-        if(len!=CAM_SERIAL_DATA_LEN || uartBufferCam[0]!=5){
-            Serial.print("Received bad data: length: ");
-            Serial.print(len);
-            Serial.print(", data: ");
-            for (auto i : uartBufferCam) {
-                Serial.print(i);
-                Serial.print(" ");
-            }
-        }
-        else{
-            top_ball_angle = (float)(uartBufferCam[1] + (uartBufferCam[2]<<8)) / 128;
-            top_ball_dist = (float)(uartBufferCam[3] + (uartBufferCam[4]<<8)) / 128;
-            top_ball_vx = (float)(uartBufferCam[6] + (uartBufferCam[7]<<8)) / 128;
-            if(uartBufferCam[5] == 0) top_ball_vx *= -1;
-            top_ball_vy = (float)(uartBufferCam[9] + (uartBufferCam[10]<<8)) / 128;
-            if(uartBufferCam[8] == 0) top_ball_vy *= -1;
-
-            //top_ball_vy *= -1;
-            //top_ball_vx *= -1;
-                    
-            DEBUG(top_ball_angle);
-            DEBUG(top_ball_dist);
-            // DEBUG(top_ball_vx);
-            // DEBUG(top_ball_vy);
-
-            if(top_ball_angle==0 && top_ball_dist==0) {
-                noBall = true;
-                setLED(7, 8, strip.Color(0, 0, 15));
-            }
-            else {
-                noBall = false;
-                setLED(7, 8, strip.Color(0, 15, 0));
-                lastSeenBall = millis();
-            }
-
-            float relative_angle = 90 - (top_ball_angle + self_heading); 
-            top_relative_ball_x = (top_ball_dist * cosf(RAD(relative_angle))) / 100;
-            top_relative_ball_y = (top_ball_dist * sinf(RAD(relative_angle))) / 100;
-
-            ball_vx = top_ball_vx;
-            ball_vy = top_ball_vy;
-            ball_vx -= self_velocityx;
-            ball_vy -= self_velocityy;
-            top_absolute_ball_x = top_relative_ball_x + self_x;
-            top_absolute_ball_y = top_relative_ball_y + self_y;
-
-            final_ball_dist = top_ball_dist;
-            final_absolute_ball_x = top_absolute_ball_x;
-            final_absolute_ball_y = top_absolute_ball_y;
-
-            // DEBUG(ball_vx);
-            // DEBUG(ball_vy);
-            // DEBUG(top_relative_ball_x);
-            // DEBUG(top_relative_ball_y);
-            DEBUG(top_absolute_ball_x);
-            DEBUG(top_absolute_ball_y);
-        }
+    bool status = topUART.uartRead((byte)5);
+    if(status){
+        self.x = (float)(topBuffer[1] + (topBuffer[2]<<8)) / 128;
+        self.y = (float)(topBuffer[3] + (topBuffer[4]<<8)) / 128;
+        self.heading = (float)(topBuffer[6] + (topBuffer[7]<<8)) / 128;
+        if(topBuffer[5]==0) self.heading *= -1;
+        if(topBuffer[8]==1) switches.topOff = true;
+        else switches.topOff = false;
+        state.topStrat = topBuffer[9];
     }
 }
 
 void getBottomPlateData(){
-    byte num_bytes = Wire.requestFrom(I2C_RCV_PICO_ADDR, I2C_RCV_DATA_LEN);
-    if(num_bytes != I2C_RCV_DATA_LEN){
-        Serial.print("Received bad data: ");
-        setLED(3, 4, strip.Color(15, 15, 0));
+    byte num_bytes = Wire1.requestFrom(BOTTOM_I2C_ADDR, BOTTOM_I2C_DATA_LEN);
+    if(num_bytes != BOTTOM_I2C_DATA_LEN){
+        // Serial.print("Received bottom bad data: ");
         return;
     }
-    else Serial.print("Received: ");
-    for (int i=0; i<I2C_RCV_DATA_LEN; i++) {
-        if (Wire.available()) {
-            rcvBuffer[i] = Wire.read();
+    // else Serial.print("Received: ");
+    for (int i=0; i<BOTTOM_I2C_DATA_LEN; i++) {
+        if (Wire1.available()) {
+            bottomRcvBuffer[i] = Wire1.read();
         }
     }
-    rcvBuffer[I2C_RCV_DATA_LEN] = '\0';
-        
-    if(rcvBuffer[0]!=1) {
-        Serial.println("Bad data received");
-        setLED(3, 4, strip.Color(15, 15, 0));
-    }
-    else setLED(3, 4, strip.Color(0, 15, 0));
+    if(bottomRcvBuffer[0]!=firstbyte) {
+        // Serial.print("Received bad data");
+        return;
+    }   
 
-    front_ball_x = (float)(rcvBuffer[2] + (rcvBuffer[3]<<8)) / 128;
-    if(rcvBuffer[1]==0) front_ball_x *= -1;
-    front_ball_y = (float)(rcvBuffer[5] + (rcvBuffer[6]<<8)) / 128;
-    if(rcvBuffer[4]==0) front_ball_y *= -1;
-    front_ball_vx = (float)(rcvBuffer[8] + (rcvBuffer[9]<<8)) / 128;
-    if(rcvBuffer[7]==0) front_ball_vx *= -1;
-    front_ball_vy = (float)(rcvBuffer[11] + (rcvBuffer[12]<<8)) / 128;
-    if(rcvBuffer[10]==0) front_ball_vy *= -1;
+    ball.ballCap = bottomRcvBuffer[1];
+    if(ball.ballCap > 0) ball.lastBallCap = millis();
+    if(ball.ballCap == 0 && millis() - ball.lastBallCap <= BALLCAP_DURATION) ball.ballCap = 2;
+    if(ball.ballCap == 0) ball.lastNoBallCap = millis();
     
-    float front_ball_angle = 90 - DEG(atan2(front_ball_y, front_ball_x));
-    float front_ball_dist = sqrt(front_ball_x * front_ball_x + front_ball_y * front_ball_y);
-    float front_relative_angle = 90 - (front_ball_angle + self_heading); 
-    float front_relative_ball_x = (front_ball_dist * cosf(RAD(front_relative_angle))) / 100;
-    float front_relative_ball_y = (front_ball_dist * sinf(RAD(front_relative_angle))) / 100;
-    
-    front_absolute_ball_x = front_relative_ball_x + self_x;
-    front_absolute_ball_y = front_relative_ball_y + self_y;
+    self.line_status = bottomRcvBuffer[2];
+    if(self.line_status > 0) self.onLine = true;
+    else self.onLine = false;
 
-    if(front_ball_x!=0 && front_ball_y!=0){
-        // final_ball_dist = front_ball_dist;
-        // final_absolute_ball_x = front_absolute_ball_x;
-        // final_absolute_ball_y = front_absolute_ball_y;
-        setLED(6, 6, strip.Color(0, 15, 0));
-    }
-    else setLED(6, 6, strip.Color(0, 0, 15));
-    DEBUG(front_absolute_ball_x);
-    DEBUG(front_absolute_ball_y);
-    DEBUG(final_absolute_ball_x);
-    DEBUG(final_absolute_ball_y);
-
-    // DEBUG(front_ball_x);
-    // DEBUG(front_ball_y);
-    // DEBUG(front_ball_vx);
-    // DEBUG(front_ball_vy);
-
-    ballCap = (bool) rcvBuffer[LIDAR_GATE_POS];
-    // DEBUG(ballCap);
-    // if(ballCap) {
-    //     pid_rotate.setConfig(0.05, 0, 0);
-    //     pid_x.setConfig(1, 0, 0);
-    //     pid_y.setConfig(1, 0, 0);
-    // }
-    // else {
-    //     pid_rotate.setConfig(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2]);
-    //     pid_x.setConfig(pid_x_default[0], pid_x_default[1], pid_x_default[2]);
-    //     pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
-    // }
-
-    isOnLine = false;
-    for (uint8_t i=0; i<4; i++) {
-        line_status[i] = rcvBuffer[LINE_DATA_POS+i];
-        if(line_status[i]>0) isOnLine = true;
-    }
-    if(isOnLine) setLED(5, 5, strip.Color(15, 15, 15));
-    else setLED(5, 5, strip.Color(0, 0, 0));
+    // DEBUG(ball.ballCap);
+    // DEBUG(self.onLine);
 }
 
-void ballCapStatus(){
-    if(ballCap){
-        setLED(9, 10, strip.Color(15, 0, 15));
-        lastBallCap = millis();
-    }
-    else if(!noBall && self_y < final_absolute_ball_y && self_y > final_absolute_ball_y - BALLCAP_DISTANCE 
-        && abs(top_relative_ball_x) < BALLCAP_WIDTH / 2.0){
-            ballCap = true;
-            lastBallCap = millis();
-            setLED(9, 10, strip.Color(0, 15, 15));
-    }
-    else if(millis() - lastBallCap < BALLCAP_DURATION){
-        ballCap = true;
-        setLED(9, 10, strip.Color(15, 15, 15));
-    }
-    else {
-        lastNoBallCap = millis();
-        setLED(9, 10, strip.Color(15, 15, 0));
-    }
+void sendMotorData(){ // fill bottomSendBuffer with desired data before calling this function
+    bottomUART.uartWrite();
+}
+float dist(float x1, float y1, float x2, float y2){
+    return(sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)));
 }
 
-void sendI2C(byte (&buffer)[I2C_SEND_DATA_LEN]){
-    Wire.beginTransmission(I2C_SEND_PICO_ADDR);
-    Wire.write(buffer, I2C_SEND_DATA_LEN);
-    Wire.endTransmission();
-}
-
+#define NO_COLLIDE_RADIUS 0.25
 void movement(float target_x, float target_y, float target_rotation){
+
+    if(millis() - lastRecvTime <= RECV_TIME && dist(comms.xpos, comms.ypos, self.x, self.y) <= NO_COLLIDE_RADIUS){
+        DEBUG(dist(comms.xpos, comms.ypos, self.x, self.y));
+        float lx = self.x - comms.xpos; //find vector from comm bot position to target position
+        float ly = self.y - comms.ypos; 
+        lx /= pow((lx*lx + ly*ly), 0.5); //normalise vector
+        ly /= pow((lx*lx + ly*ly), 0.5);
+        float no_collide_x1 = comms.xpos + NO_COLLIDE_RADIUS * lx; //using normalised vector, find two points on circle that bot should go to
+        float no_collide_y1 = comms.ypos + NO_COLLIDE_RADIUS * ly;
+        float no_collide_x2 = comms.xpos - NO_COLLIDE_RADIUS * lx; 
+        float no_collide_y2 = comms.ypos - NO_COLLIDE_RADIUS * ly;
+
+        if(dist(self.x, self.y, no_collide_x1, no_collide_y1) < dist(self.x, self.y, no_collide_x2, no_collide_y2)){ //go to closer of two points
+            target_x = no_collide_x1;
+            target_y = no_collide_y1;
+        }
+        else{
+            target_x = no_collide_x2;
+            target_y = no_collide_y2;          
+        }
+    }
     target_x = constrain(target_x, 0.20, FIELD_WIDTH - 0.20);
-    if(self_x > FIELD_MARGIN_X && self_x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
+    if(self.x > FIELD_MARGIN_X && self.x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
     else target_y = constrain(target_y, 0.20, FIELD_HEIGHT - 0.20);
 
-    if(isDefender) target_y = constrain(target_y, 0, DEFENDER_MAX_YPOS);
-    float x_dist = target_x - self_x, y_dist = target_y - self_y;
+    float x_dist = target_x - self.x, y_dist = target_y - self.y;
     float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
-    float total_angle = atan2(y_dist, x_dist) + RAD(self_heading) - PI/4; // in radians
+    // float total_angle = PI/2 - atan2(y_dist, x_dist) - RAD(self.heading); // in radians
+    float total_angle = atan2(y_dist, x_dist) + RAD(self.heading) - PI/4; // in radians
 
-    float rotation_dist = self_heading - target_rotation;
+    float rotation_dist = self.heading - target_rotation;
     while(rotation_dist > 180) rotation_dist -= 360;
     while(rotation_dist < -180) rotation_dist += 360;
 
     float shifted_x_dist = total_dist * sinf(total_angle);
     float shifted_y_dist = total_dist * cosf(total_angle);
 
-    if(ballCap){
-        max_translation_pid_value = 0.5;
-        max_rotation_pid_value = 0.25;
-    }
-    else {
-        max_translation_pid_value = 1;
-        max_rotation_pid_value = 1;
-    }
-
     speed_xdir = pid_x.compute(0, shifted_x_dist);
     speed_ydir = pid_y.compute(0, shifted_y_dist);
-    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), -max_rotation_pid_value, max_rotation_pid_value);
+    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), move.min_rotation, move.max_rotation);
 
     float maxPID = max(abs(speed_xdir), abs(speed_ydir));
-    if(maxPID > max_translation_pid_value){
-        float k = max_translation_pid_value/maxPID;
+    if(maxPID > move.max_translation){
+        float k = move.max_translation/maxPID;
         speed_xdir *= k;
         speed_ydir *= k;
+    }
+
+    if(abs(speed_xdir) > 2){
+        speed_xdir += copysign(move.x_offset, speed_xdir);
+    }
+    if(abs(speed_ydir) > 2){
+        speed_ydir += copysign(move.y_offset, speed_ydir);
+    }
+    if(abs(rotation) > 2){
+        rotation += copysign(move.rotation_offset, rotation);
     }
 
     uint8_t rotation_sign, speed_x_sign, speed_y_sign;
@@ -688,374 +491,173 @@ void movement(float target_x, float target_y, float target_rotation){
     else speed_x_sign = 0;
     if(copysign(1, speed_ydir)==1) speed_y_sign = 1;
     else speed_y_sign = 0;
-    uint8_t rounded_rotation = floor(abs(rotation) * 255);
-    uint8_t rounded_speed_x = floor(abs(speed_xdir) * 255);
-    uint8_t rounded_speed_y = floor(abs(speed_ydir) * 255);
+    uint8_t rounded_rotation = ((int)floor(abs(rotation))) & 0xFF;
+    uint8_t rounded_speed_x = ((int)floor(abs(speed_xdir))) & 0xFF;
+    uint8_t rounded_speed_y = ((int)floor(abs(speed_ydir))) & 0xFF;
 
-    sendBuffer[0] = 5;
-    sendBuffer[1] = speed_x_sign;
-    sendBuffer[2] = rounded_speed_x;
-    sendBuffer[3] = speed_y_sign;
-    sendBuffer[4] = rounded_speed_y;
-    sendBuffer[5] = rotation_sign;
-    sendBuffer[6] = rounded_rotation;
-
-    if(turnOff || isTilted) sendI2C(zeroBuffer);
-    else sendI2C(sendBuffer);
-}
-
-void oscillateAboutPoint(float pointx, float pointy, float oscillationDist){
-    float new_x = 0, new_y = pointy;
-    if(oscillateState) new_x = pointx - oscillationDist;
-    else new_x = pointx + oscillationDist;
-    float distToPoint = sqrt((new_x - self_x)*(new_x - self_x) + (new_y - self_y)*(new_y - self_y));
-    if(distToPoint <= 0.10) {
-        if(!reachTargetOscillation){
-            reachTargetOscillation = true;
-            reachOscillatePointTime = millis();
-        }
-    }
-    if(reachTargetOscillation && millis() - reachOscillatePointTime >= OSCILLATE_WAIT_TIME){
-        oscillateState = !oscillateState;
-        reachTargetOscillation = false;
-        reachOscillatePointTime = 0;
-    }
-    movement(new_x, new_y, 0);
-}
-
-// void ballTrack(){
-//     float absBallAngle = atan2(top_relative_ball_y - self_y, top_relative_ball_x - self_x);
-//     float goalToBallAngle = atan2(2.384 - top_relative_ball_y, 0.91 - top_relative_ball_x);
-//     float angleToFace = atan2(2.384 - self_y, 0.91 - self_x);
-//     if(absBallAngle <= 60 || absBallAngle >= 300){
-//         // movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.06, 90-DEG(angleToFace));
-//         movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.04, 0);
-//     }
-//     else{
-//         float new_x = self_x + top_relative_ball_x + 0.40 * cosf(goalToBallAngle);
-//         float new_y = self_y + top_relative_ball_y + 0.40 * sinf(goalToBallAngle);
-//         movement(new_x, new_y, 90-DEG(angleToFace));
-//         // movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.40, 90-DEG(angleToFace));
-//         // movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.40, 0);
-//     }
-//     // movement(self_x + top_relative_ball_x, self_y + top_relative_ball_y - 0.12, 90-DEG(angleToFace));
-// }
-
-void ballTrack(){ // CHANGE top to final maybe
-    aligned = false;
-    initial_change = 0.0;
-    initial_magnitude = 0.0;
-
-    float new_x, new_y;
-    if(self_y > top_absolute_ball_y) moving_back = true;
-    if((moving_back || millis() - last_moving_back > MOVING_BACK_DURATION) && 
-        (self_y > top_absolute_ball_y - BALLCAP_DISTANCE / 3.0 || 
-        (abs(self_x - top_absolute_ball_x) > BALLCAP_WIDTH / 2.0 + 0.05f && 
-        abs(self_x - top_absolute_ball_x) < CLEARANCE_X / 2.0 && 
-        self_y > top_absolute_ball_y - CLEARANCE_Y / 2.0))){
-            // Serial.println("case1");
-            if(top_absolute_ball_x < FIELD_MARGIN + CLEARANCE_X + 0.10f) new_x = top_absolute_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
-            else if(top_absolute_ball_x > FIELD_WIDTH - FIELD_MARGIN - CLEARANCE_X - 0.10f) new_x = top_absolute_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
-            else if (self_x > top_absolute_ball_x) new_x = top_absolute_ball_x + (CLEARANCE_X / 2.0 + 0.05f);
-            else new_x = top_absolute_ball_x - (CLEARANCE_X / 2.0 + 0.05f);
-            new_y = (abs(self_x - top_absolute_ball_x) > CLEARANCE_X / 2.0 + 0.03f) ? top_absolute_ball_y - CLEARANCE_Y / 2.0 - 0.10f : self_y;
-            moving_back = true;
+    bottomSendBuffer[0] = 5;
+    if(switches.turnOff || switches.topOff){
+        for (int i=1; i<BOTTOM_DATA_LEN; i++) bottomSendBuffer[i] = 0;
     }
     else{
-        // Serial.println("case2");
-        if(moving_back) {
-            moving_back = false;
-            last_moving_back = millis();
+        bottomSendBuffer[1] = speed_x_sign;
+        bottomSendBuffer[2] = rounded_speed_x;
+        bottomSendBuffer[3] = speed_y_sign;
+        bottomSendBuffer[4] = rounded_speed_y;
+        bottomSendBuffer[5] = rotation_sign;
+        bottomSendBuffer[6] = rounded_rotation;
+    }
+    sendMotorData();
+}
+
+void stop_motors(){
+    bottomSendBuffer[0] =  5;
+    for (int i=1; i<BOTTOM_DATA_LEN; i++) bottomSendBuffer[i] = 0;
+    sendMotorData();
+}
+
+int assignTypeBuffer = 4;
+int defCount = 0;
+int atkCount = 0;
+#define DEFENDER_WAIT_TIME 0
+int ballhide_strat = 1;
+void assignType(){
+    // from lowest to highest priority
+    if(state.botID == 1){
+        state.botType = 1;
+    }
+    else if(state.botID == 2){
+        state.botType = 2;
+    }
+    if(espnowDataRecv.type == 1){  //check if other bot is defending
+        atkCount++;
+        defCount = 0;
+        if(atkCount >= assignTypeBuffer){
+            state.botType = 2;
+           // defCount = 0;
         }
-        unsigned long aligning = millis() - last_aligning;
-        new_x = top_absolute_ball_x;
-        if((aligning > ALIGN_DURATION && aligning < ALIGN_THRESHOLD) || abs(self_x - top_absolute_ball_x) < BALLCAP_WIDTH / 2.0) 
-            new_y = fmax(top_absolute_ball_y - BALLCAP_DISTANCE, self_y + 0.03f) ;
-        else{
-            if (aligning > ALIGN_THRESHOLD) last_aligning = millis(); 
-            new_y = top_absolute_ball_y - BALLCAP_DISTANCE;
+    }
+    else if (espnowDataRecv.type == 2){ //check if other bot is attacking but not ballhiding
+        defCount++;
+        atkCount = 0;
+        if(defCount >= assignTypeBuffer){
+            state.botType = 1;
+           // atkCount = 0;
         }
-    }
-    // DEBUG(new_x);
-    // DEBUG(new_y);
-    movement(new_x, new_y, 0);
-}
-
-void dribblerBallTrack(){
-    float xToBall = final_absolute_ball_x - self_x, yToBall = final_absolute_ball_y - self_y;
-    float distToBall = sqrt(xToBall * xToBall + yToBall * yToBall);
-    float new_x = self_x + xToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
-    float new_y = self_y + yToBall * (distToBall - BALLCAP_DISTANCE) / distToBall;
-
-    float absBallAngle = atan2(yToBall, xToBall);
-    LIM_ANGLE_180(absBallAngle);
-    // DEBUG(absBallAngle);
-
-    movement(new_x, new_y, 90-DEG(absBallAngle));
-}
-
-void aim(){
-    if(!aligned){
-        // Serial.println("aim align");
-        if(abs(self_x - final_absolute_ball_x) < ALIGNED_THRESHOLD) aligned = true;
-        // DEBUG(self_x);
-        // DEBUG(top_absolute_ball_x);
-        movement(final_absolute_ball_x, self_y, 0);
-    }
-    else{
-        // Serial.println("aim accel");
-        float xToGoal = OPP_GOAL_CENTRE_X - self_x, yToGoal = OPP_GOAL_CENTRE_Y - self_y;
-        float distToGoal = sqrt(xToGoal * xToGoal + yToGoal * yToGoal);
-        float angleToGoal = PI/2 - atan2(yToGoal, xToGoal);
-        if(initial_change == 0){
-            initial_magnitude = distToGoal;
-            initial_change = max(0.0f, cosf(angleToGoal)) * INITIAL_CHANGE;
-        }
-        float change = initial_change + max(0.0f, initial_magnitude - distToGoal) / initial_magnitude * GRADUAL_CHANGE;
-        change = min(change, max(0.0f, (self_y + FIELD_MARGIN_Y)*100/cosf(angleToGoal)));
-        float new_x = self_x + change * sinf(angleToGoal) / 100;
-        float new_y = self_y + change * cosf(angleToGoal) / 100;
-        // DEBUG(change);
-        // DEBUG(new_x);
-        // DEBUG(new_y);
-        movement(new_x, new_y, DEG(angleToGoal));
-    }
-    float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_LEFT_X - self_x));
-    float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_RIGHT_X - self_x));
-    LIM_ANGLE_180(minAngleFace);
-    LIM_ANGLE_180(maxAngleFace);
-    if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
-    if(ballCap && self_y > 1.62 && (self_heading >= minAngleFace && self_heading <= maxAngleFace)) {
-        kicker.kick();
-    }
-}
-
-void dribblerAim(){
-    float angleToFace = atan2(OPP_GOAL_CENTRE_Y - self_y, OPP_GOAL_CENTRE_X - self_x);
-    movement(OPP_GOAL_MIDDLE_X, OPP_GOAL_MIDDLE_Y, 90-DEG(angleToFace));
-    float minAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_LEFT_X - self_x));
-    float maxAngleFace = 90-DEG(atan2(OPP_GOAL_Y - self_y, OPP_GOAL_RIGHT_X - self_x));
-    LIM_ANGLE_180(minAngleFace);
-    LIM_ANGLE_180(maxAngleFace);
-    if(minAngleFace > maxAngleFace) std::swap(minAngleFace, maxAngleFace);
-    if(ballCap && self_y > 1.62 && (self_heading >= minAngleFace && self_heading <= maxAngleFace)) {
-        kicker.kick();
-        dribbler.setSpeed(-1.0);
-        lastDribblerRev = millis();
-    }
-}
-
-// void transitionState(){
-
-// }
-
-void ballHide(){
-    if(self_x < FIELD_WIDTH/2)  ballHideState = false; // left side
-    else ballHideState = true; // right side
-    if(self_y > 1.90) dribblerAim();
-    else if(self_x > 0.35 && self_x < FIELD_WIDTH - 0.35){
-        // move to side of field
-        if(ballHideState) movement(FIELD_WIDTH - 0.25, self_y, 90);
-        else movement(0.25, self_y, -90);
-    }
-    else {
-        if(ballHideState) movement(FIELD_WIDTH - 0.25, 2.0, 90);
-        else movement(0.25, 2.0, -90);
-    }
-}
-
-void frontCamTrack(){ 
-    //turns bot to ball based on top cam, use if a more accurate front cam measurement is needed
-    float approx_future_x = top_absolute_ball_x + ball_vx * 0.2;
-    float approx_future_y = top_absolute_ball_y + ball_vy * 0.2;
-    movement(self_x, self_y, atan2(approx_future_x, approx_future_y));
-}
-
-void lookAhead(){
-    float v = 0.75;
-    float latency = 0;
-    bool validt = false;
-    bool useFrontCam = false;
-    bool lookAheadConfirm = false;
-    float t;
-    float LAball_x, LAball_y, LAball_vx, LAball_vy;
-
-    // if((abs(self_x - current_target_x) >= 0.2 && abs (self_y - current_target_y) >= 0.2) && (current_target_x != 999) && (current_target_y != 99)){ //moving to target
-         //lookingAhead = true;
-    // }
-    // else{ //arrived at target
-         //lookingAhead = false;
-    // }
-    lookingAhead = true;
-    if(useFrontCam){
-        frontCamTrack();
-        LAball_x = front_absolute_ball_x + ball_vx * latency;
-        LAball_y = front_absolute_ball_y + ball_vy * latency;
-        LAball_vx = front_ball_vx;
-        LAball_vy = front_ball_vy;
-    }
-    else{
-        LAball_x = top_absolute_ball_x + ball_vx * latency;
-        LAball_y = top_absolute_ball_y + ball_vy * latency;
-        LAball_vx = ball_vx;
-        LAball_vy = ball_vy;
-        LAball_vx -= self_velocityx;
-        LAball_vy -= self_velocityy;
-        // DEBUG(LAball_vx);
-    }
-
-    float C = LAball_x*LAball_x + LAball_y*LAball_y;
-    float B = 2*(LAball_x*ball_vx + LAball_y*LAball_vy);
-    float A = LAball_vx*LAball_vx + LAball_vy*LAball_vy - v*v;
-    validt = false;
-
-    if (abs(A) > pow(10, -8) && (B*B - 4*A*C) >= 0){ //we get two solutions for time, so we want to find the minimum time that is not negative
-        float t1 = (-1*B - pow((B*B - 4*A*C), 0.5))/(2*A); 
-        float t2 = (-1*B + pow((B*B - 4*A*C), 0.5))/(2*A); 
-        if (t1 >= 0 && t2 >= 0){
-            t = min(t1, t2);
-            validt = true;
-        }
-        else if (t1 >= 0){
-            t = t1;
-            validt = true;
-        }
-        else if (t2 >= 0){
-            t = t2;
-            validt = true;
-        }  
-        lookAheadConfirm = true;
-    }
-
-    if(!validt){ //ball is too fast
-        // float theta_invalid_t;
-        // if (abs(LAball_vx) > pow(10, -8)){ 
-        //     theta_invalid_t = atan2(LAball_vy,LAball_vx);}
-        // else{theta_invalid_t = 3.1415/2;}
-        // LAball_vx = 0.9*v*cos(theta_invalid_t); // if magnitude of ball's velocity is less than bot's velocity, it should be interceptable regardless of direction
-        // LAball_vy = 0.9*v*sin(theta_invalid_t);
-        lookingAhead = false;
-        //sendI2C(zeroBuffer);
-        dribblerBallTrack();
-        lookAheadConfirm = false;
     }  
+    if(ballhide_strat == 1){
+        #ifdef SINGLE_BOT // IMPT TESTTTT
+        if(ball.ballCap > 0) state.botType = 3;
+        else if(espnowDataRecv.type == 3) state.botType = 1; // go to defend if other bot is ballcapped
+        #else
+        if(ball.ballCap == 0 && espnowDataRecv.hasBall == false) state.botType = state.botID;
+        else if(ball.ballCap > 0){ // switch states but just dont move yet
+        // if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
+            state.botType = 3; //switch to scoring
+        } 
+        else if (espnowDataRecv.type == 3){ //check if other bot is scoring
+            state.botType = 3; //switch to 3 to help with ballhide
+        }
+        #endif
+    }
+    else if (ballhide_strat == 2){
+        if(espnowDataRecv.type == 4){ //grr
+            state.botType = 5; //switch to leading
+            times.lastBallhideTime = millis();                
+
+        } 
+        else if (ball.ballCap > 0){ //check if other bot is leading
+            state.botType = 4; //switch to following to help with ballhide
+            times.lastBallhideTime = millis();                
+        }
+        else{
+            if(abs(times.curTime - times.lastBallhideTime) > 2000){
+                state.ballhide_stage = 0; //reset for next ballhide
+            }
+        } 
+    }     
+    if(switches.turnOff || switches.topOff){ //check if bot is off
+        state.botType = 0;
+        // DEBUG(switches.turnOff);
+        // DEBUG(switches.topOff);
+    }
     
+    //DEBUG(espnowDataRecv.inField);
+}
+//// ** TESTING ** ////
 
-    //assume front is facing towards positive y
-    float targetballposx = LAball_x + LAball_vx*t;
-    float targetballposy = LAball_y + LAball_vy*t;
-    //float targetheadinglookahead = atan2(targetballposx,targetballposy) * (180/3.1415) + 90; 
-    // targetballposx = (targetballposx + self_x);
-    // targetballposy = (targetballposx + self_y);
-
-    // DEBUG(self_x);
-    // DEBUG(self_y);
-    // DEBUG(LAball_x);
-    // DEBUG(LAball_y);
-    // DEBUG(LAball_vx);
-    // DEBUG(LAball_vy);
-    // DEBUG(t);
-    // DEBUG(targetballposy);
-    // DEBUG(targetballposx);
-
-    if (lookAheadConfirm){
-        float xToBall = top_absolute_ball_x - self_x, yToBall = top_absolute_ball_y - self_y;
-        float absBallAngle = atan2(yToBall, xToBall);
-        movement(targetballposx, targetballposy, 90-DEG(absBallAngle));
-        current_target_x = targetballposx;
-        current_target_y = targetballposy;
-        Serial.println("Moving to new target");
-    }
+void motorTest(){
+    bottomSendBuffer[0] = 5;
+    bottomSendBuffer[1] = 1;
+    bottomSendBuffer[2] = 0;
+    bottomSendBuffer[3] = 1;
+    bottomSendBuffer[4] = 0;
+    bottomSendBuffer[5] = 1;
+    bottomSendBuffer[6] = 30;
+    sendMotorData();
 }
 
-//velocity of robot with moving average
-
-void updateSelfVelocityEWMA(float current_self_x, float current_self_y) {
-    unsigned long now = millis();
-    float dt = (now - last_vel_time) / 1000.0f; 
-    if (dt < 1e-6f) {
-        return;
-    }
-
-    float inst_vx = (current_self_x - last_self_x) / dt;  
-    float inst_vy = (current_self_y - last_self_y) / dt;  
-
-    // Exponential Weighted Moving Average update, beta parameter used = 0.8
-    self_velocityx = 0.2f * inst_vx + (0.8f) * self_velocityx;
-    self_velocityy = 0.2f * inst_vy + (0.8f) * self_velocityy;
-
-    // Save current data for next iteration
-    last_self_x = current_self_x;
-    last_self_y = current_self_y;
-    last_vel_time   = now;
-}
-
-void defend(){
-    float leftAngle = atan2(SELF_GOAL_Y - final_absolute_ball_y, SELF_GOAL_LEFT_X - final_absolute_ball_x);
-    float rightAngle = atan2(SELF_GOAL_Y - final_absolute_ball_y, SELF_GOAL_RIGHT_X - final_absolute_ball_x);
-    float angleDiff = rightAngle - leftAngle;
-    LIM_ANGLE_180(angleDiff);
-    if(angleDiff < 0){
-        float tempAngle = leftAngle;
-        leftAngle = rightAngle;
-        rightAngle = tempAngle;
-        angleDiff = -angleDiff;
-    }
-    float midAngle = leftAngle + (angleDiff / 2);
-    float sinHalfAngle = sinf(angleDiff/2);
-    float new_x, new_y, newDistToBall;
-    // if(fabs(sinHalfAngle) , 1e-6f) newDistToBall = 9999.0f;
-    // else newDistToBall = BOT_RADIUS_M / sinHalfAngle;
-    newDistToBall = BOT_RADIUS_M / sinHalfAngle;
-    new_x = final_absolute_ball_x + newDistToBall * cosf(midAngle);
-    new_y = final_absolute_ball_y + newDistToBall * sinf(midAngle);
-    if(new_y > DEFENDER_MAX_YPOS){
-        float denom = (new_x - 0.91f);
-        float slope = (new_y - 0.12f)/ (denom);
-        new_y = DEFENDER_MAX_YPOS;
-        float dydefend = (new_y - 0.12f);
-        new_x = 0.91f + (dydefend / slope);
-    }
-    // DEBUG(new_x);
-    // DEBUG(new_y);
-    movement(new_x, new_y, 0);
+void moveForward(){
+    bottomSendBuffer[0] = 5;
+    bottomSendBuffer[1] = 1;
+    bottomSendBuffer[2] = 0;
+    bottomSendBuffer[3] = 1;
+    bottomSendBuffer[4] = 30;
+    bottomSendBuffer[5] = 1;
+    bottomSendBuffer[6] = 0;
+    sendMotorData();
 }
 
 //// ** LOOPS ** ////
 
 void setup(){
+    delay(5000); // wait to plug in mid plate power
     Serial.begin(115200);
 
-    Serial1.begin(115200, SERIAL_8N1, CAM_RX_PIN, CAM_TX_PIN);
-    Serial2.begin(115200, SERIAL_8N1, PICO_RX_PIN, PICO_TX_PIN);
+    bottomUART.init();
+    topUART.init();
 
-    pinMode(TURN_OFF_SW, INPUT);
-    pinMode(VOLTAGE_PIN, INPUT);
-    pinMode(PAUSE_SW1, INPUT);
-    pinMode(PAUSE_SW2, INPUT);
-    pinMode(STATE_SW, INPUT);
+    pinMode(DRIB_SW, INPUT);
+    pinMode(MOTOR_TEST_SW, INPUT);
+    // pinMode(VOLTAGE_PIN, INPUT);
+    // pinMode(PAUSE_SW1, INPUT);
+    // pinMode(PAUSE_SW2, INPUT);
+    // pinMode(STATE_SW, INPUT);
     analogSetAttenuation(ADC_11db);
 
     esp_task_wdt_init(2, true); // timeout in seconds
     enableLoopWDT();
 
-    Wire.begin(SDA_PIN, SCL_PIN, 400000);
-
-    for (int i=0; i<I2C_SEND_DATA_LEN; i++) zeroBuffer[i] = 0;
+    Wire.begin(MID_SDA_PIN, MID_SCL_PIN, 400000);
+    Wire1.begin(BOTTOM_SDA_PIN, BOTTOM_SCL_PIN, 400000);
 
     dribblerMD.init();
     dribblerMD.setMode();
 
-    startWebSerial();
+    pinMode(KICKER_SW, INPUT);
+
+    // startWebSerial();
     readMacAddress();
     set_up_esp_now();
+    esp_last_send = millis();
 
-    if(espnowDataRecv.isPresent == 2) isDefender = false;
-    else isDefender = true;
+    // if(espnowDataRecv.isPresent == 2) isDefender = false;
+    // else isDefender = true;
 
-    strip.begin();
-    strip.setBrightness(LED_BRIGHTNESS);
-    strip.show();
+    // strip.begin();
+    // strip.setBrightness(LED_BRIGHTNESS);
+    // strip.show();
+
+    state.lastType = 0;
+    state.curType = 0;
+    state.strategies = static_cast<State::Strategies>(0);
+    state.curStratIdx = 0;
+    state.lastChange = millis();
+
+
+    leds.begin();
+    leds.setBrightness(LEDS_BRIGHTNESS);
+    leds.show();
 
     esp_led.begin();
     esp_led.setBrightness(ESP_BRIGHTNESS);
@@ -1063,258 +665,543 @@ void setup(){
 
 }
 
-int esp_last_send;
-int LA_ball_seen;
-float prev_ball_vx, prev_ball_vy;
-float prev_prev_ball_vx, prev_prev_ball_vy;
 void loop(){
     // Serial.println("running main code");
-    float curTime = millis();
-    //Serial.print("time: ");
-    //Serial.println(curTime - lastLoopTime);
-    lastLoopTime = millis();
-    DEBUG(isDefender);
-    if(millis() - lastLED >= BLINK_TIME){
-        esp_led_state = !esp_led_state;
-        lastLED = millis();
-    }
-    if(esp_led_state) esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
-    else esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
-    esp_led.show();
+    times.curTime = millis();
+    // Serial.print("time: ");
+    // Serial.println(times.curTime - lastLoopTime);
+    // lastLoopTime = millis();
 
-    if(digitalRead(TURN_OFF_SW)==LOW) turnOff = true;
-    else turnOff = false;
+    // if(millis() - lastLED >= BLINK_TIME){
+    //     esp_led_state = !esp_led_state;
+    //     lastLED = millis();
+    // }
+    // if(esp_led_state) esp_led.setPixelColor(0, esp_led.Color(0, 50, 0));
+    // else esp_led.setPixelColor(0, esp_led.Color(0, 0, 0));
+    // esp_led.show();
 
-    //readVoltage();
-    checkFault();
     getTopPlateData();
-    getTopCamData();
+    getMidPlateData();
+    // sendMidPlateData();
     getBottomPlateData();
 
-    ballCapStatus();
+    if(digitalRead(MOTOR_TEST_SW)==HIGH){
+        if(!switches.motorTest){
+            times.motorTestPressed = millis();
+            switches.motorTest = true;
+        }
+        if(millis() - times.motorTestPressed >= times.motorTestWait) motorTest();
+        else stop_motors();
+        return;
+    }
+    else switches.motorTest = false;
 
-    if(digitalRead(STATE_SW)==HIGH && millis() - lastStateSwap >= STATE_SWAP_TIME){
-        codeState++;
-        codeState %= TOTAL_STATES;
+    if(digitalRead(DRIB_SW)==HIGH) switches.dribOff = false;
+    else switches.dribOff = true;
+
+    move.kick = false;
+    move.dont_move = false;
+    // DEBUG(self.x);
+    // DEBUG(self.y);
+
+    // temp ball cap via cam
+    // if(!ball.noBall && (ball.angle > 345 || ball.angle < 23) && ball.dist <= 10 /*in cm*/) {
+    //     ball.ballCap = 2;
+    //     ball.lastBallCap = millis();
+    // }
+    // else if(millis() - ball.lastBallCap <= 1000) ball.ballCap = 2;
+    // else {
+    //     ball.ballCap = 0; 
+    //     ball.lastNoBallCap = millis();
+    // }
+
+    if(ball.noBall && millis() - ball.lastSeenBall <= LAST_SEEN_BALL_TIME){ //using memory
+        ball.absolute_x = ball.last_x;
+        ball.absolute_y = ball.last_y;
+        ball.dist = ball.last_dist;
+        ball.noBall = false;
+        ball.tooklastball = true;
+    }
+    else ball.tooklastball = false;
+
+    if(millis() - lastRecvTime > RECV_TIME){
+        espnowDataRecv = default_message;
     }
 
-    if(digitalRead(PAUSE_SW1)==HIGH || digitalRead(PAUSE_SW2)==HIGH){
-        isTilted = true;
+    if(ball.noBall && !espnowDataRecv.noBall){ // if do not see ball, but other bot does, use other bot's ball pos
+        ball.absolute_x = espnowDataRecv.ballx;
+        ball.absolute_y = espnowDataRecv.bally;
+        ball.relative_x = ball.absolute_x - self.x;
+        ball.relative_y = ball.absolute_y - self.y;
+        ball.dist = sqrt((self.x - ball.absolute_x)*(self.x - ball.absolute_x) + (self.y - ball.absolute_y)*(self.y - ball.absolute_y));
+        ball.noBall = false;
+        ball.commedball = true;
+        // DEBUG(ball.absolute_x);
+        // DEBUG(ball.absolute_y);
     }
-    
-    if (curTime - esp_last_send >= 500){
-        sendData();
-        esp_last_send = curTime;
-    }
-    updateSelfVelocityEWMA(self_x, self_y);
-    if(curTime - lastRecvTime > 1000){
-        otherBotExists = false;
-    }
-    assignDef();
-    // sendData();
+    else ball.commedball = false;
 
-    if(!isDefender){
-        LED_BRIGHTNESS = 255;
-    }
-    else{
-        LED_BRIGHTNESS = 60;
-    }
-    strip.setBrightness(LED_BRIGHTNESS);
-    strip.show();
+    assignType();
 
-    // Serial.printf("Own MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
-    //           own_mac_address[0], own_mac_address[1], own_mac_address[2],
-    //           own_mac_address[3], own_mac_address[4], own_mac_address[5]);
-    // Serial.printf("Broadcast: %02x:%02x:%02x:%02x:%02x:%02x\n",
-    //           broadcastAddress[0], broadcastAddress[1], broadcastAddress[2],
-    //           broadcastAddress[3], broadcastAddress[4], broadcastAddress[5]);
-    // Serial.println(espnowDataRecv.isPresent);
+    #ifdef NO_COMMS
+    state.botType = state.botID + 10;
+    #endif
 
-    float last_ball_dist = sqrt(last_ball_x * last_ball_x + last_ball_y * last_ball_y);
-    // if(millis() - lastDribblerRev < 1000) ;
-    // else if(ballCap || (final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30)) dribbler.setSpeed(1.0);
-    // else if(noBall) dribbler.setSpeed(0);
-    // else dribbler.setSpeed(0.3);
-
-    if(codeState==0) setLED(11, 11, strip.Color(0, 15, 0)); // green
-    else if(codeState==1) setLED(11, 11, strip.Color(0, 15, 15)); // cyan
-    else setLED(11, 11, strip.Color(0, 0, 15)); // blue
-
-    // movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-
-    updateSelfVelocityEWMA(self_x, self_y);
-    if(millis()-lastWebPrintTime >= WEB_PRINT_DELAY){
-        WebSerial.printf("Vx: %f\n Vy: %f\n", self_velocityx, self_velocityy);
-        lastWebPrintTime = millis();
-    }
-
-    if (isDefender){
-        setLED(5, 5, strip.Color(0, 0, 15)); // blue
-        if(millis() - lastDribblerRev < 1000) ;
-        else if (ballCap) dribbler.setSpeed(1.0);
-        else if ((final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(0.8);
-        else if(noBall) dribbler.setSpeed(0);
-        else dribbler.setSpeed(0.3);
+    if(ball.ballCap != 0 && (state.botType == 1 || state.botType == 11)){
         pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
         pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
         pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
-        if (!ballCap){
-            if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
-                movement(0.91f, 0.60f, 0);
-            }
-            // 2) Else if the ball is within the no-chase region near the goal
-            else if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f &&
-                    final_absolute_ball_y < 0.25f)
-            {
-                movement(0.91f, 0.60f, 0);
-            }
-            // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
-            else if (final_absolute_ball_y <  DEFENDER_MAX_YPOS) {
-
-                if (final_absolute_ball_x > 0.62f && final_absolute_ball_x < 1.20f && final_absolute_ball_y < self_y){
-                    pid_rotate.setConfig(0.5, 0, 0);
-                    pid_x.setConfig(1.9, 0, 0);
-                    pid_y.setConfig(1.9, 0, 0);                
-                }
-                else {
-                    pid_rotate.setConfig(0.5, 0, 0);
-                    pid_x.setConfig(2.2, 0, 0);
-                    pid_y.setConfig(2.2, 0, 0);  
-                }
-                if (noBall) {
-                    final_absolute_ball_x = last_ball_x;
-                    final_absolute_ball_y = last_ball_y;
-                    dribblerBallTrack();
-                }
-                // 3b) If we DO see the ball => track it with the dribbler
-                else {
-                    dribblerBallTrack();
-                }
-                pid_rotate.setConfig(pid_def_rotate_default[0], pid_def_rotate_default[1], pid_def_rotate_default[2]);
-                pid_x.setConfig(pid_def_x_default[0], pid_def_x_default[1], pid_def_x_default[2]);
-                pid_y.setConfig(pid_def_y_default[0], pid_def_y_default[1], pid_def_y_default[2]);
-            }
-            // 4) Otherwise => geometry-based blocking
-            else {
-                defend();
-            }
-        }
-        else sendI2C(zeroBuffer);
-
     }
-    else {
-        setLED(5, 5, strip.Color(0, 15, 0)); // green
-        if(millis() - lastDribblerRev < 1000) ;
-        else if (ballCap) dribbler.setSpeed(1.0);
-        else if ((final_ball_dist>0 && final_ball_dist<=30) || (last_ball_dist>0 && last_ball_dist<=30 && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME)) dribbler.setSpeed(0.8);
-        else if(noBall) dribbler.setSpeed(0);
-        else dribbler.setSpeed(0.3);
-
+    else if(ball.ballCap == 0){
+        pid_rotate.setConfig(pid_att_rotate_bc[0], pid_att_rotate_bc[1], pid_att_rotate_bc[2]);
+        pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
+        pid_y.setConfig(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2]);
+    }
+    else{
         pid_rotate.setConfig(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2]);
         pid_x.setConfig(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2]);
         pid_y.setConfig(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2]);
+    }
 
-        if(codeState==2){
-            if(noBall) oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
-            else if(ballCap) aim();
-            else ballTrack();
+    // decide strategy type
+    switch (state.botType){
+    case 1:  //defender       
+        // state.curType = 1;
+        // state.curStratIdx = 0; //Defend
+        state.strategies = static_cast<State::Strategies>(7);
+        // state.lastChange = millis();
+        // Serial.println("defend"); 
+        break;
+    case 2: //attacker
+        if(ball.noBall && millis() - ball.lastSeenBall > 1500){
+            // state.curType = 0;
+            // state.curStratIdx = 0;
+            state.strategies = static_cast<State::Strategies>(2);
+        }
+        else{ 
+            // state.curType = 1;
+            // state.curStratIdx = 1; //lookahead
+            state.strategies = static_cast<State::Strategies>(10);
+            Serial.println("lookahead"); // here
+        }
+        // state.lastChange = millis();
+        break;
+    case 3: //scoring
+        #ifdef SINGLE_BOT
+        // if(millis() - state.lastChange >= CHANGE_TIME){
+        //     state.ssidx++;
+        //     state.ssidx %= NUM_SCORE_STRAT;
+        //     state.lastChange = millis();
+        // }
+        // state.strategies = static_cast<State::Strategies>(ss[state.ssidx]); // TEST IMPT
+        state.strategies = static_cast<State::Strategies>(9); 
+        #else
+        if(state.ready_to_shoot && (espnowDataRecv.bh_ready == true || espnowDataRecv.type != 3 || abs(times.bhScore_timeout - times.curTime) > 5000)){ 
+            //shoot if other bot ready or other bot not scoring or timeout reached
+            // state.curType = 2;
+            // state.curStratIdx = 0; //score
+            // Serial.println("score");
+            state.strategies = static_cast<State::Strategies>(6);
         }
         else{
-            if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap){
-                if(codeState==0) ballHide();
-                else if(codeState==1) dribblerAim();
-            }
-            else if(ballCap) sendI2C(zeroBuffer);
-            else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
-                final_absolute_ball_x = last_ball_x;
-                final_absolute_ball_y = last_ball_y;
-                dribblerBallTrack();
-            }
-            else if(!noBall && final_absolute_ball_y >= ATTACKER_MIN_BALL_YPOS){
-            // else if(!noBall){
-                dribblerBallTrack();
-                Serial.println("not my ball bro");
-            }
-            else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.60); 
-            // else movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+            // state.curType = 2;
+            // state.curStratIdx = 1; //ballhide
+            state.strategies = static_cast<State::Strategies>(8);
+            Serial.println("ballhide");            
         }
+        // state.lastChange = millis(); // idk
+        #endif
+        break;
+    case 4: //leading
+        if(state.ready_to_shoot){
+            state.strategies = static_cast<State::Strategies>(6);
+        }
+        else{
+            state.strategies = static_cast<State::Strategies>(11);
+        }
+        // state.lastChange = millis();
+        break;
+    case 5: //following
+        state.strategies = static_cast<State::Strategies>(12);
+        // state.lastChange = millis();
+        break;
+    default:
+        state.curType = 0;
+        state.curStratIdx = 0;
+        // Serial.println("out");
+        state.strategies = static_cast<State::Strategies>(0);
+        // state.lastChange = millis();
+        break;
     }
-    if(!noBall) {
-        last_ball_x = final_absolute_ball_x;
-        last_ball_y = final_absolute_ball_y;
-    }
-
-    WebSerial.loop();
-}
-
-/*
-#ifdef SECOND_BOT
+    DEBUG(state.botType);
+    // DEBUG(state.strategies);
+    // DEBUG(espnowDataRecv.type); // HEREEEEE
+    // DEBUG(state.botID);
+    // DEBUG(espnowDataRecv.type); // HEREE
+    // DEBUG(strats[state.curType][state.curStratIdx]);
     
-    // 1) If no ball and it's been too long, just stay put
-    if (noBall && (millis() - lastSeenBall) > LAST_SEEN_BALL_TIME) {
-        movement(0.91f, 0.60f, 0);
-    }
-    // 2) Else if the ball is within the no-chase region near the goal
-    else if (top_absolute_ball_x > 0.62f && top_absolute_ball_x < 1.20f &&
-             top_absolute_ball_y < 0.25f)
-    {
-        movement(0.91f, 0.60f, 0);
-    }
-    // 3) Else if the ball is behind the robot (y < 1.0f => "behind" threshold)
-    else if (top_absolute_ball_y <  0.60f) {
-        pid_rotate.setConfig(0.5, 0, 0);
-        pid_x.setConfig(2.2, 0, 0);
-        pid_y.setConfig(2.2, 0, 0);
-        if (noBall) {
-            top_absolute_ball_x = last_ball_x;
-            top_absolute_ball_y = last_ball_y;
-            dribblerBallTrack();
-        }
-        // 3b) If we DO see the ball => track it with the dribbler
-        else {
-            dribblerBallTrack();
-        }
-        pid_rotate.setConfig(pid_rotate_default[0], pid_rotate_default[1], pid_rotate_default[2]);
-        pid_x.setConfig(pid_x_default[0], pid_x_default[1], pid_x_default[2]);
-        pid_y.setConfig(pid_y_default[0], pid_y_default[1], pid_y_default[2]);
-    }
-    // 4) Otherwise => geometry-based blocking
-    else {
-        
-        defend();
+    state.ready_to_shoot = false; // set back for rechecking (after type is assigned)
 
+    if(ball.ballCap) {
+        // state.curType = 2; // score
+        leds.setPixelColor(1, esp_led.Color(15, 15, 15));
     }
-    #elif defined(LOOK_AHEAD)
-    if(noBall) movement(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
-    //else if(ballCap) aim();
-    else if(ball_vx > 0.10 || ball_vy > 0.10){
-        if(lookAheadDelay = false){
-            LA_ball_seen = curTime;
-            lookAheadDelay = true;
+    // else if(ball.noBall && millis() - ball.lastSeenBall <= 1000){
+    //     Serial.println("using last ball pos");
+    //     ball.absolute_x = ball.last_x;
+    //     ball.absolute_y = ball.last_y;
+    //     ball.dist = ball.last_dist;
+    //     // state.curType = 1;
+    //     leds.setPixelColor(1, esp_led.Color(50, 50, 50));
+    // }
+    else if(ball.noBall) {
+        // state.curType = 0; // no ball
+        leds.setPixelColor(1, esp_led.Color(0, 0, 15));
+    }
+    else {
+        // state.curType = 1; // ball track
+        leds.setPixelColor(1, esp_led.Color(0, 15, 0));
+    }
+    leds.show();
+
+    // if(ball.ballCap > 0 || ball.dist <= 20 || state.botType == 3 || state.botType == 4 || state.botType == 5 ){
+    if(ball.ballCap > 0 || ball.dist <= 20 || state.botType == 4 || state.botType == 5 ){
+        move.max_translation = move.translation_ballcap, move.min_translation = -move.translation_ballcap;
+        // rotation positive is counterclockwise
+        if(ball.ballCap == 1){
+            move.min_rotation = -move.rotation_ballcap;
         }
-        if(lookAheadDelay == true && LA_ball_seen - curTime >= 100){
-            lookAheadDelay = false;
-            lookAhead();
+        else move.min_rotation = -move.rotation_lowered;
+        if(ball.ballCap == 3){
+            move.max_rotation = move.rotation_ballcap;
         }
-        else{
-            lookAheadDelay = true;
-        }
+        else move.max_rotation = move.rotation_lowered;
     }
-    #elif defined(NO_DRIBBLER)
-    if(noBall) oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
-    else if(ballCap) aim();
-    else ballTrack();
-    #else
-    if(millis() - lastNoBallCap >= SCORING_WAIT_TIME && ballCap) ballHide();
-    else if(ballCap) sendI2C(zeroBuffer);
-    else if(noBall && millis() - lastSeenBall <= LAST_SEEN_BALL_TIME){
-        top_absolute_ball_x = last_ball_x;
-        top_absolute_ball_y = last_ball_y;
-        dribblerBallTrack();
-    }
-    else if(!noBall){
-        dribblerBallTrack();
-    }
-    else oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.31);
+    else{
+        move.max_translation = move.translation_default, move.min_translation = -move.translation_default;
+        move.max_rotation = move.rotation_default, move.min_rotation = -move.rotation_default;
+    } 
+
+    // decide specific strategy
+    // if(state.curType != state.lastType){
+    //     state.curStratIdx = 0;
+    //     state.lastChange = millis();
+    // }
+    // else if(millis() - state.lastChange > CHANGE_TIME){
+    //     state.curStratIdx++;
+    //     state.curStratIdx %= stratTypes[state.curType];
+    //     state.lastChange = millis();
+    // }
+    // state.strategies = static_cast<State::Strategies>(strats[state.curType][state.curStratIdx]);
+
+    // dribbler setting speed (may be changed again in strategies)
+    if(switches.turnOff || switches.topOff || switches.dribOff) drib.desired = 0;
+    else if(ball.ballCap > 0) drib.desired = drib.maxspeed;
+    else if(ball.dist <= 20) drib.desired = drib.track_speed;
+    else if(ball.dist <= 40) drib.desired = drib.track_speed/2;
+    else if(ball.noBall) drib.desired = 0;
+
+    #ifdef TESTING
+    state.strategies = State::Strategies::LOOK_AHEAD;
     #endif
-*/
+
+    if(state.botType == 11) state.strategies = State::Strategies::DEFEND_BASIC;
+    else if(state.botType == 12) state.strategies = State::Strategies::ATTACK_BASIC;
+
+    // carry out the strategy
+    switch (state.strategies){
+        case State::Strategies::NONE:
+            // any testing code
+            bot.moveToPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+            break;
+
+        case State::Strategies::MOVE_TO_POINT:
+            // Serial.println("move to centre");
+            bot.moveToPoint(FIELD_WIDTH/2, 0.80 /* FIELD_HEIGHT/2 */, 0);
+            break;
+        
+        case State::Strategies::OSCILLATE_ABOUT_POINT:
+            // Serial.println("oscillate");
+            bot.oscillateAboutPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0.80);
+            break;
+
+        case State::Strategies::NO_DRIBBLER_BALL_TRACK:
+            // Serial.println("no dribbler ball track");
+            bot.ballTrack();
+            break;
+        
+        case State::Strategies::DRIBBLER_BALL_TRACK:
+            // Serial.println("dribbler ball track");
+            bot.dribblerBallTrack();
+            break;
+        
+        case State::Strategies::NO_DRIBBLER_SCORE:
+            // Serial.println("no dribbler score");
+            bot.aim();
+            break;
+        
+        case State::Strategies::DRIBBLER_SCORE:
+            // Serial.println("dribbler score");
+            state.ready_to_shoot = true;
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
+                // leds.setPixelColor(7, leds.Color(15, 15, 15));
+                // leds.show();
+                move.dont_move = true;
+                break;
+            }
+            bot.dribblerAim();
+            break;
+        
+        case State::Strategies::DEFEND:
+            // Serial.println("defend");
+            bot.triggerDefend();
+            // if(move.y > MAX_DEF_Y){
+            //     move.y = MAX_DEF_Y;
+            // }
+            break;
+
+        case State::Strategies::BALLHIDE: //ballhide + decoy
+            // Serial.println("ball hide");
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
+                leds.setPixelColor(7, leds.Color(15, 15, 15));
+                leds.show();
+                Serial.println("im not moving");
+                move.dont_move = true;
+                break;
+            }
+            // if(state.ready_to_shoot) {
+            //     leds.setPixelColor(7, leds.Color(0, 0, 15));
+            //     leds.show();
+            //     bot.dribblerAim();
+            //     break;
+            // }
+            if(espnowDataRecv.type == 0){ // other bot is off
+                if(self.x < FIELD_WIDTH/2) state.goleft = true;
+                else state.goleft = false;
+            }
+            else if(self.x < espnowDataRecv.xpos) state.goleft = true;
+            else state.goleft = false;
+            // if(self.x < espnowDataRecv.xpos){
+            if(state.goleft){
+                if (bot.ballHideLeft()){
+                    state.ready_to_shoot = true; 
+                    move.dont_move = true;
+                    if(times.bhScore_timeout == 0){
+                        times.bhScore_timeout = times.curTime;
+                    } 
+                }
+                else{
+                    state.ready_to_shoot = false;
+                    times.bhScore_timeout = 0;
+                }
+            }
+            // else if(self.x > espnowDataRecv.xpos){
+            else{
+                if (bot.ballHideRight()){
+                    leds.setPixelColor(7, leds.Color(0, 15, 0));
+                    leds.show();
+                    state.ready_to_shoot = true; 
+                    if(times.bhScore_timeout == 0){
+                        times.bhScore_timeout = times.curTime;
+                    }
+                    move.dont_move = true;
+                }
+                else{
+                    leds.setPixelColor(7, leds.Color(15, 0, 0));
+                    leds.show();
+                    state.ready_to_shoot = false;
+                    times.bhScore_timeout = 0;
+                }
+            }
+            break;
+        case State::Strategies::BALLHIDE_LEAD:
+            bot.ballHideLeader();
+            break;
+        case State::Strategies::BALLHIDE_FOLLOW:
+            bot.ballHideFollower();
+            break;
+        case State::Strategies::ATTACK_MODE2: // single ballhide IMPT TESTT
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
+                move.dont_move = true;
+                break;
+            }
+            if(state.topStrat == 1) {
+                bot.ballHideSide();
+                // bot.ballHideLeftOnly();
+            }
+            else bot.ballHideMid();
+            break;
+        
+        case State::Strategies::ATTACK_MODE3:
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
+                move.dont_move = true;
+                break;
+            }
+            if(state.topStrat == 1) {
+                bot.ballHideMid();
+            }
+            else bot.ballHideSide();
+            break;
+        
+        case State::Strategies::LOOK_AHEAD:
+            bot.triggerLookAhead();
+            break;
+        
+        case State::Strategies::ATTACK_BASIC:
+            if(ball.ballCap && (millis() - ball.lastNoBallCap < ball.ballCapTime || drib.speed < drib.reach_speed)){
+                move.dont_move = true;
+                break;
+            }
+            else if(ball.ballCap) bot.newScoring();
+            else if(ball.noBall) bot.moveToPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+            else bot.triggerLookAhead();
+            break;
+        
+        case State::Strategies::DEFEND_BASIC:
+            if(ball.ballCap){
+                if(millis() - ball.lastNoBallCap > DEFENDER_WAIT_TIME) bot.ballHideSide();
+                else move.dont_move = true;
+            }
+            else{
+                if (ball.noBall || (ball.absolute_x > 0.62f && ball.absolute_x < 1.20f && ball.absolute_y < 0.25f))
+                    bot.moveToPoint(FIELD_WIDTH/2, DEF_Y_DEFAULT, 0);
+                else if (ball.absolute_y <  0.80f) bot.dribblerBallTrack();
+                else bot.defend();
+            }
+            break;
+        
+        default:
+            bot.moveToPoint(FIELD_WIDTH/2, FIELD_HEIGHT/2, 0);
+            break;
+    }
+
+    if (state.botType != 0 && times.curTime - esp_last_send >= 250){
+        sendData();
+        esp_last_send = times.curTime;
+    }
+
+    // HEREEEEE EMM
+    if(!ball.ballCap && ball.noBall && espnowDataRecv.noBall && !espnowDataRecv.hasBall){
+        // if neither bot sees ball, go camp goals
+        if(state.botID == 1){
+            move.x = 0.52;
+            move.y = 0.37;
+        }
+        else {
+            move.x = 1.30;
+            move.y = 0.37;
+        }
+        move.rotation = 0;
+    }
+
+    if(state.botType == 1){
+        if(move.y > MAX_DEF_Y){
+            move.y = MAX_DEF_Y;
+        }
+    }
+    // else if(state.botType == 2 && espnowDataRecv.type != 0){
+    //     if(move.y < MAX_DEF_Y) move.y = MAX_DEF_Y;
+    // }
+
+    // send moving command to motors
+    if(switches.turnOff || switches.topOff) move.dont_move = true;
+    if(move.dont_move) stop_motors();
+    else movement(move.x, move.y, move.rotation);
+    // DEBUG(move.x);
+    // DEBUG(move.y);
+    // DEBUG(move.rotation); // here
+
+    // kicker check if can kick
+    if(move.kick) {
+        // check if can and want to kick, make dribbler backspin first
+        bool can_kick = kicker.check_time();
+        if(can_kick) drib.desired = -100;
+    }
+
+    // dribbler check current
+    drib.analogval = dribblerMD.checkCurrent();
+    drib.voltage = (drib.analogval / 4095) * 3.1;
+    if(!drib.avg_filled){
+        drib.v[drib.avg_cnt] = drib.voltage;
+        drib.sum_avg += drib.v[drib.avg_cnt];
+        drib.avgV = drib.sum_avg / (drib.avg_cnt+1);
+    }
+    else{
+        drib.sum_avg -= drib.v[drib.avg_cnt];
+        drib.v[drib.avg_cnt] = drib.voltage;
+        drib.sum_avg += drib.v[drib.avg_cnt];
+        drib.avgV = drib.sum_avg / drib.num_frames;
+    }
+    // Serial.printf("Average V: %f\n", drib.avgV);
+    drib.avg_cnt++;
+    if(!drib.avg_filled && drib.avg_cnt==drib.num_frames) drib.avg_filled = true;
+    if(drib.avg_cnt>=drib.num_frames) drib.avg_cnt %= drib.num_frames;
+
+    if(!drib.check_filled) {
+        if(drib.avgV > drib.max_voltage) drib.c[drib.check_cnt] = 1;
+        else drib.c[drib.check_cnt] = 0;
+        drib.sum_check += drib.c[drib.check_cnt];
+    }
+    else{
+        drib.sum_check -= drib.c[drib.check_cnt];
+        if(drib.avgV > drib.max_voltage) drib.c[drib.check_cnt] = 1;
+        else drib.c[drib.check_cnt] = 0;
+        drib.sum_check += drib.c[drib.check_cnt];
+    }
+    drib.check_cnt++;
+    if(!drib.check_filled && drib.check_cnt==drib.num_check) drib.check_filled = true;
+    if(drib.check_cnt>=drib.num_check) drib.check_cnt %= drib.num_check;
+
+    if(drib.sum_check >= drib.exceed_thresh * drib.num_check){
+        if(drib.speed == 0) drib.speed = 0;
+        else drib.speed -= copysign(drib.dec, drib.speed);
+    }
+    else{
+        if(abs(drib.speed) < drib.minspeed) drib.speed = copysign(drib.minspeed, drib.desired);
+        else{
+            int diff = drib.desired - drib.speed;
+            drib.speed += copysign(drib.inc, diff);
+            if((drib.desired >= 0 && drib.speed > drib.desired) || (drib.desired < 0 && drib.speed < drib.desired))
+                drib.speed = drib.desired;
+        }
+    }
+    if(drib.desired == 0) drib.speed = 0;
+    dribbler.setSpeed(drib.speed);
+    // DEBUG(drib.desired);
+    // DEBUG(drib.speed);
+
+    // kicker - actually kick
+    if(move.kick){
+        bool kick_status = kicker.kick();
+        if(kick_status){ // successfully kicked, reset state
+            if(state.botID == 1){
+                state.botType = 1;
+            }
+            else if(state.botID == 2){
+                state.botType = 2;
+            }
+        }
+    }
+
+    // if(!(move.x == move.last_x && move.y == move.last_y && move.rotation == move.last_rotation)){
+    //     state.strip++;
+    // }
+    // if(state.strip % 3 == 0) leds.setPixelColor(1, leds.Color(15, 0, 0));
+    // else if (state.strip % 3 == 1) leds.setPixelColor(1, leds.Color(0, 15, 0));
+    // else leds.setPixelColor(1, leds.Color(0, 0, 15));
+    // state.strip %= 3;
+    // leds.show();
+
+    // update last type
+    state.lastType = state.curType;
+
+    if(!ball.commedball){
+        ball.last_x = ball.absolute_x;
+        ball.last_y = ball.absolute_y;
+        ball.last_dist = ball.dist;
+    }
+    
+    move.last_x = move.x;
+    move.last_y = move.y;
+    move.last_rotation = move.rotation;
+}
