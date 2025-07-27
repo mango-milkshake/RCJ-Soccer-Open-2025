@@ -63,7 +63,7 @@ def pixel_blocked(lab):
     #if (lab[1] < -15 or lab[0] > 60):
     if (lab[0] > 60 and lab[1] > -60): #white
         return False
-    if (lab[1] < 10 and lab[1] > -40 and lab[0] > 15): #green
+    if (lab[1] < 20 and lab[1] > -40 and lab[0] > 20): #green
         return False
     if (lab[2] < 20 and lab[1] < -30 and lab[1] > -70): #blue
         return False
@@ -73,7 +73,8 @@ def pixel_blocked(lab):
         return True
 
 
-threshold = (0, 100, 12, 86, 8, 91)
+threshold =(0, 100, 19, 83, 8, 101)
+
 #orange ball
 threshold_field = (0, 84, -50, -14, 33, 44)
 threshold_goal_blue = (0, 100, -20, 6, -29, -5)

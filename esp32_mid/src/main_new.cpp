@@ -511,7 +511,7 @@ void movement(float target_x, float target_y, float target_rotation){
 }
 
 void stop_motors(){
-    bottomSendBuffer[0] = 5;
+    bottomSendBuffer[0] =  5;
     for (int i=1; i<BOTTOM_DATA_LEN; i++) bottomSendBuffer[i] = 0;
     sendMotorData();
 }
