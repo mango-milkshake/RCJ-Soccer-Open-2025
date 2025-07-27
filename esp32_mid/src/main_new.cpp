@@ -1094,7 +1094,7 @@ void loop(){
         move.rotation = 0;
     }
 
-    if(state.botType == 1 && espnowDataRecv.type != 0){
+    if(state.botType == 1){
         if(move.y > MAX_DEF_Y){
             move.y = MAX_DEF_Y;
         }
