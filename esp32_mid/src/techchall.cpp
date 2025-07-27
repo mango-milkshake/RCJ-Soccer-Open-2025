@@ -1,0 +1,746 @@
+#include <Arduino.h>
+#include <Wire.h>
+#include <PID.h>
+#include <CommonUtils.h>
+#include <Adafruit_NeoPixel.h>
+#include <Dribbler.h>
+#include <Motor.h>
+#include <Kicker.h>
+#include <UARTComms.h>
+#include <Data.h>
+#include <Bot.h>
+#include <WiFi.h>
+#include <esp_wifi.h>
+#include <esp_now.h>
+#include <esp_task_wdt.h>
+// #include <AsyncTCP.h>
+// #include <ESPAsyncWebServer.h>
+
+// #define DEBUGGING
+#ifdef DEBUGGING
+#define DEBUG(x) Serial.println(String(#x) + String(": ") + String(x) + String('\r')); 
+#else
+#define DEBUG(x) 123;
+#endif
+
+// #define TESTING
+
+// #define NO_COMMS
+#define SINGLE_BOT
+
+// #define SECOND_BOT
+//  #define LOOK_AHEAD
+// #define NO_DRIBBLER
+
+//// ** DEFINITIONS ** ////
+
+
+// #define DEF_Y_DEFAULT 0.50
+
+// ESP NeoPixel LED
+#define ESP_LED 48
+int ESP_BRIGHTNESS = 20;
+#define BLINK_TIME 50
+Adafruit_NeoPixel esp_led(1, ESP_LED, NEO_GRB + NEO_KHZ800);
+// to check if code is running
+bool esp_led_state = true;
+float lastLED = 0;
+
+// LEDs on middle plate (small)
+#define LEDS_PIN 18
+#define LEDS_BRIGHTNESS 50
+#define NUM_LEDS 8
+Adafruit_NeoPixel leds(NUM_LEDS, LEDS_PIN, NEO_GRB + NEO_KHZ800);
+
+// Switches
+// Dribbler software switch
+#define DRIB_SW 38
+
+// Motor testing switch
+#define MOTOR_TEST_SW 4
+
+// UART Comms with top plate
+#define TOP_TX_PIN 16
+#define TOP_RX_PIN 17
+#define TOP_DATA_LEN 10
+byte topBuffer[TOP_DATA_LEN];
+UARTComms topUART(TOP_TX_PIN, TOP_RX_PIN, topBuffer, TOP_DATA_LEN, Serial2);
+
+// UART Comms with bottom plate (motor drive RP2040)
+#define BOTTOM_TX_PIN 41
+#define BOTTOM_RX_PIN 42
+#define BOTTOM_DATA_LEN 7
+byte bottomSendBuffer[BOTTOM_DATA_LEN];
+UARTComms bottomUART(BOTTOM_TX_PIN, BOTTOM_RX_PIN, bottomSendBuffer, BOTTOM_DATA_LEN, Serial1);
+
+// I2C Comms with middle plate RP2040
+#define MID_SDA_PIN 1
+#define MID_SCL_PIN 2
+#define MID_I2C_SEND_DATA_LEN 8
+#define MID_I2C_RCV_DATA_LEN 8
+#define MID_I2C_ADDR 0x09
+byte midSendBuffer[MID_I2C_SEND_DATA_LEN];
+byte midRcvBuffer[MID_I2C_RCV_DATA_LEN];
+byte firstbyte = 5;
+
+// I2C Comms with bottom plate (sensor RP2040)
+#define BOTTOM_SDA_PIN 40
+#define BOTTOM_SCL_PIN 39
+#define BOTTOM_I2C_DATA_LEN 3
+#define BOTTOM_I2C_ADDR 0x08
+byte bottomRcvBuffer[BOTTOM_I2C_DATA_LEN];
+
+// Dribbler
+#define MOSI_PIN 12
+#define MISO_PIN 13
+#define SCK_PIN 14
+#define CS_PIN 15
+#define DRIBBLER_IN1 47
+#define DRIBBLER_IN2 48
+#define DRIBBLER_NFAULT 21
+#define NSLEEP_PIN 6
+#define DRVOFF_PIN 7
+#define IPROPI_PIN 5
+MotorDriver dribblerMD(MOSI_PIN, MISO_PIN, SCK_PIN, CS_PIN, NSLEEP_PIN, DRVOFF_PIN, IPROPI_PIN);
+Motor dribbler(DRIBBLER_IN1, DRIBBLER_IN2, DRIBBLER_NFAULT, drib.maxspeed, 1.0);
+
+// Kicker
+#define KICKER_PIN 11
+#define KICKER_SW 8
+Kicker kicker(KICKER_PIN);
+
+// PID
+float pid_def_rotate_default[3] = {101, 0, 0}; // 0.7
+float pid_def_x_default[3] = {140, 0, 0}; // 3.5
+float pid_def_y_default[3] = {140, 0, 0}; // 3.5
+
+float pid_att_rotate_default[3] = {14, 0, 0};
+float pid_att_x_default[3] = {140, 0, 0};
+float pid_att_y_default[3] = {140, 0, 0};
+float pid_att_rotate_bc[3] = {12, 0, 0};
+
+PID pid_rotate(pid_att_rotate_default[0], pid_att_rotate_default[1], pid_att_rotate_default[2], 1000);
+PID pid_x(pid_att_x_default[0], pid_att_x_default[1], pid_att_x_default[2], 1000);
+PID pid_y(pid_att_y_default[0], pid_att_y_default[1], pid_att_y_default[2], 1000);
+
+// Strategies
+#define CHANGE_TIME 5000
+#define NUM_STRAT_TYPES 3
+#define NUM_NO_BALL_STRAT 1
+#define NUM_BALL_STRAT 1
+#define NUM_SCORE_STRAT 2
+#define MAX_NUM_STRATS 2
+int stratTypes[NUM_STRAT_TYPES] = {NUM_NO_BALL_STRAT, NUM_BALL_STRAT, NUM_SCORE_STRAT};
+int strats[NUM_STRAT_TYPES][MAX_NUM_STRATS] = {{0}, {7, 10}, {6, 8}};
+int ss[NUM_SCORE_STRAT] = {9, 15};
+
+// Variables
+float lastLoopTime = 0;
+float speed_xdir, speed_ydir, rotation;
+
+// ESP Bluetooth Communication
+float esp_last_send = 0;
+uint8_t broadcastAddress[6] = {0,0,0,0,0,0}; 
+uint8_t own_mac_address[6];
+typedef struct struct_message {
+    int isPresent = 0;
+    float xpos = 0; 
+    float ypos = 0;
+    float heading = 0;
+    bool hasBall = false; 
+    int botID_comm = 0;
+    int bh_ready = 0;
+    int bh_stage = 0; //aaaaaaaa
+    int type = 0;
+    bool noBall = true;
+    float ballx = 0;
+    float bally = 0;
+} struct_message;
+struct_message espnowData;
+struct_message espnowDataRecv;
+struct_message default_message;
+
+// Game logic
+#define MAX_DEF_Y 0.80
+
+
+//// ** FUNCTIONS ** ////
+void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status){  
+    Serial.print("\r\nLast Packet Send Status:\t");
+    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+}
+ 
+int lastRecvTime;
+#define RECV_TIME 2000
+void onDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len){ //interpret received data here
+    memcpy(&espnowDataRecv, incomingData, sizeof(espnowDataRecv));
+    lastRecvTime = millis();
+    comms.bh_stage = espnowDataRecv.bh_stage;
+    comms.xpos = espnowDataRecv.xpos;
+    comms.ypos = espnowDataRecv.ypos;
+    comms.isPresent = espnowDataRecv.isPresent;
+    comms.type = espnowDataRecv.type;
+    comms.hasBall = espnowDataRecv.hasBall;
+    Serial.println("Under onDataRecv");
+    DEBUG(espnowDataRecv.bh_stage);
+    DEBUG(comms.bh_stage);
+    // DEBUG(espnowDataRecv.isPresent);
+    // DEBUG(espnowDataRecv.inField);
+    // DEBUG(espnowDataRecv.xpos);
+    // DEBUG(espnowDataRecv.ypos);
+    // DEBUG(espnowDataRecv.def);
+    // DEBUG(espnowDataRecv.hasBall);
+    // Serial.println("received data");
+}
+
+void set_up_esp_now(){
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_STA);
+
+    if (esp_now_init() != ESP_OK) {
+        Serial.println("Error initializing ESP-NOW");
+        return;
+    }
+
+
+    //callback functions for sending and receiving
+    esp_now_register_send_cb(onDataSent);
+    esp_now_register_recv_cb(onDataRecv);
+    
+    // Register peer
+    esp_now_peer_info_t peerInfo = {};
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = 1;  
+    peerInfo.encrypt = false;
+    
+    // Add peer        
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+        Serial.println("Failed to add peer");
+    }
+}
+
+
+void readMacAddress(){ //read own mac address and set broadcast address to other bot
+    WiFi.mode(WIFI_AP_STA);
+    esp_err_t ret = esp_wifi_get_mac(WIFI_IF_STA, own_mac_address);
+    if (ret == ESP_OK) {
+    // Serial.printf("%02x:%02x:%02x:%02x:%02x:%02x\n",
+    //               own_mac_address[0], own_mac_address[1], own_mac_address[2],
+    //               own_mac_address[3], own_mac_address[4], own_mac_address[5]);
+    // } 
+    // else{
+    //     Serial.println("Failed to read MAC address");
+    // }
+    const uint8_t MAC_1[6] = {0xd8, 0x3b, 0xda, 0x7c, 0xf3, 0xc8}; // {0xd8, 0x3b, 0xda, 0x7c, 0x38, 0xa8}; // id 1 (defender)
+    const uint8_t MAC_2[6] = {0xfc, 0x01, 0x2c, 0x2d, 0xa6, 0x30}; // {0xd8, 0x3b, 0xda, 0x7c, 0x42, 0xc0}; // id 2 (attacker)
+    //const uint8_t MAC_3[6] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff}; 
+    if (memcmp(own_mac_address, MAC_1, 6) == 0){
+        memcpy(broadcastAddress, MAC_2, 6);
+        state.botID = 1;
+    }
+    else if (memcmp(own_mac_address, MAC_2, 6) == 0){
+        memcpy(broadcastAddress, MAC_1, 6);
+        state.botID = 2;
+    }
+    else{
+        memcpy(broadcastAddress, MAC_2, 6);
+        state.botID = 3;
+    }
+    }
+}
+
+bool ready_to_ballhide = false;
+void sendData(){ //send data here
+    //Define what values to send
+    Serial.println("under SendData:");
+    DEBUG(state.ballhide_stage);
+    espnowData.isPresent = 2;
+    espnowData.xpos = self.x;
+    espnowData.ypos = self.y;
+    espnowData.heading = self.heading;
+    espnowData.hasBall = ball.ballCap > 0 ? true : false;
+    espnowData.botID_comm = state.botID;
+    espnowData.bh_ready = state.ready_to_shoot;
+    espnowData.bh_stage = state.ballhide_stage;
+    espnowData.type = state.botType;
+    espnowData.noBall = ball.commedball ? true : ball.noBall;
+    espnowData.ballx = ball.absolute_x;
+    espnowData.bally = ball.absolute_y;
+    DEBUG(state.ballhide_stage);
+
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&espnowData, sizeof(espnowData));
+
+    switch (result) {
+        case ESP_OK:
+            Serial.println("✅ ESP-NOW: Data sent successfully.");
+            break;
+        case ESP_ERR_ESPNOW_NOT_INIT:
+            Serial.println("❌ ESP-NOW: Not initialized.");
+            break;
+        case ESP_ERR_ESPNOW_ARG:
+            Serial.println("❌ ESP-NOW: Invalid argument.");
+            break;
+        case ESP_ERR_ESPNOW_INTERNAL:
+            Serial.println("❌ ESP-NOW: Internal error.");
+            break;
+        case ESP_ERR_ESPNOW_NO_MEM:
+            Serial.println("❌ ESP-NOW: Out of memory.");
+            break;
+        case ESP_ERR_ESPNOW_NOT_FOUND:
+            Serial.println("❌ ESP-NOW: Peer not found.");
+            break;
+        case ESP_ERR_ESPNOW_IF:
+            Serial.println("❌ ESP-NOW: Interface error.");
+            break;
+        default:
+            Serial.print("❌ ESP-NOW: Unknown error: ");
+            Serial.println(result);
+            break;
+    }
+}
+
+void sendMidPlateData(){
+    int rounded_coord_x = floor(self.x * 128);
+    int rounded_coord_y = floor(self.y * 128);
+    int uart_heading = floor(abs(self.heading) * 128);
+
+    midSendBuffer[0] = 5;
+    midSendBuffer[1] = rounded_coord_x & 0xFF;
+    midSendBuffer[2] = (rounded_coord_x >> 8) & 0xFF;
+    midSendBuffer[3] = rounded_coord_y & 0xFF;
+    midSendBuffer[4] = (rounded_coord_y >> 8) & 0xFF;
+
+    if(copysign(1, self.heading)==1) midSendBuffer[5] = 1;
+    else midSendBuffer[5] = 0;
+    midSendBuffer[6] = uart_heading & 0xFF;
+    midSendBuffer[7] = (uart_heading >> 8) & 0xFF;
+    
+    Wire.beginTransmission(MID_I2C_ADDR);
+    Wire.write(midSendBuffer, MID_I2C_SEND_DATA_LEN);
+    Wire.endTransmission();
+}
+
+void getMidPlateData(){
+    byte num_bytes = Wire.requestFrom(MID_I2C_ADDR, MID_I2C_RCV_DATA_LEN);
+    if(num_bytes != MID_I2C_RCV_DATA_LEN){
+        DEBUG(num_bytes);
+        Serial.print("Received bad data: ");
+        return;
+    }
+    // else Serial.print("Received: ");
+    for (int i=0; i<MID_I2C_RCV_DATA_LEN; i++) {
+        if (Wire.available()) {
+            midRcvBuffer[i] = Wire.read();
+        }
+    }
+    if(midRcvBuffer[0]!=firstbyte) {
+        // Serial.print("Received mid bad data");
+        return;
+    }
+    ball.angle = (float)(midRcvBuffer[1] + (midRcvBuffer[2]<<8)) / 128;
+    ball.dist = (float)(midRcvBuffer[3] + (midRcvBuffer[4]<<8)) / 128;
+
+    if(midRcvBuffer[5] == 1) {
+        goal.frontPathClear = true;
+        // leds.setPixelColor(1, leds.Color(0, 15, 0));
+    }
+    else {
+        goal.frontPathClear = false;
+        // leds.setPixelColor(1, leds.Color(0, 0, 15));
+    }
+    // DEBUG(goal.frontPathClear);
+    // leds.show();
+    goal.open_rows_start = midRcvBuffer[6];
+    goal.open_rows_end = midRcvBuffer[7];
+
+    if(ball.angle==0 && ball.dist==0) {
+        ball.noBall = true;
+    }
+    else {
+        ball.noBall = false;
+        ball.lastSeenBall = millis();
+    }
+    // DEBUG(ball.angle);
+    // DEBUG(ball.dist);
+
+    float relative_angle = 90 - (ball.angle + self.heading); 
+    ball.relative_x = (ball.dist * cosf(RAD(relative_angle))) / 100;
+    ball.relative_y = (ball.dist * sinf(RAD(relative_angle))) / 100;
+
+    ball.absolute_x = ball.relative_x + self.x;
+    ball.absolute_y = ball.relative_y + self.y;
+
+    // DEBUG(ball.absolute_x);
+    // DEBUG(ball.absolute_y);
+}
+
+void getTopPlateData(){
+    bool status = topUART.uartRead((byte)5);
+    if(status){
+        self.x = (float)(topBuffer[1] + (topBuffer[2]<<8)) / 128;
+        self.y = (float)(topBuffer[3] + (topBuffer[4]<<8)) / 128;
+        self.heading = (float)(topBuffer[6] + (topBuffer[7]<<8)) / 128;
+        if(topBuffer[5]==0) self.heading *= -1;
+        if(topBuffer[8]==1) switches.topOff = true;
+        else switches.topOff = false;
+        state.topStrat = topBuffer[9];
+    }
+}
+
+void getBottomPlateData(){
+    byte num_bytes = Wire1.requestFrom(BOTTOM_I2C_ADDR, BOTTOM_I2C_DATA_LEN);
+    if(num_bytes != BOTTOM_I2C_DATA_LEN){
+        // Serial.print("Received bottom bad data: ");
+        return;
+    }
+    // else Serial.print("Received: ");
+    for (int i=0; i<BOTTOM_I2C_DATA_LEN; i++) {
+        if (Wire1.available()) {
+            bottomRcvBuffer[i] = Wire1.read();
+        }
+    }
+    if(bottomRcvBuffer[0]!=firstbyte) {
+        // Serial.print("Received bad data");
+        return;
+    }   
+
+    ball.ballCap = bottomRcvBuffer[1];
+    if(ball.ballCap > 0) ball.lastBallCap = millis();
+    if(ball.ballCap == 0 && millis() - ball.lastBallCap <= BALLCAP_DURATION) ball.ballCap = 2;
+    if(ball.ballCap == 0) ball.lastNoBallCap = millis();
+    
+    self.line_status = bottomRcvBuffer[2];
+    if(self.line_status > 0) self.onLine = true;
+    else self.onLine = false;
+
+    // DEBUG(ball.ballCap);
+    // DEBUG(self.onLine);
+}
+
+void sendMotorData(){ // fill bottomSendBuffer with desired data before calling this function
+    bottomUART.uartWrite();
+}
+float dist(float x1, float y1, float x2, float y2){
+    return(sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)));
+}
+
+#define NO_COLLIDE_RADIUS 0.25
+void movement(float target_x, float target_y, float target_rotation){
+
+    if(millis() - lastRecvTime <= RECV_TIME && dist(comms.xpos, comms.ypos, self.x, self.y) <= NO_COLLIDE_RADIUS){
+        DEBUG(dist(comms.xpos, comms.ypos, self.x, self.y));
+        float lx = self.x - comms.xpos; //find vector from comm bot position to target position
+        float ly = self.y - comms.ypos; 
+        lx /= pow((lx*lx + ly*ly), 0.5); //normalise vector
+        ly /= pow((lx*lx + ly*ly), 0.5);
+        float no_collide_x1 = comms.xpos + NO_COLLIDE_RADIUS * lx; //using normalised vector, find two points on circle that bot should go to
+        float no_collide_y1 = comms.ypos + NO_COLLIDE_RADIUS * ly;
+        float no_collide_x2 = comms.xpos - NO_COLLIDE_RADIUS * lx; 
+        float no_collide_y2 = comms.ypos - NO_COLLIDE_RADIUS * ly;
+
+        if(dist(self.x, self.y, no_collide_x1, no_collide_y1) < dist(self.x, self.y, no_collide_x2, no_collide_y2)){ //go to closer of two points
+            target_x = no_collide_x1;
+            target_y = no_collide_y1;
+        }
+        else{
+            target_x = no_collide_x2;
+            target_y = no_collide_y2;          
+        }
+    }
+    target_x = constrain(target_x, 0.20, FIELD_WIDTH - 0.20);
+    if(self.x > FIELD_MARGIN_X && self.x < FIELD_WIDTH - FIELD_MARGIN_X) target_y = constrain(target_y, 0.40, FIELD_HEIGHT - 0.40);
+    else target_y = constrain(target_y, 0.20, FIELD_HEIGHT - 0.20);
+
+    float x_dist = target_x - self.x, y_dist = target_y - self.y;
+    float total_dist = sqrt(x_dist*x_dist + y_dist*y_dist);
+    // float total_angle = PI/2 - atan2(y_dist, x_dist) - RAD(self.heading); // in radians
+    float total_angle = atan2(y_dist, x_dist) + RAD(self.heading) - PI/4; // in radians
+
+    float rotation_dist = self.heading - target_rotation;
+    while(rotation_dist > 180) rotation_dist -= 360;
+    while(rotation_dist < -180) rotation_dist += 360;
+
+    float shifted_x_dist = total_dist * sinf(total_angle);
+    float shifted_y_dist = total_dist * cosf(total_angle);
+
+    speed_xdir = pid_x.compute(0, shifted_x_dist);
+    speed_ydir = pid_y.compute(0, shifted_y_dist);
+    rotation = constrain(pid_rotate.compute(0, RAD(rotation_dist)), move.min_rotation, move.max_rotation);
+
+    float maxPID = max(abs(speed_xdir), abs(speed_ydir));
+    if(maxPID > move.max_translation){
+        float k = move.max_translation/maxPID;
+        speed_xdir *= k;
+        speed_ydir *= k;
+    }
+
+    if(abs(speed_xdir) > 2){
+        speed_xdir += copysign(move.x_offset, speed_xdir);
+    }
+    if(abs(speed_ydir) > 2){
+        speed_ydir += copysign(move.y_offset, speed_ydir);
+    }
+    if(abs(rotation) > 2){
+        rotation += copysign(move.rotation_offset, rotation);
+    }
+
+    uint8_t rotation_sign, speed_x_sign, speed_y_sign;
+    if(copysign(1, rotation)==1) rotation_sign = 1;
+    else rotation_sign = 0;
+    if(copysign(1, speed_xdir)==1) speed_x_sign = 1;
+    else speed_x_sign = 0;
+    if(copysign(1, speed_ydir)==1) speed_y_sign = 1;
+    else speed_y_sign = 0;
+    uint8_t rounded_rotation = ((int)floor(abs(rotation))) & 0xFF;
+    uint8_t rounded_speed_x = ((int)floor(abs(speed_xdir))) & 0xFF;
+    uint8_t rounded_speed_y = ((int)floor(abs(speed_ydir))) & 0xFF;
+
+    bottomSendBuffer[0] = 5;
+    if(switches.turnOff || switches.topOff){
+        for (int i=1; i<BOTTOM_DATA_LEN; i++) bottomSendBuffer[i] = 0;
+    }
+    else{
+        bottomSendBuffer[1] = speed_x_sign;
+        bottomSendBuffer[2] = rounded_speed_x;
+        bottomSendBuffer[3] = speed_y_sign;
+        bottomSendBuffer[4] = rounded_speed_y;
+        bottomSendBuffer[5] = rotation_sign;
+        bottomSendBuffer[6] = rounded_rotation;
+    }
+    sendMotorData();
+}
+
+void stop_motors(){
+    bottomSendBuffer[0] = 5;
+    for (int i=1; i<BOTTOM_DATA_LEN; i++) bottomSendBuffer[i] = 0;
+    sendMotorData();
+}
+
+int assignTypeBuffer = 4;
+int defCount = 0;
+int atkCount = 0;
+#define DEFENDER_WAIT_TIME 0
+int ballhide_strat = 1;
+void assignType(){
+    // from lowest to highest priority
+    if(state.botID == 1){
+        state.botType = 1;
+    }
+    else if(state.botID == 2){
+        state.botType = 2;
+    }
+    if(espnowDataRecv.type == 1){  //check if other bot is defending
+        atkCount++;
+        defCount = 0;
+        if(atkCount >= assignTypeBuffer){
+            state.botType = 2;
+           // defCount = 0;
+        }
+    }
+    else if (espnowDataRecv.type == 2){ //check if other bot is attacking but not ballhiding
+        defCount++;
+        atkCount = 0;
+        if(defCount >= assignTypeBuffer){
+            state.botType = 1;
+           // atkCount = 0;
+        }
+    }  
+    if(ballhide_strat == 1){
+        #ifdef SINGLE_BOT // IMPT TESTTTT
+        if(ball.ballCap > 0) state.botType = 3;
+        else if(espnowDataRecv.type == 3) state.botType = 1; // go to defend if other bot is ballcapped
+        #else
+        if(ball.ballCap == 0 && espnowDataRecv.hasBall == false) state.botType = state.botID;
+        else if(ball.ballCap > 0){ // switch states but just dont move yet
+        // if(ball.ballCap > 0 && millis() - ball.lastNoBallCap >= DEFENDER_WAIT_TIME){ //check if the bot has the ball 
+            state.botType = 3; //switch to scoring
+        } 
+        else if (espnowDataRecv.type == 3){ //check if other bot is scoring
+            state.botType = 3; //switch to 3 to help with ballhide
+        }
+        #endif
+    }
+    else if (ballhide_strat == 2){
+        if(espnowDataRecv.type == 4){ //grr
+            state.botType = 5; //switch to leading
+            times.lastBallhideTime = millis();                
+
+        } 
+        else if (ball.ballCap > 0){ //check if other bot is leading
+            state.botType = 4; //switch to following to help with ballhide
+            times.lastBallhideTime = millis();                
+        }
+        else{
+            if(abs(times.curTime - times.lastBallhideTime) > 2000){
+                state.ballhide_stage = 0; //reset for next ballhide
+            }
+        } 
+    }     
+    if(switches.turnOff || switches.topOff){ //check if bot is off
+        state.botType = 0;
+        // DEBUG(switches.turnOff);
+        // DEBUG(switches.topOff);
+    }
+    
+    //DEBUG(espnowDataRecv.inField);
+}
+//// ** TESTING ** ////
+
+void motorTest(){
+    bottomSendBuffer[0] = 5;
+    bottomSendBuffer[1] = 1;
+    bottomSendBuffer[2] = 0;
+    bottomSendBuffer[3] = 1;
+    bottomSendBuffer[4] = 0;
+    bottomSendBuffer[5] = 1;
+    bottomSendBuffer[6] = 30;
+    sendMotorData();
+}
+
+void moveForward(){
+    bottomSendBuffer[0] = 5;
+    bottomSendBuffer[1] = 1;
+    bottomSendBuffer[2] = 0;
+    bottomSendBuffer[3] = 1;
+    bottomSendBuffer[4] = 30;
+    bottomSendBuffer[5] = 1;
+    bottomSendBuffer[6] = 0;
+    sendMotorData();
+}
+
+void moveBack(){
+    bottomSendBuffer[0] = 5;
+    bottomSendBuffer[1] = 0;
+    bottomSendBuffer[2] = 80;
+    bottomSendBuffer[3] = 0;
+    bottomSendBuffer[4] = 80;
+    bottomSendBuffer[5] = 1;
+    bottomSendBuffer[6] = 0;
+    sendMotorData();
+}
+
+//// ** LOOPS ** ////
+
+void setup(){
+    delay(5000); // wait to plug in mid plate power
+    Serial.begin(115200);
+
+    bottomUART.init();
+    topUART.init();
+
+    pinMode(DRIB_SW, INPUT);
+    pinMode(MOTOR_TEST_SW, INPUT);
+    // pinMode(VOLTAGE_PIN, INPUT);
+    // pinMode(PAUSE_SW1, INPUT);
+    // pinMode(PAUSE_SW2, INPUT);
+    // pinMode(STATE_SW, INPUT);
+    analogSetAttenuation(ADC_11db);
+
+    esp_task_wdt_init(2, true); // timeout in seconds
+    enableLoopWDT();
+
+    Wire.begin(MID_SDA_PIN, MID_SCL_PIN, 400000);
+    Wire1.begin(BOTTOM_SDA_PIN, BOTTOM_SCL_PIN, 400000);
+
+    dribblerMD.init();
+    dribblerMD.setMode();
+
+    pinMode(KICKER_SW, INPUT);
+
+    // startWebSerial();
+    readMacAddress();
+    set_up_esp_now();
+    esp_last_send = millis();
+
+    leds.begin();
+    leds.setBrightness(LEDS_BRIGHTNESS);
+    leds.show();
+
+    esp_led.begin();
+    esp_led.setBrightness(ESP_BRIGHTNESS);
+    esp_led.show();
+
+}
+
+void loop(){
+    // Serial.println("running main code");
+    times.curTime = millis();
+
+    getTopPlateData();
+    getMidPlateData();
+    // sendMidPlateData();
+    getBottomPlateData();
+
+    if(digitalRead(MOTOR_TEST_SW)==HIGH){
+        if(!switches.motorTest){
+            times.motorTestPressed = millis();
+            switches.motorTest = true;
+        }
+        if(millis() - times.motorTestPressed >= times.motorTestWait) motorTest();
+        else stop_motors();
+        return;
+    }
+    else switches.motorTest = false;
+
+    if(digitalRead(DRIB_SW)==HIGH) switches.dribOff = false;
+    else switches.dribOff = true;
+
+    move.kick = false;
+    move.dont_move = false;
+    // DEBUG(self.x);
+    // DEBUG(self.y);
+
+    drib.desired = 255;
+    drib.speed = 255;
+    // dribbler check current
+    // drib.analogval = dribblerMD.checkCurrent();
+    // drib.voltage = (drib.analogval / 4095) * 3.1;
+    // if(!drib.avg_filled){
+    //     drib.v[drib.avg_cnt] = drib.voltage;
+    //     drib.sum_avg += drib.v[drib.avg_cnt];
+    //     drib.avgV = drib.sum_avg / (drib.avg_cnt+1);
+    // }
+    // else{
+    //     drib.sum_avg -= drib.v[drib.avg_cnt];
+    //     drib.v[drib.avg_cnt] = drib.voltage;
+    //     drib.sum_avg += drib.v[drib.avg_cnt];
+    //     drib.avgV = drib.sum_avg / drib.num_frames;
+    // }
+    // // Serial.printf("Average V: %f\n", drib.avgV);
+    // drib.avg_cnt++;
+    // if(!drib.avg_filled && drib.avg_cnt==drib.num_frames) drib.avg_filled = true;
+    // if(drib.avg_cnt>=drib.num_frames) drib.avg_cnt %= drib.num_frames;
+
+    // if(!drib.check_filled) {
+    //     if(drib.avgV > drib.max_voltage) drib.c[drib.check_cnt] = 1;
+    //     else drib.c[drib.check_cnt] = 0;
+    //     drib.sum_check += drib.c[drib.check_cnt];
+    // }
+    // else{
+    //     drib.sum_check -= drib.c[drib.check_cnt];
+    //     if(drib.avgV > drib.max_voltage) drib.c[drib.check_cnt] = 1;
+    //     else drib.c[drib.check_cnt] = 0;
+    //     drib.sum_check += drib.c[drib.check_cnt];
+    // }
+    // drib.check_cnt++;
+    // if(!drib.check_filled && drib.check_cnt==drib.num_check) drib.check_filled = true;
+    // if(drib.check_cnt>=drib.num_check) drib.check_cnt %= drib.num_check;
+
+    // if(drib.sum_check >= drib.exceed_thresh * drib.num_check){
+    //     if(drib.speed == 0) drib.speed = 0;
+    //     else drib.speed -= copysign(drib.dec, drib.speed);
+    // }
+    // else{
+    //     if(abs(drib.speed) < drib.minspeed) drib.speed = copysign(drib.minspeed, drib.desired);
+    //     else{
+    //         int diff = drib.desired - drib.speed;
+    //         drib.speed += copysign(drib.inc, diff);
+    //         if((drib.desired >= 0 && drib.speed > drib.desired) || (drib.desired < 0 && drib.speed < drib.desired))
+    //             drib.speed = drib.desired;
+    //     }
+    // }
+    // if(drib.desired == 0) drib.speed = 0;
+    dribbler.setSpeed(drib.speed);
+
+    moveBack();
+}
